@@ -1,0 +1,21 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## simuoate data
+
+```{r}
+
+```
+
+## fit model
+
+## check results
+
