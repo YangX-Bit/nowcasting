@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
+library(cmdstanr)
 ```
 
 ```{r}
@@ -37,6 +38,25 @@ data$lambda
 data$case_true
 data$case_reported
 ```
+```{r}
+model_path <- file.path(path_proj, "source", "models", "stan_model_dep-expgrowth-linear.stan")
+model <- cmdstan_model(model_path)
+
+stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+
+
+fit <- model$sample(
+  data = stan_data,
+  seed = 123,
+  chains = 3,
+  iter_warmup = 1000,   # 设置 warmup 迭代数
+  iter_sampling = 1000  # 设置 sampling 迭代数
+)
+```
+
+
+
+
 
 ## fit model
 ```{r}

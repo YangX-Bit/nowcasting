@@ -134,8 +134,60 @@ simsQ <- function(method = "constant",
   return(qd)
 }
 
-# simsQ("time_varying", t = 1)
-# simsQ("constant", b = 3)
+simsQ <- function(method = "constant", 
+                  b = 3, D = 15, t = 30,
+                  beta0 = -2, beta1 = 0.1, sigma_rw = 0.05) {
+  # 'method' defines how Q is simulated
+  # 'b' can be a constant or a time-varying function
+  # 'd' is the delay time, and 't' is the current time point (optional)
+  # 'sigma_rw' is the standard deviation of the random walk increment
+  
+  if (method == "constant") {
+    # Q with a constant b
+    qd <- 1 - exp(-b * 1:(D + 1))
+    
+    return(list(qd = qd, b_t = b))
+    
+  } else if (method == "time_varying") {
+    # Time-varying Q, b_t increases over time
+    if (is.null(t)) stop("Time 't' must be provided for time-varying method.")
+    
+    qd <- matrix(NA, nrow = t, ncol = D + 1)
+    b_t <-  exp(beta0 + beta1 * 1:t)   
+    
+    for (i in 1:t) {
+      qd[i,] <- 1 - exp(-b_t[i] * 1:(D + 1))
+    }
+    
+    return(list(qd = qd, b_t = b_t)) 
+    
+  } else if (method == "random_walk") {
+    # Random walk Q, b_t fluctuates over time
+    if (is.null(t)) stop("Time 't' must be provided for random_walk method.")
+    qd <- matrix(NA, nrow = t, ncol = D + 1)  # Initialize matrix for each time step
+    b_t <- numeric(t)                         # Vector to store b_t values
+    b_t[1] <- b  # Initialize the first b_t value
+    
+    for (i in 2:t) {
+      b_t[i] <- exp(log(b_t[i - 1]) + rnorm(1, mean = 0, sd = sigma_rw))  # Random walk step
+    }
+    
+    # Compute q(d) for each delay at each time step
+    for (i in 1:t) {
+      qd[i, ] <- 1 - exp(-b_t[i] * 1:(D + 1))
+    }
+    
+    return(list(qd = qd, b_t = b_t))  # Return both Q and the time-varying b_t
+    
+  } else {
+    stop("Unknown method for Q simulation.")
+  }
+}
+
+set.seed(1)
+simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.3)
+simsQ("time_varying", t = 30)
+simsQ("constant", b = 3)
 
 
 # par(mfrow = c(5,6))
@@ -311,6 +363,7 @@ simsDataGenP <- function(alpha =  c(1:10, seq(10, 120, by = 4), seq(120, 3, by =
 simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6) ), beta_lamb = 0.5,
                          b = 3, method = "constant",
                          beta0 = -2, beta1 = 0.1,
+                         sigma_rw = 1,
                          days = 30, D = 15, seed = 123){
   if(length(alpha_lamb) < days){
     stop("Error! The length of alpha cannot be less than days!")
@@ -321,7 +374,18 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
   # Arrays to accumulate the results
   lambda_t <- numeric(days)  # Lambda for each day 
   case_true <- numeric(days) # Actual number of cases per day
+  Q <- matrix(0, nrow = days, ncol = D + 1)
   case_reported <-  matrix(0, nrow = days, ncol = D + 1)
+  
+  # report proportion
+  if(method == "constant"){
+    simsQ_out <- simsQ("constant", b = b, D = D)
+    prob_temp <- simsQ_out$qd
+  }else if(method == "time_varying"){
+    simsQ_out <- simsQ("time_varying", D = D, t = days, beta0 = beta0, beta1 = beta1)
+  }else{
+    simsQ_out <- simsQ(method = "random_walk", b = b, D = D, t = days, sigma_rw = sigma_rw)
+  }
   
   # Simulate the true number of cases per day
   for (t in 1:days) {
@@ -334,12 +398,7 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
     # D times from binom
     reported_temp <- numeric(D+1)
     
-    # report proportion
-    if(method == "constant"){
-      prob_temp <- simsQ("constant", b = b)
-    }else if(method == "time_varying"){
-      prob_temp <- simsQ("time_varying", t = t, beta0 = beta0, beta1 = beta1)
-    }
+    if(method != "constant"){ prob_temp <- simsQ_out$qd[t,] }
     
     for(d in 1:(D+1)){
       reported_temp[d] <- rbinom(1, size = case_true[t], prob = prob_temp[d])
@@ -348,7 +407,7 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
   }
 
   out <- list(case_reported = case_reported, case_true = case_true,
-              lambda_t = lambda_t)
+              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t)
   return(out)
 }
 

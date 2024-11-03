@@ -30,7 +30,7 @@ num_sims <- 1000
 
 # constant b = 3
 b_true <- 0.5
-q <- simsQ("constant", b = b_true)
+q <- simsQ("constant", b = b_true)$qd
 
 p <- c(q[1], diff(q))
 plot(p, type = "b", xlab = expression("Delay"),  
