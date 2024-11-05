@@ -1,0 +1,146 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simuoate data
+
+### basis for spline
+```{r}
+
+time_points <- 1:N_obs
+
+n_knots <- 5
+knot_dist <- 1 / (n_knots + 1)
+probs <- seq(knot_dist, 1 - knot_dist, by = knot_dist)
+knots <- quantile(time_points, probs = probs)
+
+spline_basis <- bs(time_points, knots = knots, degree = 3, intercept = TRUE)
+X_spline <- as.matrix(spline_basis)
+# 
+
+basis_df <- data.frame(time = time_points, X_spline)
+basis_long <- reshape2::melt(basis_df, id.vars = "time")
+
+ggplot(basis_long, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  labs(title = "B-spline Basis Functions for Time",
+       x = "Time (Days)",
+       y = "Basis Value") +
+  theme_minimal()
+```
+
+
+```{r}
+source(file.path(path_source, "simulation", "simulations_functions.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 58
+num_sims <- 1
+
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+data <- simsDataGenQ(days = N_obs, method = "random_walk",
+                     b = 0.1, sigma_rw = 0.1, seed = seed)
+
+# create triangular data
+data_trunc <- create_triangular_data(data$case_reported)
+
+# get indices of non-NAs 
+indices_data_trunc <- find_non_na_coords(data_trunc)
+
+data_trunc[is.na(data_trunc)] <- 0  
+```
+
+
+## fit model
+```{r}
+stan_data_trunc <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
+                  K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
+                  J = ncol(X_spline),
+                  X_spline = X_spline)
+
+# init_values <- list(
+#   list(lambda_t = rep(1, N_obs), b_t = rep(0.1, N_obs)),  # Chain 1
+#   list(lambda_t = rep(2, N_obs), b_t = rep(0.1, N_obs)),  # Chain 2
+#   list(lambda_t = rep(3, N_obs), b_t = rep(0.1, N_obs))  # Chain 3
+# )
+
+
+fit_trunc <- stan(
+  file = "/Users/xiaoy0a/Desktop/Task/STAN practice/spline_model_try.stan",  
+  data = stan_data_trunc, 
+  iter = 2000, chains = 3, seed = 123
+  #init = init_values
+)
+```
+
+
+## check results
+```{r}
+print(fit_trunc, pars = "b_t_est")
+```
+
+```{r}
+library(ggplot2)
+plot(fit_trunc, par = c("b_t_est")) +
+  geom_point(aes(x, y), data = data.frame(x = data$b, y = c(58:1)), color = "blue")
+```
+
+```{r}
+create_triangular_data <- function(Y_full) {
+  N <- nrow(Y_full)     # number of days
+  D <- ncol(Y_full) - 1 # Max Delay
+  
+  # # check if N <= D
+  # if (N <= (D + 1)) {
+  #   stop("The number of rows (N) cannot be smaller than D + 1.")
+  # }
+  
+  # out matrix
+  Y_triangular <- matrix(NA, nrow = N, ncol = D + 1)
+  
+  # 
+  for (i in 1:(N-D)) {
+    # keeps the full data
+    Y_triangular[i, ] <- Y_full[i, ]
+    # Y_triangular[N-i+1, 1:i] <- Y_full[N-i+1, 1:i]
+  }
+  
+  for (j in 1:D) {
+    # keeps
+    Y_triangular[N-j+1, 1:j] <- Y_full[N-j+1, 1:j]
+  }
+  
+  return(Y_triangular)
+}
+
+
+
+```
+
+```{r}
+create_triangular_data(data$case_reported)
+```
+

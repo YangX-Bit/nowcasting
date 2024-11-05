@@ -449,3 +449,51 @@ dataTransform <- function(data,
   return(data_out)
 }
 
+### functions to transfer full data to truncated triangular data
+
+create_triangular_data <- function(Y_full) {
+  N <- nrow(Y_full)     # number of days
+  D <- ncol(Y_full) - 1 # Max Delay
+  
+  # # check if N <= D
+  # if (N <= (D + 1)) {
+  #   stop("The number of rows (N) cannot be smaller than D + 1.")
+  # }
+  
+  # out matrix
+  Y_triangular <- matrix(NA, nrow = N, ncol = D + 1)
+  
+  # 
+  for (i in 1:(N-D)) {
+    # keeps the full data
+    Y_triangular[i, ] <- Y_full[i, ]
+    # Y_triangular[N-i+1, 1:i] <- Y_full[N-i+1, 1:i]
+  }
+  
+  for (j in 1:D) {
+    # keeps
+    Y_triangular[N-j+1, 1:j] <- Y_full[N-j+1, 1:j]
+  }
+  
+  return(Y_triangular)
+}
+
+
+### functions to get coordinates of non-NAs
+
+
+find_non_na_coords <- function(mat) {
+  # dimension
+  N <- nrow(mat)
+  D <- ncol(mat)
+  
+  # indices for non NAs
+  non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
+  
+  coords_df <- as.data.frame(non_na_indices)
+  
+  # rename cols
+  colnames(coords_df) <- c("row", "col")
+  
+  return(coords_df)
+}
