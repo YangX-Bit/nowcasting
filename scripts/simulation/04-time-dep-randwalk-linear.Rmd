@@ -83,7 +83,7 @@ stan_data <- list(N_obs = N_obs, D = D + 1,
 
 
 fit <- stan(
-  file = "/Users/xiaoy0a/Desktop/Task/STAN practice/spline_model_try.stan",  
+  file = file.path(path_proj, "source", "models", "stan_model_dep-spline.stan"),  
   data = stan_data, 
   iter = 2000, chains = 3, seed = 123
   #init = init_values

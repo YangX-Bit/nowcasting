@@ -79,7 +79,8 @@ data_trunc[is.na(data_trunc)] <- 0
 stan_data_trunc <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
                   K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
                   J = ncol(X_spline),
-                  X_spline = X_spline)
+                  X_spline = X_spline,
+                  sigma_b = 0.1)
 
 # init_values <- list(
 #   list(lambda_t = rep(1, N_obs), b_t = rep(0.1, N_obs)),  # Chain 1
@@ -89,7 +90,8 @@ stan_data_trunc <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
 
 
 fit_trunc <- stan(
-  file = "/Users/xiaoy0a/Desktop/Task/STAN practice/spline_model_try.stan",  
+  file = file.path(path_proj, "source", "models",
+                   "trunc", "stan_model_dep-spline-trunc.stan"),  
   data = stan_data_trunc, 
   iter = 2000, chains = 3, seed = 123
   #init = init_values
@@ -100,6 +102,8 @@ fit_trunc <- stan(
 ## check results
 ```{r}
 print(fit_trunc, pars = "b_t_est")
+
+print(fit_trunc)
 ```
 
 ```{r}
