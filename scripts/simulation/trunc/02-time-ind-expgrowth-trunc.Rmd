@@ -54,6 +54,7 @@ data_trunc <- create_triangular_data(data$case_reported)
 indices_data_trunc <- find_non_na_coords(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0   
+print(data_trunc)
 ```
 
 ## fit model

@@ -41,6 +41,8 @@ data_trunc <- create_triangular_data(data$case_reported)
 indices_data_trunc <- find_non_na_coords(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0   
+
+print(data_trunc)
 ```
 
 
@@ -48,17 +50,17 @@ data_trunc[is.na(data_trunc)] <- 0
 model_path <- file.path(path_proj, "source", "models", "trunc",
                         "stan_model_dep-expgrowth-linear.stan")
 # model <- cmdstan_model(model_path)
-
-stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
-
-
-fit <- model$sample(
-  data = stan_data,
-  seed = 123,
-  chains = 3,
-  iter_warmup = 1000,   
-  iter_sampling = 1000 
-)
+# 
+# stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+# 
+# 
+# fit <- model$sample(
+#   data = stan_data,
+#   seed = 123,
+#   chains = 3,
+#   iter_warmup = 1000,   
+#   iter_sampling = 1000 
+# )
 ```
 
 

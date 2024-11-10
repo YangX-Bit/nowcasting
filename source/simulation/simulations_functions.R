@@ -267,7 +267,7 @@ simsQ("constant", b = 3)
 
 simsDataGenP <- function(alpha =  c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6) ), beta = 0.5,
                          p = NULL,
-                         days = 30, D = 15, seed = 123){
+                         days = length(alpha), D = 15, seed = 123){
   if(length(alpha) < days){
     stop("Error! The length of alpha cannot be less than days!")
   }

@@ -22,33 +22,7 @@ path_source = file.path(path_proj, "source")
 
 
 
-## simuoate data
-
-### basis for spline
-```{r}
-
-time_points <- 1:N_obs
-
-n_knots <- 5
-knot_dist <- 1 / (n_knots + 1)
-probs <- seq(knot_dist, 1 - knot_dist, by = knot_dist)
-knots <- quantile(time_points, probs = probs)
-
-spline_basis <- bs(time_points, knots = knots, degree = 3, intercept = TRUE)
-X_spline <- as.matrix(spline_basis)
-# 
-
-basis_df <- data.frame(time = time_points, X_spline)
-basis_long <- reshape2::melt(basis_df, id.vars = "time")
-
-ggplot(basis_long, aes(x = time, y = value, color = variable)) +
-  geom_line() +
-  labs(title = "B-spline Basis Functions for Time",
-       x = "Time (Days)",
-       y = "Basis Value") +
-  theme_minimal()
-```
-
+## simuoate dat
 
 ```{r}
 source(file.path(path_source, "simulation", "simulations_functions.R"))
@@ -61,12 +35,36 @@ num_sims <- 1
 
 # time varying b
 beta0 = -2 ; beta1 = 0.01
-data <- simsDataGenQ(days = N_obs, method = "random_walk",
+data <- simsDataGenQ(alpha = c(1:10, seq(1, 232, by = 4)),
+                     days = N_obs, method = "random_walk",
                      b = 0.1, sigma_rw = 0.1, seed = seed)
 
 data$case_reported
 ```
+### basis for spline
+```{r}
 
+time_points <- 1:N_obs
+
+n_knots <- 5
+knot_dist <- 1 / (n_knots + 1)
+probs <- seq(knot_dist, 1 - knot_dist, by = knot_dist)
+knots <- quantile(time_points, probs = probs)
+
+spline_basis <- bs(time_points, knots = knots, degree = 3, intercept = TRUE)
+X_spline <- cbind(1, as.matrix(spline_basis))
+
+# 
+basis_df <- data.frame(time = time_points, X_spline)
+basis_long <- reshape2::melt(basis_df, id.vars = "time")
+
+ggplot(basis_long, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  labs(title = "B-spline Basis Functions for Time",
+       x = "Time (Days)",
+       y = "Basis Value") +
+  theme_minimal()
+```
 
 ## fit model
 ```{r}
@@ -93,7 +91,10 @@ fit <- stan(
 
 ## check results
 ```{r}
-print(fit, pars = "b_t_est")
+print(fit, pars = "beta")
+
+
+print(fit, pars = "N_t")
 ```
 
 ```{r}
@@ -103,38 +104,8 @@ plot(fit, par = c("b_t_est")) +
 ```
 
 ```{r}
-create_triangular_data <- function(Y_full) {
-  N <- nrow(Y_full)     # number of days
-  D <- ncol(Y_full) - 1 # Max Delay
-  
-  # # check if N <= D
-  # if (N <= (D + 1)) {
-  #   stop("The number of rows (N) cannot be smaller than D + 1.")
-  # }
-  
-  # out matrix
-  Y_triangular <- matrix(NA, nrow = N, ncol = D + 1)
-  
-  # 
-  for (i in 1:(N-D)) {
-    # keeps the full data
-    Y_triangular[i, ] <- Y_full[i, ]
-    # Y_triangular[N-i+1, 1:i] <- Y_full[N-i+1, 1:i]
-  }
-  
-  for (j in 1:D) {
-    # keeps
-    Y_triangular[N-j+1, 1:j] <- Y_full[N-j+1, 1:j]
-  }
-  
-  return(Y_triangular)
-}
-
-
-
+plot(fit, par = c("N_t")) +
+  geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(58:1)), color = "blue")
 ```
 
-```{r}
-create_triangular_data(data$case_reported)
-```
 

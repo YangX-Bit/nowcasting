@@ -31,7 +31,7 @@ model {
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
   
-  beta ~ normal(0, 0.5);  // prior for spline coef
+  beta ~ normal(0, 10);  // prior for spline coef
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
@@ -53,8 +53,10 @@ model {
 
 generated quantities {
   vector<lower=0>[N_obs] b_t_est;
+  vector<lower=0>[N_obs] N_t;
   for (t in 1:N_obs) {
     b_t_est[t] = b_t[t] ;  // posterior of  b(t) 
+    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
   }
 }
 
