@@ -7,7 +7,7 @@ data {
   matrix[N_obs, J] X_spline;                   // basis function values(N_obs, J)
   
   int<lower=1> K;                   // number of obs in total
-  array[K, 2] int<lower=1> obs_index; // coordinates
+  array[K, 2] int<lower=0> obs_index; // coordinates & values
   real<lower=0>sigma_b;
 }
 
@@ -47,7 +47,8 @@ model {
     int d = obs_index[k, 2];
     
     real q_d = 1 - exp(- b_t[t] * d);
-    Y[t, d] ~ poisson(lambda_t[t] * q_d); //
+    Y[t,d] ~ poisson(lambda_t[t] * q_d);
+    //obs_index[k,3] ~ poisson(lambda_t[t] * q_d); //
   }
 }
 
