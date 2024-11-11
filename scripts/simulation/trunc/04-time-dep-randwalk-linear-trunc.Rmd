@@ -7,8 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(rstan)
-library(cmdstanr)
+#library(cmdstanr)
 library(splines)
 library(ggplot2)
 library(reshape2)
@@ -30,13 +31,14 @@ source(file.path(path_source, "simulation", "simulations_functions_modifiying.R"
 # setting: delay,  number of days
 seed <- 123
 D <- 15
-N_obs <- 60
+N_obs <- 30
 num_sims <- 1
 
 # time varying b
 beta0 = -2 ; beta1 = 0.01
 data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
-                    alpha =  c( seq(10, 300, by = 10),seq(300, 10, by = -10)),
+                     #alpha =  c( seq(10, 300, by = 10),seq(300, 10, by = -10)),
+                    alpha =  c( seq(10, 300, by = 10)),
                      days = N_obs, method = "random_walk",
                      b = 0.1, sigma_rw = 0.1, seed = seed)
 
@@ -44,7 +46,7 @@ data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
 data_trunc <- create_triangular_data(data$case_reported)
 
 # get indices of non-NAs 
-indices_data_trunc <- find_non_na_coords(data_trunc)
+indices_data_trunc <- find_non_na(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0  
 
@@ -125,7 +127,8 @@ plot(fit_trunc, par = c("N_t")) +
   geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(60:1)), color = "blue")+
     geom_point(aes(x, y), data = data.frame(x = apply(data_trunc, 1, max), y = c(60:1)), color = "green")
 ```
-```{r}
 
+```{r}
+plot(fit_trunc, par = c("N_t"))
 ```
 

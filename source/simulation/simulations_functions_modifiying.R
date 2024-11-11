@@ -504,36 +504,36 @@ create_basis <- function(N_obs, n_knots = 5){
 
 
 ### functions to get coordinates of non-NAs
-find_non_na <- function(mat) {
-  # coordinates
-  non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
-  
-  coords_df <- as.data.frame(non_na_indices)
-  
-  # extract the value for each element
-  coords_df$value <- mat[cbind(non_na_indices[, 1], non_na_indices[, 2])]
-  
-  # rename the col
-  colnames(coords_df) <- c("row", "col", "value")
-  
-  return(coords_df)
-}
-
-
-# find_non_na_coords <- function(mat) {
-#   # dimension
-#   N <- nrow(mat)
-#   D <- ncol(mat)
-#   
-#   # indices for non NAs
+# find_non_na <- function(mat) {
+#   # coordinates
 #   non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
 #   
 #   coords_df <- as.data.frame(non_na_indices)
 #   
-#   # rename cols
-#   colnames(coords_df) <- c("row", "col")
+#   # extract the value for each element
+#   coords_df$value <- mat[cbind(non_na_indices[, 1], non_na_indices[, 2])]
+#   
+#   # rename the col
+#   colnames(coords_df) <- c("row", "col", "value")
 #   
 #   return(coords_df)
 # }
+
+
+find_non_na <- function(mat) {
+  # dimension
+  N <- nrow(mat)
+  D <- ncol(mat)
+
+  # indices for non NAs
+  non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
+
+  coords_df <- as.data.frame(non_na_indices)
+
+  # rename cols
+  colnames(coords_df) <- c("row", "col")
+
+  return(coords_df)
+}
 
 

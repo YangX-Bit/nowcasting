@@ -19,7 +19,7 @@ case_data <- data$case_reported
 
 
 ########### loop to fit ##########
-scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-01-21"),by="1 day")
+
 
 scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")
 
@@ -27,7 +27,7 @@ scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")
 
 plot_list <- list()
 
-for (i in 40:length(scoreRange)) {
+for (i in 1:length(scoreRange)) {
   #What's "today"
   now <- scoreRange[i]
   # show the status
@@ -91,8 +91,10 @@ for (i in 40:length(scoreRange)) {
   print(p)
 }
 
-plot_list[[1]]
+plot_list[[20]]
 
 
 N_obs_local <- 60
 find_non_na_coords(matrix(c(1,2,NA,4,5,6), nrow = 2))
+
+plot(density(samples_nt[,60]))
