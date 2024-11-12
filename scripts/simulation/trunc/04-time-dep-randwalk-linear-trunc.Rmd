@@ -106,9 +106,9 @@ fit_trunc <- stan(
 
 ## check results
 ```{r}
-print(fit_trunc, pars = "b_t_est")
+#print(fit_trunc, pars = "b_t_est")
 
-print(fit_trunc)
+print(fit_trunc, pars = "N_t")
 ```
 
 ```{r}
@@ -124,8 +124,8 @@ plot(data$b)
 
 ```{r}
 plot(fit_trunc, par = c("N_t")) +
-  geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(60:1)), color = "blue")+
-    geom_point(aes(x, y), data = data.frame(x = apply(data_trunc, 1, max), y = c(60:1)), color = "green")
+  geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(30:1)), color = "blue")+
+    geom_point(aes(x, y), data = data.frame(x = apply(data_trunc, 1, max), y = c(30:1)), color = "green")
 ```
 
 ```{r}

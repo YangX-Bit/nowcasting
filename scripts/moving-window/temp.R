@@ -1,6 +1,7 @@
 #nowcast 
 
 data$date
+data$case_reported
 #
  
 
@@ -23,11 +24,9 @@ case_data <- data$case_reported
 
 scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")
 
-
-
 plot_list <- list()
 
-for (i in 1:length(scoreRange)) {
+for (i in c(1,5,10,15,20,25,30,35,40)) {
   #What's "today"
   now <- scoreRange[i]
   # show the status
@@ -41,11 +40,13 @@ for (i in 1:length(scoreRange)) {
   data_use <- head(data$case_reported, N_obs - length(scoreRange) + i)
   
   # truncated version of data
-  data_trunc <- create_triangular_data(data_use, if_zero = T)
+  data_trunc <- create_triangular_data(data_use, if_zero = F)
   N_obs_local <- nrow(data_trunc)
   
   # coordinates for non-NAs
-  indices_data_trunc <- find_non_na(data_trunc)
+  indices_data_trunc <- find_non_na_coords(data_trunc)
+  
+  data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
   
   X_spline <- create_basis(N_obs_local, n_knots = 5)
 
@@ -58,9 +59,10 @@ for (i in 1:length(scoreRange)) {
   
   fit_trunc <- stan(
     file = file.path(path_proj, "source", "models",
-                     "trunc", "stan_model_dep-spline-trunc.stan"),  
+                     "trunc", "stan_model_dep-spline-trunc-modi.stan"),  
     data = stan_data_trunc, 
-    iter = 2000, chains = 3, seed = 123
+    iter = 2000, chains = 3, seed = 123,
+    refresh = 500
   )
   
   # extract parameters
@@ -77,9 +79,9 @@ for (i in 1:length(scoreRange)) {
     geom_ribbon(aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.5) +
     geom_line(aes(y = mean), color = "blue") +
     
-    geom_col(aes(y = case_true), fill = "red", alpha = 0.6) +
+    geom_line(aes(y = case_true), color = "red") +
     
-    geom_col(aes(y = case_reported), fill = "blue", alpha = 0.4) +
+    geom_line(aes(y = case_reported), color = "black") +
     
     labs(title = "Nowcast with True and Reported Cases",
          x = "Date",
@@ -91,8 +93,11 @@ for (i in 1:length(scoreRange)) {
   print(p)
 }
 
-plot_list[[20]]
+for (i in c(1,5,10,15,20,25,30,35,40)) {
+  print(plot_list[[i]])
+}
 
+plot(fit_trunc, par=c("alpha_lambda"))
 
 N_obs_local <- 60
 find_non_na_coords(matrix(c(1,2,NA,4,5,6), nrow = 2))

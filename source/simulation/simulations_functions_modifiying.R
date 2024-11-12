@@ -520,7 +520,7 @@ create_basis <- function(N_obs, n_knots = 5){
 # }
 
 
-find_non_na <- function(mat) {
+find_non_na_coords <- function(mat) {
   # dimension
   N <- nrow(mat)
   D <- ncol(mat)
