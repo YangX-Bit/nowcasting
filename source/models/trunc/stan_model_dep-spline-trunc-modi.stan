@@ -24,14 +24,6 @@ transformed parameters {
   for (t in 1:N_obs) {
     b_t[t] = dot_product(X_spline[t], beta); // b(t) = X_spline[t] * beta
   }
-  
-  vector<lower=0, upper=1>[N_obs] is_complete;  
-  for (t in 1:(N_obs - D)) {
-    is_complete[t] = 1;  // complete  
-  }
-  for (t in (N_obs - D + 1):N_obs) {
-    is_complete[t] = 0;  // in-comp
-  }
 }
 
 model {
@@ -55,11 +47,8 @@ model {
     int d = obs_index[k, 2];
     
     real q_d = 1 - exp(- b_t[t] * d);
-    if(is_complete[t] == 1){
-      target += poisson_lpmf(Y[t, d] | lambda_t[t] * q_d);
-    }else{
-      target += poisson_lpmf(Y[t, d] | lambda_t[t] * q_d);
-    }
+          
+    target += poisson_lpmf(Y[t, d] | lambda_t[t] * q_d);
     //Y[t,d] ~ poisson(lambda_t[t] * q_d);
     //obs_index[k,3] ~ poisson(lambda_t[t] * q_d); //
   }

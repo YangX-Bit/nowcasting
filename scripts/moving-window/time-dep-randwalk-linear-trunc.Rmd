@@ -31,7 +31,6 @@ source(file.path(path_source, "simulation", "simulations_functions_modifiying.R"
 seed <- 123
 D <- 15
 N_obs <- 60
-num_sims <- 1
 
 # time varying b
 beta0 = -2 ; beta1 = 0.01
