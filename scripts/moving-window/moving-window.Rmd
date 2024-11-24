@@ -1,0 +1,99 @@
+---
+title: "MovingWindowSims"
+author: "Yang Xiao"
+date: "2024-11-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+# library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+# source from other paper
+source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
+```
+
+```{r}
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 60
+
+# generate alpha
+alpha_lambda <- generate_alpha(N_obs, range = c(40, 200), dist = "uniform", seed = 123)
+plot(density(alpha_lambda))
+```
+
+```{r}
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+data <- simsDataGenQ( alpha = alpha_lambda,
+                     #alpha =  c(1:10, seq(1, 232, by = 4)),
+                      days = N_obs, method = "random_walk",
+                     b = 0.1, sigma_rw = 0.1, seed = seed)
+
+# create triangular data
+data_trunc <- create_triangular_data(data$case_reported)
+
+# get indices of non-NAs 
+indices_data_trunc <- find_non_na_coords(data_trunc)
+
+data_trunc[is.na(data_trunc)] <- 0  
+
+print(data_trunc)
+```
+### basis for spline
+```{r}
+# setting
+time_points <- 1:N_obs
+n_knots <- 5
+
+# create basis
+X_spline <- create_basis(N_obs, n_knots)
+
+basis_df <- data.frame(time = time_points, X_spline)
+basis_long <- reshape2::melt(basis_df, id.vars = "time")
+
+# draw basis
+ggplot(basis_long, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  labs(title = "B-spline Basis Functions for Time",
+       x = "Time (Days)",
+       y = "Basis Value") +
+  theme_minimal()
+```
+```{r}
+source(file.path(path_source, "functions", "plot_function.R"))
+
+# imagine 60 days since 2024-01-01
+
+# now <- as.Date("2024-02-01")
+scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")
+
+path_p_change <- file.path(path_proj, "source", "models",
+                     "trunc", "stan_model_dep-spline-trunc-modi.stan")
+
+path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
+                     "stan_model_time-ind-p-trunc.stan")
+
+dates <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")  # 40days
+selected_dates <- dates[c(10,20,30,40)]  # pick certain days
+
+nowcasting_moving_window(data$case_reported, selected_dates,
+                         N_obs = 60, D = 15, sigma_b = 0.1, seeds = 123,
+                         path_p_change = path_p_change, path_p_fixed = path_p_fixed)
+data <- data$case_reported
+```
+
