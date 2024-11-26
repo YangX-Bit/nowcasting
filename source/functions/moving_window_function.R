@@ -29,7 +29,7 @@ nowcasting_moving_window <- function(data, scoreRange,
     
     data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
     
-    X_spline <- create_basis(N_obs_local, n_knots = 5)
+    X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
     
     # input list
     stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
@@ -43,12 +43,9 @@ nowcasting_moving_window <- function(data, scoreRange,
       data = stan_data_trunc, 
       iter = 2000, chains = 3, seed = seeds,
       #control = list(adapt_delta = 0.96, max_treedepth = 15),
-      refresh = 0
+      refresh = 500
     )
-    
-    # fixed p
-    stan_data_trunc_fixped_q <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
-                                     K = nrow(indices_data_trunc), obs_index = indices_data_trunc)
+
     
     fit_trunc_fixped_q <- stan(
       file = path_p_fixed,  
@@ -61,7 +58,7 @@ nowcasting_moving_window <- function(data, scoreRange,
     samples_nt <- rstan::extract(fit_trunc, pars = "N_t")$N_t
     samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
     
-    p <- nowcasting_plot(samples_nt, samples_nt_fixped_q)
+    p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local)
     
     plot_list[[i]] <- p
     model_p_fixed_list[[i]] <- fit_trunc

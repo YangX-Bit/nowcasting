@@ -207,10 +207,14 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
                          b = 3, method = "constant",
                          beta0 = -2, beta1 = 0.1,
                          sigma_rw = 1,
-                         days = 30, D = 15, seed = 123){
+                         date_start = as.Date("2024-01-01"), days = 30, D = 15, seed = 123){
   if(length(alpha_lamb) < days){
     stop("Error! The length of alpha cannot be less than days!")
   }
+  
+  # date
+  date_end = date_start + days - 1
+  date = as.Date(date_start:date_end)
   
   set.seed(seed)
   
@@ -250,7 +254,8 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
   }
 
   out <- list(case_reported = case_reported, case_true = case_true,
-              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t)
+              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t,
+              date = date)
   return(out)
 }
 
