@@ -1,6 +1,7 @@
 nowcasting_moving_window <- function(data, scoreRange,
                                      N_obs = 60, D = 15, sigma_b = 0.1, seeds = 123,
-                                     path_p_change, path_p_fixed){
+                                     path_p_change, path_p_fixed,
+                                     iter = 2000, warmup = 1000, refresh = 500){
   # plot list
     plot_list <- list()
   # fit list
@@ -41,17 +42,17 @@ nowcasting_moving_window <- function(data, scoreRange,
     fit_trunc <- stan(
       file = path_p_change,  
       data = stan_data_trunc, 
-      iter = 2000, chains = 3, seed = seeds,
+      iter = iter, warmup = warmup, chains = 3, seed = seeds,
       #control = list(adapt_delta = 0.96, max_treedepth = 15),
-      refresh = 500
+      refresh = refresh
     )
 
     
     fit_trunc_fixped_q <- stan(
       file = path_p_fixed,  
       data = stan_data_trunc, 
-      iter = 2000, chains = 3, seed = seeds,
-      refresh = 0
+      iter = iter, warmup = warmup, chains = 3, seed = seeds,
+      refresh = refresh, 
     )
     
     # extract parameters
