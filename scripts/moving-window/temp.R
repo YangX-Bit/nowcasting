@@ -21,8 +21,8 @@ N_obs <- 60
 D <- 15
 k_back <- 10  
 
-data <- simsDataGenQ( alpha = alpha,
-                      #alpha =  c(1:10, seq(1, 232, by = 4)),
+data <- simsDataGenQ( #alpha = alpha,
+                      alpha =  c(1:10, seq(1, 197, by = 4)),
                       days = N_obs, method = "random_walk",
                       b = 0.1, sigma_rw = 0.1, seed = seed)
 
@@ -33,17 +33,14 @@ case_data <- data$case_reported
 
 
 
-
-
 ########### loop to fit ##########
 
 seeds = 123
 scoreRange <- seq(as.Date("2024-01-20"),as.Date("2024-02-28"),by="1 day")
 
 plot_list <- list()
-list_i <- c(15,25,35,40)
-# 1,14,27,40
-# 25 30 35 40
+list_i <- c(40)
+i = 40
 #c(1,5,10,15,20,25,30,35,40)
 for (i in list_i) {
   #What's "today"
@@ -85,9 +82,6 @@ for (i in list_i) {
     refresh = 500
   )
   
-  # fixed p
-  stan_data_trunc_fixped_q <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
-                          K = nrow(indices_data_trunc), obs_index = indices_data_trunc)
   
   fit_trunc_fixped_q <- stan(
     file = file.path(path_proj, "source", "models", "trunc",
@@ -111,7 +105,7 @@ for (i in list_i) {
                          #
                          date =  data$date[1:N_obs_local],
                          case_true = data$case_true[1:N_obs_local],
-                         case_reported = apply(data_trunc, 1, max))
+                         case_reported = apply(data_trunc[1:N_obs_local,], 1, max))
   
   p <- ggplot(nowcasts, aes(x = date)) +
     geom_ribbon(aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.5) +
@@ -146,6 +140,20 @@ for (i in list_i) {
   
   plot_list[[i]] <- p
 }
+
+################
+#diagnose
+summary(fit_trunc)$summary[, "Rhat"]
+summary(fit_trunc)$summary[,"n_eff"]
+stan_trace(fit_trunc, pars = c("b_t"))
+stan_rdump(fit_trunc)
+
+
+
+fit_trunc_fixped_q
+
+
+#################
 
 filenames <- c("nowcast1.png", "nowcast2.png", "nowcast3.png", "nowcast4.png")
 count_temp <- 1
