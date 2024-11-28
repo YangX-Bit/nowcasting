@@ -87,7 +87,7 @@ path_p_change <- file.path(path_proj, "source", "models",
 
 path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
                      "stan_model_time-ind-p-trunc.stan")
-data$date
+
 dates <- seq(as.Date("2024-01-20"),as.Date("2024-07-18"),by="1 day")  # 40days
 selected_dates <- dates[c(200)]  # pick certain days
 
@@ -103,9 +103,46 @@ out$plots
 ```
 
 ```{r}
+# real data
+real_data_path <- normalizePath(file.path(path_source, "..", "data", "raw")) # data path
+
+load(file.path(real_data_path,"husO104Hosp.Rdata"))
+husO104_triangular <- listToTriangle(husO104Hosp)
+husO104_tri_cumu <- cumulative_matrix(husO104_triangular)
+
+selected_dates <- seq(as.Date("2011-05-20"),as.Date("2011-06-30"),by="5 day")
+
+out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates,
+                                case_true = as.vector(husO104_tri_cumu[,ncol(husO104_tri_cumu)]),
+                         N_obs = nrow(husO104_tri_cumu), D = 15, sigma_b = 0.1, seeds = 123,
+                         iter= 3000, warmup = 1500, num_chains = 3, if_real_data = T,
+                         path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 out$plots
 ```
+
 ```{r}
-out$models
+data_temp <- simsDataGenQ( alpha = c(1:30),
+                     #alpha =  c(1:10, seq(1, 232, by = 4)),
+                      days = 30, method = "random_walk",
+                     b = 0.1, sigma_rw = 0.1, seed = seed)
+data_tri <- create_triangular_data(data_temp$case_reported, if_zero = T)
+data_tri
+sum(data_tri)
+
+list_temp <- triangleToList(data_tri, now = as.Date("2024-07-31"))
+
+data <- list_temp
+
+
+
+extract_last_valid(mat, D = 4)
+print("Input Matrix:")
+print(input_matrix)
+
+output_matrix <- cumulative_matrix(input_matrix)
+print(output_matrix)
+
+output_matrix[, ncol(output_matrix)]
 ```
+
 

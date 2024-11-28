@@ -252,10 +252,10 @@ simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3,
     }
     case_reported[t, ] <- sort(reported_temp)
   }
+  rownames(case_reported) <- as.character(date)
 
   out <- list(case_reported = case_reported, case_true = case_true,
-              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t,
-              date = date)
+              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t)
   return(out)
 }
 
@@ -280,11 +280,11 @@ create_basis <- function(N_obs, n_knots = 5){
 # Parameters:
 #  data - Matrix of cases in each day with delays
 ###
-dataTransform <- function(data, 
-                          start_date = as.Date("2011-07-04")){
+triangleToList <- function(data, 
+                          now = as.Date("2011-07-04")){
   
   # sequence of the start date
-  admission_dates <- start_date - 0:(nrow(data) - 1)
+  admission_dates <- sort(now - 0:(nrow(data) - 1), descending = T)
   
   
   df <- as.data.frame(data)
@@ -310,6 +310,63 @@ dataTransform <- function(data,
   
   return(data_out)
 }
+
+### functions to transfer the list data from the paper to triangular data
+# Parameters:
+#  data - List of data from the form of the paper.
+###
+listToTriangle <- function(data, now = NULL, D = NULL) {
+  # Ensure the data has the required columns
+  if (!all(c("dHosp", "dReport") %in% colnames(data))) {
+    stop("Input data must have columns 'dHosp' and 'dReport'.")
+  }
+  
+  # Calculate delay
+  data <- data %>%
+    mutate(delay = as.numeric(dReport - dHosp))  # Compute delay in days
+  
+  # Find the maximum delay (D) and range of admission dates
+  if(is.null(D)){ D <- max(data$delay) }  # Maximum delay
+  if(is.null(now)){now <- max(data$dHosp)}
+  
+  admission_dates <- seq(min(data$dHosp), now, by = "1 day")  # Generate dates from 'now' backward
+  
+  # Initialize a matrix for triangular data
+  triangular_matrix <- matrix(0, nrow = length(admission_dates), ncol = D + 1)
+  rownames(triangular_matrix) <- as.character(admission_dates)
+  colnames(triangular_matrix) <- paste0("delay", 0:D)
+  
+  # Populate the matrix directly
+  for (i in 1:nrow(data)) {
+    hosp_idx <- which(admission_dates == data$dHosp[i])  # Row index for admission date
+    delay_idx <- data$delay[i] + 1  # Column index for delay (convert 0-based to 1-based indexing)
+    triangular_matrix[hosp_idx, delay_idx] <- triangular_matrix[hosp_idx, delay_idx] + 1
+  }
+  
+  return(triangular_matrix)
+}
+
+########## output the cumulatived matrix by col
+cumulative_matrix <- function(mat) {
+  # Check if input is a matrix
+  if (!is.matrix(mat)) {
+    stop("Input must be a matrix.")
+  }
+  
+  # Get the number of rows and columns
+  n_rows <- nrow(mat)
+  n_cols <- ncol(mat)
+  
+  # Loop through each column starting from the second
+  for (j in 2:n_cols) {
+    # Add the previous column to the current column
+    mat[, j] <- mat[, j] + mat[, j - 1]
+  }
+  
+  # Return the updated matrix
+  return(mat)
+}
+
 
 ### functions to transfer full data to truncated triangular data
 
@@ -342,6 +399,35 @@ create_triangular_data <- function(Y_full, if_zero = FALSE) {
   }
   
   return(Y_triangular)
+}
+
+# extract the last valid number
+extract_last_valid <- function(mat, D = ncol(mat)) {
+  # Number of rows in the matrix
+  N <- nrow(mat)
+  
+  # Initialize a vector to store the result
+  last_valid <- numeric(N)
+  
+  # Handle the first N-D rows (complete rows)
+  for (i in 1:(N - D + 1)) {
+    # Get the last non-NA value in the row
+    last_valid[i] <- mat[i, ncol(mat)]
+  }
+  
+  # Handle the last D rows (triangular rows)
+  # for (i in (N - D + 2):N) {
+  #   # Calculate the column index of the valid value
+  #   valid_col <- i - (N - D + 1)  # The valid column for the current row
+  #   last_valid[i] <- mat[i, valid_col]
+  # }
+  
+  for (i in 1:D) {
+    # Calculate the column index of the valid value
+    last_valid[N - i + 1] <- mat[N - i + 1, i]
+  }
+  
+  return(last_valid)
 }
 
 

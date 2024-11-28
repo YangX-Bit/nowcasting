@@ -1,7 +1,7 @@
 nowcasts_plot <- function(sample_time_varying, sample_fixed_q,
-                          N_obs,
+                          N_obs, dates, case_true, case_reported,
                           title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast"){
-  
+
   nowcasts <- data.frame(mean = apply(sample_time_varying, 2, mean),
                          lower = apply(sample_time_varying, 2, quantile, probs = 0.025),
                          upper = apply(sample_time_varying, 2, quantile, probs = 0.975),
@@ -10,9 +10,10 @@ nowcasts_plot <- function(sample_time_varying, sample_fixed_q,
                          lower_fixped_q = apply(sample_fixed_q, 2, quantile, probs = 0.025),
                          upper_fixped_q = apply(sample_fixed_q, 2, quantile, probs = 0.975),
                          #
-                         date =  data$date[1:N_obs],
-                         case_true = data$case_true[1:N_obs],
-                         case_reported = apply(data_trunc[1:N_obs,], 1, max))
+                         date =  dates[1:N_obs],
+                         case_true = case_true[1:N_obs],
+                         case_reported = case_reported[1:N_obs])
+  now <- max(nowcasts$date)
   
   p <- ggplot(nowcasts, aes(x = date)) +
     geom_ribbon(aes(ymin = lower, ymax = upper), fill = "blue", alpha = 0.5) +

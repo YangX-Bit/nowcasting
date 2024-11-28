@@ -1,33 +1,38 @@
-nowcasting_moving_window <- function(data, scoreRange,
+nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      N_obs = 60, D = 15, sigma_b = 0.1, seeds = 123,
                                      path_p_change, path_p_fixed,
-                                     iter = 2000, warmup = 1000, refresh = 500){
+                                     iter = 2000, warmup = 1000, refresh = 500,
+                                     num_chains = 3){
+  if(is.null(case_true)){
+    stop("You must input true cases.")
+  }
+  
+  # get the date
+    dates_data <- as.Date(rownames(data))
   # plot list
     plot_list <- list()
   # fit list
     model_p_fixed_list <- list()
     model_p_change_list <- list()
-  i <- 1
   for (i in 1:length(scoreRange)) {
     #What's "today"
     now <- scoreRange[i]
     # show the status
     cat(paste("====================\nnow=",now,
               " (",i,"/",length(scoreRange),")\n====================\n",sep=""))
-    
     #when <- seq(now-k-safePredictLag+1, now-safePredictLag, by="1 day")
     
     # Nowcast #
     # cut the length of data
-    data_use <- head(data, N_obs - length(scoreRange) + i)
+    data_use <- head(data, as.numeric(scoreRange[i] - dates_data[1]))
     
     # truncated version of data
     data_trunc <- create_triangular_data(data_use, if_zero = F)
-    N_obs_local <- nrow(data_trunc)
-    
+    # For real data the last valid column is the last non-NA column
+    case_reported <- extract_last_valid(data_trunc)
+    N_obs_local <- nrow(data_trunc) # num of obs
     # coordinates for non-NAs
     indices_data_trunc <- find_non_na_coords(data_trunc)
-    
     data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
     
     X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
@@ -40,26 +45,27 @@ nowcasting_moving_window <- function(data, scoreRange,
                             sigma_b = sigma_b)
     
     fit_trunc <- stan(
-      file = path_p_change,  
-      data = stan_data_trunc, 
-      iter = iter, warmup = warmup, chains = 3, seed = seeds,
+      file = path_p_change,
+      data = stan_data_trunc,
+      iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
       #control = list(adapt_delta = 0.96, max_treedepth = 15),
       refresh = refresh
     )
 
-    
     fit_trunc_fixped_q <- stan(
-      file = path_p_fixed,  
-      data = stan_data_trunc, 
-      iter = iter, warmup = warmup, chains = 3, seed = seeds,
-      refresh = refresh, 
+      file = path_p_fixed,
+      data = stan_data_trunc,
+      iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
+      refresh = refresh,
     )
-    
+
     # extract parameters
     samples_nt <- rstan::extract(fit_trunc, pars = "N_t")$N_t
     samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
     
-    p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local)
+    p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local,
+                       dates = dates_data,
+                       case_true = case_true, case_reported = case_reported)
     
     plot_list[[i]] <- p
     model_p_fixed_list[[i]] <- fit_trunc
@@ -68,10 +74,8 @@ nowcasting_moving_window <- function(data, scoreRange,
   # output 
   return(list(
     plots = plot_list[!sapply(plot_list, is.null)],
-    models = list(
-      fixed = model_p_fixed_list[!sapply(model_p_fixed_list, is.null)],
-      change = model_p_change_list[!sapply(model_p_change_list, is.null)]
-    )
+    fixed = model_p_fixed_list[!sapply(model_p_fixed_list, is.null)],
+    change = model_p_change_list[!sapply(model_p_change_list, is.null)]
   ))
 }
 
