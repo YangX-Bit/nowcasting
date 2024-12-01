@@ -43,7 +43,6 @@ data <- simsDataGenQ( alpha = alpha_lambda,
                      #alpha =  c(1:10, seq(1, 232, by = 4)),
                       days = N_obs, method = "random_walk",
                      b = 0.1, sigma_rw = 0.1, seed = seed)
-data
 # create triangular data
 data_trunc <- create_triangular_data(data$case_reported)
 
@@ -51,8 +50,6 @@ data_trunc <- create_triangular_data(data$case_reported)
 indices_data_trunc <- find_non_na_coords(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0  
-
-print(data_trunc)
 ```
 ### basis for spline
 ```{r}
@@ -88,12 +85,13 @@ path_p_change <- file.path(path_proj, "source", "models",
 path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
                      "stan_model_time-ind-p-trunc.stan")
 
-dates <- seq(as.Date("2024-01-20"),as.Date("2024-07-18"),by="1 day")  # 40days
-selected_dates <- dates[c(200)]  # pick certain days
+dates <- as.Date(rownames(data$case_reported))
+selected_dates <- dates[c(150,175,200)]  # pick certain days
 
-out <- nowcasting_moving_window(data$case_reported, selected_dates,
+out <- nowcasting_moving_window(data$case_reported, scoreRange = selected_dates, 
+                                case_true = data$case_true,
                          N_obs = N_obs, D = 15, sigma_b = 0.1, seeds = 123,
-                         iter= 10000, warmup = 2000,
+                         iter= 2000, warmup = 1000, refresh = 0,
                          path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 data <- data$case_reported
 ```
@@ -112,37 +110,14 @@ husO104_tri_cumu <- cumulative_matrix(husO104_triangular)
 
 selected_dates <- seq(as.Date("2011-05-20"),as.Date("2011-06-30"),by="5 day")
 
-out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates,
+out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates, 
                                 case_true = as.vector(husO104_tri_cumu[,ncol(husO104_tri_cumu)]),
                          N_obs = nrow(husO104_tri_cumu), D = 15, sigma_b = 0.1, seeds = 123,
-                         iter= 3000, warmup = 1500, num_chains = 3, if_real_data = T,
+                         iter= 3000, warmup = 1500, num_chains = 3, refresh = 0,
                          path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 out$plots
 ```
 
-```{r}
-data_temp <- simsDataGenQ( alpha = c(1:30),
-                     #alpha =  c(1:10, seq(1, 232, by = 4)),
-                      days = 30, method = "random_walk",
-                     b = 0.1, sigma_rw = 0.1, seed = seed)
-data_tri <- create_triangular_data(data_temp$case_reported, if_zero = T)
-data_tri
-sum(data_tri)
 
-list_temp <- triangleToList(data_tri, now = as.Date("2024-07-31"))
-
-data <- list_temp
-
-
-
-extract_last_valid(mat, D = 4)
-print("Input Matrix:")
-print(input_matrix)
-
-output_matrix <- cumulative_matrix(input_matrix)
-print(output_matrix)
-
-output_matrix[, ncol(output_matrix)]
-```
 
 

@@ -9,6 +9,7 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
   
   # get the date
     dates_data <- as.Date(rownames(data))
+    scoreRange <- as.Date(scoreRange)
   # plot list
     plot_list <- list()
   # fit list
