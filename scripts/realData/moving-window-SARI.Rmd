@@ -69,7 +69,7 @@ rownames(case_true) <- as.character(data_41002$date)
 out <- nowcasting_moving_window(data_41002[, c(1:21)], scoreRange = scoreRange, 
                                 case_true = case_true,
                                 start_date = scoreRange[1] - weeks(20),
-                                D = 20, sigma_b = 0.1, seeds = 123,
+                                D = 20, sigma_b = 0.5, seeds = 123,
                                 iter= 2000, warmup = 1000, refresh = 500,
                                 path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 
@@ -78,24 +78,12 @@ out$plots
 ```
 
 ```{r}
+# sigma = 0.1
 out$plots
 ```
 
 ```{r}
-# real data
-real_data_path <- normalizePath(file.path(path_source, "..", "data", "raw")) # data path
-
-load(file.path(real_data_path,"husO104Hosp.Rdata"))
-husO104_triangular <- listToTriangle(husO104Hosp)
-husO104_tri_cumu <- cumulative_matrix(husO104_triangular)
-
-selected_dates <- seq(as.Date("2011-05-20"),as.Date("2011-06-30"),by="5 day")
-
-out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates, 
-                                case_true = as.vector(husO104_tri_cumu[,ncol(husO104_tri_cumu)]),
-                         N_obs = nrow(husO104_tri_cumu), D = 15, sigma_b = 0.1, seeds = 123,
-                         iter= 3000, warmup = 1500, num_chains = 3, refresh = 0,
-                         path_p_change = path_p_change, path_p_fixed = path_p_fixed)
+# sigma 0.5
 out$plots
 ```
 
