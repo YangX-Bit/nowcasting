@@ -1,16 +1,16 @@
 #nowcast 
 
 # alpha
-N_up <- 30    # 上升阶段的长度
-N_down <- 30  # 下降阶段的长度
+N_up <- 30    # 
+N_down <- 30  # 
 
-# 上升阶段使用二次多项式
-alpha_up <- seq(10, 300, length.out = N_up)^2 / 100  # 参数调整来控制上升速度
+# 
+alpha_up <- seq(10, 300, length.out = N_up)^2 / 100  # control the speed
 
-# 下降阶段使用对称的二次多项式
+# 
 alpha_down <- rev(alpha_up)
 
-# 合并得到 alpha
+# 
 alpha <- c(alpha_up, alpha_down)
 alpha
 

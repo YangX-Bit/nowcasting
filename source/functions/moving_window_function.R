@@ -1,15 +1,65 @@
+slice_data <- function(data, scoreRange, 
+                       start_date = NULL, window_day_length = NULL) {
+  # Validate input arguments
+  if (is.null(start_date) && is.null(window_day_length)) {
+    stop("Either start_date or window_length must be provided.")
+  }
+  
+  dates <- as.Date(rownames(data))
+  
+  # Initialize the result list
+  result <- list()
+  
+  if (!is.null(start_date)) {
+    # Slice based on start_date and scoreRange
+    for (score in scoreRange) {
+      end_date <- score
+      slice <- data[dates >= as.Date(start_date) & dates <= end_date, , drop = FALSE]
+      if (nrow(slice) > 0) {
+        result[[paste("Range_from", start_date, "to", as.Date(end_date), sep = "_")]] <- as.matrix(slice)
+      }
+    }
+  } else if (!is.null(window_day_length)) {
+    # Slice based on window_length and scoreRange
+    for (score in scoreRange) {
+      start_window <- as.Date(score) - days(window_day_length)
+      slice <- data[dates >= start_window & dates <= as.Date(score), , drop = FALSE]
+      if (nrow(slice) > 0) {
+        result[[paste(window_day_length,"days_window_up_to", last(rownames(slice)), sep = "_")]] <- as.matrix(slice)
+      }
+    }
+  }
+  return(result)
+}
+
+
+a <- slice_data(data, scoreRange, start_date = as.Date("2009-07-01"), window_day_length = NULL)
+length(scoreRange)
+last(rownames(a[[6]]))
+
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
-                                     N_obs = 60, D = 15, sigma_b = 0.1, seeds = 123,
+                                     start_date = NULL, predict_length = NULL,
+                                     D = 20, sigma_b = 0.1, seeds = 123,
                                      path_p_change, path_p_fixed,
                                      iter = 2000, warmup = 1000, refresh = 500,
                                      num_chains = 3){
-  if(is.null(case_true)){
-    stop("You must input true cases.")
-  }
-  
+    if(is.null(case_true)){
+      stop("You must input true cases.")
+    }
   # get the date
-    dates_data <- as.Date(rownames(data))
+    if(is.null(start_date)){ start_date = rownames(data)[1] 
+    }else {
+      data <- data[rownames(data) >= start_date,]
+    } 
+    
+    data <- as.matrix(data)
     scoreRange <- as.Date(scoreRange)
+    
+    # create used data
+    data_list <- slice_data(data, scoreRange, 
+                            start_date = start_date, window_day_length = predict_length)
+    scoreRange <- tail(scoreRange, length(data_list)) #remove invalid scoring date
+    
   # plot list
     plot_list <- list()
   # fit list
@@ -25,7 +75,10 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     
     # Nowcast #
     # cut the length of data
-    data_use <- head(data, as.numeric(scoreRange[i] - dates_data[1]))
+    data_use <- data_list[[i]]
+    
+    # cut the true cases
+    case_true_temp <- case_true[rownames(case_true) %in% rownames(data_use), , drop = FALSE]
     
     # truncated version of data
     data_trunc <- create_triangular_data(data_use, if_zero = F)
@@ -37,6 +90,10 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
     
     X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
+    
+    if(nrow(data_trunc) <= D + 1){
+      warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
+    }
     
     # input list
     stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
@@ -65,8 +122,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
     
     p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local,
-                       dates = dates_data,
-                       case_true = case_true, case_reported = case_reported)
+                       dates = as.Date(rownames(data_use)),
+                       case_true = case_true_temp, case_reported = case_reported)
     
     plot_list[[i]] <- p
     model_p_fixed_list[[i]] <- fit_trunc
