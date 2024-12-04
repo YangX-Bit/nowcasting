@@ -74,7 +74,6 @@ out <- nowcasting_moving_window(data_41002[, c(1:21)], scoreRange = scoreRange,
                                 path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 
 out$plots
-
 ```
 
 ```{r}

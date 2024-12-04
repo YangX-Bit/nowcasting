@@ -88,10 +88,13 @@ path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
 dates <- as.Date(rownames(data$case_reported))
 selected_dates <- dates[c(150,175,200)]  # pick certain days
 
+case_true <- as.matrix(data$case_true)
+rownames(case_true) <- as.character(rownames(data$case_reported))
+
 out <- nowcasting_moving_window(data$case_reported, scoreRange = selected_dates, 
-                                case_true = data$case_true,
-                         N_obs = N_obs, D = 15, sigma_b = 0.1, seeds = 123,
-                         iter= 2000, warmup = 1000, refresh = 0,
+                                case_true = case_true,
+                          D = 15, sigma_b = 0.1, seeds = 123,
+                         iter= 2000, warmup = 1000, refresh = 500,
                          path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 data <- data$case_reported
 ```
@@ -108,11 +111,11 @@ load(file.path(real_data_path,"husO104Hosp.Rdata"))
 husO104_triangular <- listToTriangle(husO104Hosp)
 husO104_tri_cumu <- cumulative_matrix(husO104_triangular)
 
-selected_dates <- seq(as.Date("2011-05-20"),as.Date("2011-06-30"),by="5 day")
+selected_dates <- seq(as.Date("2011-05-20"),as.Date("2011-05-30"),by="5 day")
 
 out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates, 
                                 case_true = as.vector(husO104_tri_cumu[,ncol(husO104_tri_cumu)]),
-                         N_obs = nrow(husO104_tri_cumu), D = 15, sigma_b = 0.1, seeds = 123,
+                          D = 15, sigma_b = 0.1, seeds = 123,
                          iter= 3000, warmup = 1500, num_chains = 3, refresh = 0,
                          path_p_change = path_p_change, path_p_fixed = path_p_fixed)
 out$plots

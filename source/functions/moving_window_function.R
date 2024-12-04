@@ -33,10 +33,6 @@ slice_data <- function(data, scoreRange,
 }
 
 
-a <- slice_data(data, scoreRange, start_date = as.Date("2009-07-01"), window_day_length = NULL)
-length(scoreRange)
-last(rownames(a[[6]]))
-
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, sigma_b = 0.1, seeds = 123,
