@@ -50,6 +50,9 @@ data_trunc <- create_triangular_data(data$case_reported)
 indices_data_trunc <- find_non_na_coords(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0  
+
+a <- data$qd
+data$b
 ```
 ### basis for spline
 ```{r}
@@ -86,7 +89,7 @@ path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
                      "stan_model_time-ind-p-trunc.stan")
 
 dates <- as.Date(rownames(data$case_reported))
-selected_dates <- dates[c(150,175,200)]  # pick certain days
+selected_dates <- dates[c(150)]  # pick certain days
 
 case_true <- as.matrix(data$case_true)
 rownames(case_true) <- as.character(rownames(data$case_reported))
@@ -96,7 +99,9 @@ out <- nowcasting_moving_window(data$case_reported, scoreRange = selected_dates,
                           D = 15, sigma_b = 0.1, seeds = 123,
                          iter= 2000, warmup = 1000, refresh = 500,
                          path_p_change = path_p_change, path_p_fixed = path_p_fixed)
-data <- data$case_reported
+out$plots
+
+summary(out$fixed[[1]])$summary[, "Rhat"]
 ```
 
 ```{r}
@@ -121,6 +126,10 @@ out <- nowcasting_moving_window(husO104_tri_cumu, scoreRange = selected_dates,
 out$plots
 ```
 
+```{r}
+summary(out$change[[1]])$summary[, "Rhat"]
+
+```
 
 
 

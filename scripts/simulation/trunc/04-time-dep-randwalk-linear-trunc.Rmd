@@ -27,7 +27,7 @@ path_source = file.path(path_proj, "source")
 
 ```{r}
 # source(file.path(path_source, "simulation", "simulations_functions.R"))
-source(file.path(path_source, "simulation", "simulations_functions_modifiying.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 # setting: delay,  number of days
 seed <- 123
 D <- 15
@@ -38,7 +38,7 @@ num_sims <- 1
 beta0 = -2 ; beta1 = 0.01
 data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
                      #alpha =  c( seq(10, 300, by = 10),seq(300, 10, by = -10)),
-                    alpha =  c( seq(10, 300, by = 10)),
+                    alpha =  c( rep(10,10),seq(10, 300, by = 30),seq(310, 0, by = -60),rep(10,5)),,
                      days = N_obs, method = "random_walk",
                      b = 0.1, sigma_rw = 0.1, seed = seed)
 
@@ -46,7 +46,7 @@ data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
 data_trunc <- create_triangular_data(data$case_reported)
 
 # get indices of non-NAs 
-indices_data_trunc <- find_non_na(data_trunc)
+indices_data_trunc <- find_non_na_coords(data_trunc)
 
 data_trunc[is.na(data_trunc)] <- 0  
 
@@ -98,7 +98,7 @@ fit_trunc <- stan(
   file = file.path(path_proj, "source", "models",
                    "trunc", "stan_model_dep-spline-trunc.stan"),  
   data = stan_data_trunc, 
-  iter = 2000, chains = 3, seed = 123
+  iter = 10000, chains = 3, seed = 222
   #init = init_values
 )
 ```
@@ -110,6 +110,13 @@ fit_trunc <- stan(
 
 print(fit_trunc, pars = "N_t")
 ```
+
+```{r}
+summary(fit_trunc)$summary[, "Rhat"]
+
+summary(fit_trunc)$summary[, "n_eff"]
+```
+
 
 ```{r}
 library(ggplot2)

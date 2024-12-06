@@ -28,10 +28,13 @@ transformed parameters {
 
 model {
   // Priors
-  alpha_lambda ~ uniform(0, 10);
-  beta_lambda ~ uniform(0, 10);
-  
-  beta ~ normal(0, 10);  // prior for spline coef
+  // alpha_lambda ~ uniform(0, 10);
+  // beta_lambda ~ uniform(0, 10);
+  // 
+  // beta ~ normal(0, 10);  // prior for spline coef
+  alpha_lambda ~ gamma(2, 1);
+  beta_lambda ~ gamma(2, 1);
+  beta ~ normal(0, 1);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);

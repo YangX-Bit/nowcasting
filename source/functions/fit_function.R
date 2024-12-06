@@ -106,30 +106,118 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
       refresh = refresh
     )
 
-    fit_trunc_fixped_q <- stan(
-      file = path_p_fixed,
-      data = stan_data_trunc,
-      iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
-      refresh = refresh,
-    )
+    # fit_trunc_fixped_q <- stan(
+    #   file = path_p_fixed,
+    #   data = stan_data_trunc,
+    #   iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
+    #   refresh = refresh,
+    # )
 
     # extract parameters
     samples_nt <- rstan::extract(fit_trunc, pars = "N_t")$N_t
-    samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
+    #samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
     
-    p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local,
-                       dates = as.Date(rownames(data_use)),
-                       case_true = case_true_temp, case_reported = case_reported)
-    
-    plot_list[[i]] <- p
-    model_p_fixed_list[[i]] <- fit_trunc
-    model_p_change_list[[i]] <- fit_trunc_fixped_q
+    # p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local,
+    #                    dates = as.Date(rownames(data_use)),
+    #                    case_true = case_true_temp, case_reported = case_reported)
+    # 
+    # plot_list[[i]] <- p
+    model_p_change_list[[i]] <- fit_trunc
+    #model_p_fixed_list[[i]] <- fit_trunc_fixped_q
   }
   # output 
   return(list(
-    plots = plot_list[!sapply(plot_list, is.null)],
-    fixed = model_p_fixed_list[!sapply(model_p_fixed_list, is.null)],
+    #plots = plot_list[!sapply(plot_list, is.null)],
+    #fixed = model_p_fixed_list[!sapply(model_p_fixed_list, is.null)],
     change = model_p_change_list[!sapply(model_p_change_list, is.null)]
   ))
 }
 
+matrix_data <- data_41002[, c(1:21)]
+# check the q shape
+fit_and_plot <- function(matrix_data) {
+  if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
+  
+  # 获取矩阵的行数
+  n_rows <- nrow(matrix_data)
+  
+  # 创建一个绘图窗口
+  par(mfrow = c(ceiling(sqrt(n_rows)), ceiling(sqrt(n_rows)))) # 设置布局
+  
+  # 定义拟合函数
+  model_function <- function(b, d) {
+    1 - exp(-b * d)
+  }
+  i = 1
+  # 对每一行进行拟合
+  for (i in 1:n_rows) {
+    # 获取当前行的数据
+    d <- seq_along(matrix_data[i, ]) # d 的索引
+    y <- matrix_data[i, ]            # 实际数据
+    
+    # 初始值设定
+    start_b <- 1
+    
+    # 非线性最小二乘拟合
+    fit <- try(nls(y ~ 1 - exp(-b * d), start = list(b = start_b)), silent = TRUE)
+    
+    # 如果拟合失败，跳过
+    if (inherits(fit, "try-error")) {
+      warning(paste("Fitting failed for row", i))
+      next
+    }
+    
+    # 获取拟合参数
+    fitted_b <- coef(fit)["b"]
+    
+    # 计算拟合值
+    fitted_y <- model_function(fitted_b, d)
+    
+    # 绘图
+    plot(d, y, type = "p", pch = 16, col = "black", 
+         main = paste("Row", i), xlab = "d", ylab = "y")
+    lines(d, fitted_y, col = "red", lwd = 2) # 绘制拟合曲线
+  }
+  
+  # 恢复绘图布局
+  par(mfrow = c(1, 1))
+}
+
+# 示例数据
+set.seed(123)
+example_matrix <- matrix(runif(100, 0, 1), nrow = 10)
+
+# 调用函数
+fit_and_plot(as.matrix(matrix_data[c(20:40),]))
+
+plot_exponential_fits <- function(data_matrix) {
+  # Loop through each row of the input matrix
+  for (i in 1:nrow(data_matrix)) {
+    # Extract the data for the current row
+    row_data <- data_matrix[i, ]
+    
+    # Define the exponential function
+    exp_func <- function(d, b) {
+      1 - exp(-b * d)
+    }
+    # Perform non-linear least squares fit
+    fit_result <- nls(row_data ~ exp_func(seq_along(row_data), b), start = list(b = 0.1))
+    
+    # Extract the fitted parameter
+    b_hat <- coef(fit_result)
+    
+    # Create a plot for the current row
+    plot(seq_along(row_data), row_data, type = "b", col = "black", 
+         main = paste("Row", i), xlab = "d", ylab = "1 - exp(-b * d)")
+    
+    # Plot the fitted exponential curve in red
+    curve(exp_func(x, b_hat), add = TRUE, col = "red")
+    
+    # Add a legend
+    legend("bottomright", legend = c("Actual Data", "Fitted Curve"), 
+           col = c("black", "red"), lty = 1)
+  }
+}
+data_matrix <- as.matrix(matrix_data[c(30:40),])
+row_data <- data_matrix[1,]
+plot_exponential_fits(as.matrix(matrix_data[c(30:40),]))
