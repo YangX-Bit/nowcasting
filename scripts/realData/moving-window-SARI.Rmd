@@ -56,7 +56,7 @@ data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
 
 # now <- as.Date("2024-02-01")
 scoreRange <- seq(as.Date("2009-07-10"),as.Date("2009-08-25"),by="7 day")
-scoreRange <- as.Date("2009-07-30")
+scoreRange <- as.Date("2009-08-30")
 
 path_p_change <- file.path(path_proj, "source", "models",
                      "trunc", "stan_model_dep-spline-trunc-modi.stan")
@@ -70,7 +70,7 @@ rownames(case_true) <- as.character(data_41002$date)
 out <- nowcasting_moving_window(data_41002[, c(1:21)], scoreRange = scoreRange, 
                                 case_true = case_true,
                                 start_date = scoreRange[1] - weeks(20),
-                                D = 20, sigma_b = 0.5, seeds = 123,
+                                D = 21, sigma_b = 0.5, seeds = 123,
                                 iter= 4000, warmup = 2000, refresh = 500,
                                 num_chains = 5,
                                 path_p_change = path_p_change, path_p_fixed = path_p_fixed)

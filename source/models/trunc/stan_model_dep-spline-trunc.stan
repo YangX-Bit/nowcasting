@@ -20,7 +20,7 @@ parameters {
 }
 
 transformed parameters {
-  vector[N_obs] b_t;                 // pre-calc b_t
+  vector<lower=0>[N_obs] b_t;                 // pre-calc b_t
   for (t in 1:N_obs) {
     b_t[t] = dot_product(X_spline[t], beta); // b(t) = X_spline[t] * beta
   }
