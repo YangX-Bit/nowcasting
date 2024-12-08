@@ -369,7 +369,6 @@ cumulative_matrix <- function(mat) {
 
 
 ### functions to transfer full data to truncated triangular data
-
 create_triangular_data <- function(Y_full, if_zero = FALSE) {
   N <- nrow(Y_full)     # number of days
   D <- ncol(Y_full) - 1 # Max Delay
@@ -382,16 +381,21 @@ create_triangular_data <- function(Y_full, if_zero = FALSE) {
   # out matrix
   Y_triangular <- matrix(NA, nrow = N, ncol = D + 1)
   
-  # 
-  for (i in 1:(N-D)) {
-    # keeps the full data
-    Y_triangular[i, ] <- Y_full[i, ]
-    # Y_triangular[N-i+1, 1:i] <- Y_full[N-i+1, 1:i]
-  }
-  
-  for (j in 1:D) {
-    # keeps
-    Y_triangular[N-j+1, 1:j] <- Y_full[N-j+1, 1:j]
+  if(N > D){
+    for (i in 1:(N-D)) {
+      # keeps the full data
+      Y_triangular[i, ] <- Y_full[i, ]
+      # Y_triangular[N-i+1, 1:i] <- Y_full[N-i+1, 1:i]
+    }
+    
+    for (j in 1:D) {
+      # keeps
+      Y_triangular[N-j+1, 1:j] <- Y_full[N-j+1, 1:j]
+    }
+  }else{
+    for (i in seq_len(N)) {
+      Y_triangular[N - i + 1, 1:i] <- Y_full[N - i + 1, 1:i]
+    }
   }
   
   if(if_zero){
@@ -401,7 +405,6 @@ create_triangular_data <- function(Y_full, if_zero = FALSE) {
   return(Y_triangular)
 }
 
-# extract the last valid number
 extract_last_valid <- function(mat, D = ncol(mat)) {
   # Number of rows in the matrix
   N <- nrow(mat)
@@ -409,27 +412,48 @@ extract_last_valid <- function(mat, D = ncol(mat)) {
   # Initialize a vector to store the result
   last_valid <- numeric(N)
   
-  # Handle the first N-D rows (complete rows)
-  for (i in 1:(N - D + 1)) {
-    # Get the last non-NA value in the row
-    last_valid[i] <- mat[i, ncol(mat)]
+  # If sample size is less than D, search in all columns
+  if (N < D) {
+    for (i in 1:N) {
+      # Traverse from right to left to find the first valid value
+      for (j in ncol(mat):1) {
+        if (!is.na(mat[i, j])) {
+          last_valid[i] <- mat[i, j]
+          break
+        }
+      }
+    }
+    return(last_valid)
   }
   
-  # Handle the last D rows (triangular rows)
-  # for (i in (N - D + 2):N) {
-  #   # Calculate the column index of the valid value
-  #   valid_col <- i - (N - D + 1)  # The valid column for the current row
-  #   last_valid[i] <- mat[i, valid_col]
-  # }
+  # Handle rows greater than or equal to D
+  # Process the first N-D complete rows
+  for (i in 1:(N - D + 1)) {
+    # Traverse from right to left to find the last valid value
+    for (j in ncol(mat):1) {
+      if (!is.na(mat[i, j])) {
+        last_valid[i] <- mat[i, j]
+        break
+      }
+    }
+  }
   
-  for (i in 1:D) {
-    # Calculate the column index of the valid value
-    last_valid[N - i + 1] <- mat[N - i + 1, i]
+  # Handle the last D rows with incomplete data
+  for (i in (N - D + 1):N) {
+    # Calculate offset
+    offset <- N - i
+    
+    # Traverse from right to left across all columns
+    for (j in ncol(mat):1) {
+      if (!is.na(mat[i, j])) {
+        last_valid[i] <- mat[i, j]
+        break
+      }
+    }
   }
   
   return(last_valid)
 }
-
 
 ### functions to get coordinates of non-NAs
 
@@ -441,7 +465,7 @@ find_non_na_coords <- function(mat) {
   # indices for non NAs
   non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
   
-  coords_df <- as.data.frame(non_na_indices)
+  coords_df <- as.matrix(non_na_indices)
   
   # rename cols
   colnames(coords_df) <- c("row", "col")

@@ -36,57 +36,53 @@ slice_data <- function(data, scoreRange,
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, sigma_b = 0.1, seeds = 123,
-                                     path_p_change, path_p_fixed,
-                                     iter = 2000, warmup = 1000, refresh = 500,
-                                     num_chains = 3){
-    if(is.null(case_true)){
-      stop("You must input true cases.")
-    }
+                                     models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+                                     compiled_models,
+                                     iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
+                                     num_chains = 3, suppress_output = TRUE){
+  if(is.null(case_true)){
+    stop("You must input true cases.")
+  }
+  
+  if (is.null(compiled_models) || !all(models_to_run %in% names(compiled_models))) {
+    stop("You must provide compiled models matching 'models_to_run'.")
+  }
+  
   # get the date
-    if(is.null(start_date)){ start_date = rownames(data)[1] 
-    }else {
-      data <- data[rownames(data) >= start_date,]
-    } 
-    
-    data <- as.matrix(data)
-    scoreRange <- as.Date(scoreRange)
-    
-    # create used data
-    data_list <- slice_data(data, scoreRange, 
-                            start_date = start_date, window_day_length = predict_length)
-    scoreRange <- tail(scoreRange, length(data_list)) #remove invalid scoring date
-    
-  # plot list
-    plot_list <- list()
-  # fit list
-    model_p_fixed_list <- list()
-    model_p_change_list <- list()
+  if(is.null(start_date)){ start_date = rownames(data)[1] 
+  }else {
+    data <- data[rownames(data) >= start_date,]
+  } 
+  
+  # prepare data
+  data <- as.matrix(data)
+  scoreRange <- as.Date(scoreRange)
+  data_list <- slice_data(data, scoreRange, 
+                          start_date = start_date, window_day_length = predict_length)
+  scoreRange <- tail(scoreRange, length(data_list)) #remove invalid scoring date
+  # result list
+  model_fits <- list()
   for (i in 1:length(scoreRange)) {
     #What's "today"
     now <- scoreRange[i]
     # show the status
     cat(paste("====================\nnow=",now,
               " (",i,"/",length(scoreRange),")\n====================\n",sep=""))
-    #when <- seq(now-k-safePredictLag+1, now-safePredictLag, by="1 day")
     
-    # Nowcast #
-    # cut the length of data
+    # prepare the data for Stan
     data_use <- data_list[[i]]
-    
-    # cut the true cases
-    case_true_temp <- case_true[rownames(case_true) %in% rownames(data_use), , drop = FALSE]
-    
-    # truncated version of data
     data_trunc <- create_triangular_data(data_use, if_zero = F)
-    # For real data the last valid column is the last non-NA column
-    case_reported <- extract_last_valid(data_trunc)
+   
+    # information for plot
+    model_fits[["case_true"]][[i]] <- case_true[rownames(case_true) 
+                                                %in% rownames(data_use), , drop = FALSE]
+    model_fits[["case_reported"]][[i]] <- extract_last_valid(data_trunc)
+    model_fits[["dates"]][[i]] <- as.Date(rownames(data_use))
+    
     N_obs_local <- nrow(data_trunc) # num of obs
-    # coordinates for non-NAs
-    indices_data_trunc <- find_non_na_coords(data_trunc)
+    indices_data_trunc <- find_non_na_coords(data_trunc) # coordinates for non-NAs
     data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
-    
     X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
-    
     if(nrow(data_trunc) <= D + 1){
       warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
     }
@@ -94,43 +90,38 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     # input list
     stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
                             K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
-                            J = ncol(X_spline),
-                            X_spline = X_spline,
-                            sigma_b = sigma_b)
-    
-    fit_trunc <- stan(
-      file = path_p_change,
-      data = stan_data_trunc,
-      iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
-      #control = list(adapt_delta = 0.96, max_treedepth = 15),
-      refresh = refresh
-    )
+                            J = ncol(X_spline), X_spline = X_spline, sigma_b = sigma_b)
+    # return(stan_data_trunc)
+    # Fit models based on what is selected 
+    for (model_name in models_to_run) {
+      compiled_model <- compiled_models[[model_name]]
+      if (is.null(compiled_model)) {
+        stop(paste("Model path for", model_name, "is not specified in model_paths."))
+      }
 
-    fit_trunc_fixped_q <- stan(
-      file = path_p_fixed,
-      data = stan_data_trunc,
-      iter = iter, warmup = warmup, chains = num_chains, seed = seeds,
-      refresh = refresh,
-    )
+      # Fit the Stan model
+      sampling_code <- function() {
+        compiled_model$sample(
+          data = stan_data_trunc,
+          seed = seeds,
+          iter_sampling = iter_sampling,
+          iter_warmup = iter_warmup,
+          chains = num_chains,
+          refresh = refresh
+        )
+      }
+      
+      if (suppress_output) {
+        fit <- suppressWarnings(suppressMessages(sampling_code()))
+      } else {
+        fit <- sampling_code()
+      }
 
-    # extract parameters
-    samples_nt <- rstan::extract(fit_trunc, pars = "N_t")$N_t
-    #samples_nt_fixped_q <- rstan::extract(fit_trunc_fixped_q, pars = "N_t")$N_t
-    
-    # p <- nowcasts_plot(samples_nt, samples_nt_fixped_q, N_obs = N_obs_local,
-    #                    dates = as.Date(rownames(data_use)),
-    #                    case_true = case_true_temp, case_reported = case_reported)
-    # 
-    # plot_list[[i]] <- p
-    model_p_change_list[[i]] <- fit_trunc
-    #model_p_fixed_list[[i]] <- fit_trunc_fixped_q
+      # Store the result
+      model_fits[[model_name]][[i]] <- fit
+    }
   }
-  # output 
-  return(list(
-    #plots = plot_list[!sapply(plot_list, is.null)],
-    #fixed = model_p_fixed_list[!sapply(model_p_fixed_list, is.null)],
-    change = model_p_change_list[!sapply(model_p_change_list, is.null)]
-  ))
+  return(model_fits)
 }
 
 normalize_matrix_columns <- function(matrix_data) {

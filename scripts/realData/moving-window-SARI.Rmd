@@ -14,6 +14,7 @@ library(ggplot2)
 library(reshape2)
 library(aweek)
 library(lubridate)
+library(cmdstanr)
 ```
 
 ```{r}
@@ -34,16 +35,31 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 ```
 
 ```{r}
+fixed_q <- file.path(path_proj, "source", "models",
+                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+fixed_b <- file.path(path_proj, "source", "models",
+                     "trunc", "2.stan_model_fixed_b_trunc.stan")
+b_poly <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_b_poly_trunc.stan")
+b_spline <- file.path(path_proj, "source", "models", "trunc",
+                     "4.stan_model_b_spline_trunc.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  b_poly = cmdstan_model(b_poly),
+  b_spline = cmdstan_model(b_spline)
+)
+```
+
+```{r, warning=FALSE}
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+
 # setting: delay,  number of days
 seed <- 123
 D <- 15
 N_obs <- 200
-
-```
-
-```{r}
-source(file.path(path_source, "functions", "plot_function.R"))
-source(file.path(path_source, "functions", "fit_function.R"))
 
 # try-on in region 41002
 data_41002 <- SARI %>% filter(regionalsaude == 41002) %>%
@@ -55,41 +71,43 @@ rownames(data_41002) <- data_41002$date
 data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
 
 # now <- as.Date("2024-02-01")
-scoreRange <- seq(as.Date("2009-07-10"),as.Date("2009-08-25"),by="7 day")
-scoreRange <- as.Date("2009-08-30")
+scoreRange <- seq(as.Date("2009-07-20"),as.Date("2009-08-30"),by="7 day")
 
-path_p_change <- file.path(path_proj, "source", "models",
-                     "trunc", "stan_model_dep-spline-trunc-modi.stan")
-
-path_p_fixed <- file.path(path_proj, "source", "models", "trunc",
-                     "stan_model_time-ind-p-trunc.stan")
-
+# input the true case vector
 case_true <- as.matrix(data_41002[, c("Notifications")])
 rownames(case_true) <- as.character(data_41002$date)
 
 out <- nowcasting_moving_window(data_41002[, c(1:21)], scoreRange = scoreRange, 
                                 case_true = case_true,
-                                start_date = scoreRange[1] - weeks(20),
-                                D = 21, sigma_b = 0.5, seeds = 123,
-                                iter= 4000, warmup = 2000, refresh = 500,
-                                num_chains = 5,
-                                path_p_change = path_p_change, path_p_fixed = path_p_fixed)
+                                start_date = as.Date("2009-07-01"),
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = 20, sigma_b = 0.5, seeds = 123,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 5000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
 
-out$change
+results <- nowcasts_plot(out, models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 
-summary(out$change[[1]])$summary[, "n_eff"] / (8000 - 2000)
+results$nowcasts
 ```
 
 ```{r}
-# sigma = 0.1
-out
+results$plots
 ```
 
 ```{r}
-# sigma 0.5
-out$plots
+nowcasts_plot(out, models_to_run = c("fixed_q"))[["plots"]]
 ```
 
+```{r}
+nowcasts_plot(out, models_to_run = c("fixed_b"))[["plots"]]
+```
 
+```{r}
+nowcasts_plot(out, models_to_run = c("b_poly"))[["plots"]]
+```
 
-
+```{r}
+nowcasts_plot(out, models_to_run = c("b_spline"))[["plots"]]
+```
