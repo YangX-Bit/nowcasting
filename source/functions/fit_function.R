@@ -141,38 +141,66 @@ normalize_matrix_columns <- function(matrix_data) {
   return(result_matrix)
 }
 
-# check the q shape and output plots of fit
-fit_and_plot <- function(matrix_data) {
-  if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
-  #standardize
-  matrix_data <- normalize_matrix_columns(matrix_data)
-  # get the row number
-  n_rows <- nrow(matrix_data);D <- ncol(matrix_data) - 1
-  coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)))
+
+# measurement metrics
+calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "b_poly", "b_spline")) {
+  # Ensure required columns exist
+  required_columns <- c("date", "case_true")
+  for (method in methods) {
+    required_columns <- c(required_columns, 
+                          paste0("mean_", method), 
+                          paste0("lower_", method), 
+                          paste0("upper_", method))
+  }
+  if (!all(required_columns %in% names(df))) {
+    stop("The data frame is missing required columns for the specified methods.")
+  }
   
-  for (i in 1:n_rows) {
-    data_fit <- data.frame(
-      x = c(0:D),
-      y = as.numeric(matrix_data[i,])
+  # Initialize result list
+  results <- list()
+  
+  # Calculate metrics for each method
+  for (method in methods) {
+    mean_col <- paste0("mean_", method)
+    lower_col <- paste0("lower_", method)
+    upper_col <- paste0("upper_", method)
+    
+    # Calculate errors
+    error <- df[[mean_col]] - df$case_true
+    abs_error <- abs(error)
+    rel_error <- error / df$case_true
+    abs_rel_error <- abs(rel_error)
+    
+    # Metrics
+    RMSE <- sqrt(mean(error^2, na.rm = TRUE))
+    RMSPE <- sqrt(mean(rel_error^2, na.rm = TRUE)) * 100
+    MAE <- mean(abs_error, na.rm = TRUE)
+    MAPE <- mean(abs_rel_error, na.rm = TRUE) * 100
+    
+    # Prediction interval metrics
+    interval_width <- mean(df[[upper_col]] - df[[lower_col]], na.rm = TRUE)
+    coverage <- mean((df$case_true >= df[[lower_col]]) & (df$case_true <= df[[upper_col]]), na.rm = TRUE)
+    
+    # Store results (force to numeric to avoid list nesting)
+    results[[method]] <- c(
+      RMSE = RMSE,
+      RMSPE = RMSPE,
+      MAE = MAE,
+      MAPE = MAPE,
+      Interval_Width = interval_width,
+      Coverage_Rate = coverage
     )
-    tryCatch({
-      # nonlinear least square
-      model_fit <- nls(y ~ (1 - exp(-b * x)), data = data_fit, start = list(b = 0.5))
-      coef_saved[i,1] <- coef(model_fit)["b"]
-    }, error = function(e) {
-      # 
-      warning(paste("Fitting failed for row", i, ":", e$message))
-    })
   }
-  #plots
-  par(mfrow = c(4:5))
-  x_vals <- c(0:D)
-  for (i in 1:n_rows) {
-    y_vals <- (1 - exp(-coef_saved$b[i] * x_vals))
-    plot(x_vals, as.numeric(matrix_data[i,]), type = "l",     
-         main = paste0("i =",i),xlab = "",ylab = "")
-    lines(x_vals, y_vals, col = "red", lwd = 2, lty = 2)
-  }
+  
+  # Convert to a data frame
+  results_df <- do.call(rbind, results)
+  results_df <- as.data.frame(results_df)  # Ensure it's a data frame
+  results_df$Method <- rownames(results_df)  # Add method names as a column
+  rownames(results_df) <- NULL
+  
+  return(results_df)
 }
+
+
 
 
