@@ -14,7 +14,13 @@ library(ggplot2)
 library(reshape2)
 library(aweek)
 library(lubridate)
+
+#remotes::install_github("stan-dev/cmdstanr")
 library(cmdstanr)
+# cmdstanr::check_cmdstan_toolchain(fix = TRUE)
+# install_cmdstan(cores = 4, overwrite = TRUE)
+# set_cmdstan_path(path = "C:/Users/Administrator/.cmdstan/cmdstan-2.35.0")
+# cmdstan_version()
 ```
 
 ```{r}
@@ -50,6 +56,7 @@ compiled_models <- list(
   b_poly = cmdstan_model(b_poly),
   b_spline = cmdstan_model(b_spline)
 )
+
 ```
 
 ```{r, warning=FALSE}
@@ -71,7 +78,7 @@ rownames(data_41002) <- data_41002$date
 data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
 
 # now <- as.Date("2024-02-01")
-scoreRange <- seq(as.Date("2009-07-20"),as.Date("2009-08-30"),by="7 day")
+scoreRange <- seq(as.Date("2009-07-20"),as.Date("2009-09-30"),by="7 day")
 
 # input the true case vector
 case_true <- as.matrix(data_41002[, c("Notifications")])
@@ -89,7 +96,7 @@ out <- nowcasting_moving_window(data_41002[, c(1:21)], scoreRange = scoreRange,
 
 results <- nowcasts_plot(out, models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 
-results$nowcasts
+# results$nowcasts
 ```
 
 ```{r}

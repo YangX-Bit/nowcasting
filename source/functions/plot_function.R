@@ -87,7 +87,7 @@ nowcasts_plot <- function(results_list, models_to_run = c("fixed_q", "fixed_b", 
       "Reported Cases" = "black",
       "fixed_q" = "#228B22",   # 
       "fixed_b" = "#FF8C00",  # 
-      "b_poly" = "#DAA520",  # 
+      "b_poly" = "#8446c6",  # 
       "b_spline" = "#4682B4" # 
     )
     
