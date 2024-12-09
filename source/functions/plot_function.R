@@ -135,7 +135,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
     case_reported <- results_list[["case_reported"]][[i]]
     dates <- results_list[["dates"]][[i]]
     
-    now <- as.Date(last(dates))
+    now <- as.Date(last(dates)); earliest <- as.Date(first(dates))
     last_date_for_delay <- now - days(D) * factor_loc
     
     # Initialize an empty data frame for nowcast data
@@ -167,14 +167,17 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
     p <- ggplot(nowcasts, aes(x = date)) +
       geom_line(aes(y = case_true, color = "Real Cases")) +
       geom_line(aes(y = case_reported, color = "Reported Cases")) +
-      geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
-      annotate("text", x = last_date_for_delay, y = -1, 
-               label = last_date_for_delay, vjust = 2, color = "orange") +
       annotate("text", x = now, y = -1, 
                label = paste0("now: ", now), hjust = 1,vjust = 2, color = "red") +
       geom_point(data = data.frame(x = now, y = 0), aes(x = x, y = y, shape = "Today"), 
                  size = 2, color = "red")+
       scale_shape_manual(values = c("Today" = 17)) 
+    
+    if(last_date_for_delay >= earliest){
+      p <- p + geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
+        annotate("text", x = last_date_for_delay, y = -1, 
+                 label = last_date_for_delay, vjust = 2, color = "orange") 
+    }
     
     # Dynamically add ribbons and lines for each model
     for (model_name in models_to_run) {
