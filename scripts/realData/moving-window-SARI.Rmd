@@ -95,11 +95,24 @@ data41002_exp_plot <- data_41002 %>%
 
 page_num <- ceiling(nrow(data41002_exp_plot)/16)
 
-exp_plot <- fit_exp_plot(data41002_exp_plot,ncol = 4, nrow = 4, page = c(1:page_num))
+exp_plot <- fit_exp_plot(data41002_exp_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 
-exp_plot
+exp_plot$plots
 ```
 
+```{r}
+exp_b_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
+                          b = exp_plot$coefficients)
+
+exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot
+```
 
 ```{r}
 out <- nowcasting_moving_window(data_41002_input, scoreRange = scoreRange, 
@@ -112,7 +125,8 @@ out <- nowcasting_moving_window(data_41002_input, scoreRange = scoreRange,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
-
+#save(out, file = file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
 results <- nowcasts_plot(out, D = 26, report_unit = "week", 
                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 ```
@@ -122,13 +136,16 @@ print(scoreRange)
 for(i in 1:length(scoreRange)){
   print(calculate_metrics(results$nowcasts[i][[1]]))
 }
-
 ```
 
 
 ```{r}
 results$plots
 ```
+```{r}
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = NULL)[["plots"]]
+```
+
 
 ```{r}
 nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q"))[["plots"]]

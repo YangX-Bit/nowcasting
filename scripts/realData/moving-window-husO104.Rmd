@@ -1,0 +1,141 @@
+---
+title: "MovingWindowSims"
+author: "Yang Xiao"
+date: "2024-11-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+library(rstan)
+# library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(aweek)
+library(lubridate)
+
+#remotes::install_github("stan-dev/cmdstanr")
+library(cmdstanr)
+# cmdstanr::check_cmdstan_toolchain(fix = TRUE)
+# install_cmdstan(cores = 4, overwrite = TRUE)
+# set_cmdstan_path(path = "C:/Users/Administrator/.cmdstan/cmdstan-2.35.0")
+# cmdstan_version()
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+# source from other paper
+source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
+# data import
+husO104 <- as.data.frame(read.csv(file.path(path_proj, "data", "cleaned", "husO104_tri_cumu.csv"),))
+colnames(husO104)[1] <- "date" 
+husO104$date <- as.Date(husO104$date)
+
+husO104_input <- husO104 %>% select(-date) %>% as.matrix()
+rownames(husO104_input) <- as.character(husO104$date)
+# set week
+set_week_start("Sunday")
+#SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
+```
+
+```{r}
+fixed_q <- file.path(path_proj, "source", "models",
+                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+fixed_b <- file.path(path_proj, "source", "models",
+                     "trunc", "2.stan_model_fixed_b_trunc.stan")
+b_poly <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_b_poly_trunc.stan")
+b_spline <- file.path(path_proj, "source", "models", "trunc",
+                     "4.stan_model_b_spline_trunc.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  b_poly = cmdstan_model(b_poly),
+  b_spline = cmdstan_model(b_spline)
+)
+
+```
+
+```{r, warning=FALSE}
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+
+# now <- as.Date("2024-02-01")
+scoreRange <- seq(first(husO104$date) + days(D),last(husO104$date),by="5 day")
+
+# input the true case vector
+case_true <- as.matrix(husO104[, c("delay15")])
+rownames(case_true) <- as.character(husO104$date)
+```
+
+```{r}
+# exp plot
+husO104_exp_plot <- husO104 %>% select(-date) %>%
+  as.matrix()
+
+page_num <- ceiling(nrow(husO104_exp_plot)/16)
+
+exp_plot <- fit_exp_plot(husO104_exp_plot, ncol = 4, nrow = 4, page = c(1:page_num),
+                         if_fit = F)
+
+exp_plot
+```
+
+
+```{r}
+out <- nowcasting_moving_window(husO104_input, scoreRange = scoreRange, 
+                                case_true = case_true,
+                                start_date = as.Date("2011-05-07"),
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = 15, sigma_b = 0.5, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+# save(out, file = file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+# out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+results <- nowcasts_plot(out, D = 15, report_unit = "week", 
+                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+```
+
+```{r}
+print(scoreRange)
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results$nowcasts[i][[1]]))
+}
+
+```
+
+
+```{r}
+results$plots
+```
+
+```{r}
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q"))[["plots"]]
+```
+
+```{r}
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_b"))[["plots"]]
+```
+
+```{r}
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_poly"))[["plots"]]
+```
+
+```{r}
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_spline"))[["plots"]]
+```

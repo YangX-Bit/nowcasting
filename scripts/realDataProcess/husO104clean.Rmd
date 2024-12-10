@@ -20,13 +20,13 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 ```
 
 ```{r}
-source(file.path(path_source, "functions", "moving_window_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
 
 real_data_path <- normalizePath(file.path(path_source, "..", "data", "raw")) # data path
 
 load(file.path(real_data_path,"husO104Hosp.Rdata"))
 husO104_triangular <- listToTriangle(husO104Hosp)
-husO104_tri_cumu <- cumulative_matrix(husO104_triangular)
+husO104_tri_cumu <- as.data.frame(cumulative_matrix(husO104_triangular))
 
 write.csv(husO104_tri_cumu, file.path(path_proj, "data", "cleaned","husO104_tri_cumu.csv"))
 ```

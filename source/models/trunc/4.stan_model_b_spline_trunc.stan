@@ -55,11 +55,20 @@ model {
   }
 }
 
+// generated quantities {
+//   vector<lower=0>[N_obs] N_t;
+//   for (t in 1:N_obs) {
+//     N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
+//   }
+// }
 generated quantities {
   vector<lower=0>[N_obs] N_t;
   for (t in 1:N_obs) {
-    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
+    real lower_bound = sum(Y[t]); 
+    N_t[t] = poisson_rng(lambda_t[t]);
+    while (N_t[t] < lower_bound) {
+      N_t[t] = poisson_rng(lambda_t[t]); 
+    }
   }
 }
-
 

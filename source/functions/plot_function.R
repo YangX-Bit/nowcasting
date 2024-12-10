@@ -1,67 +1,11 @@
 library(ggplot2)
 library(gridExtra)
 library(ggforce)
-
-# nowcasts_plot <- function(results_list, models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
-#                           title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast") {
-#   #
-#   case_true <- results_list[["case_true"]][[i]]
-#   case_reported <- results_list[["case_reported"]][[i]]
-#   dates <- results_list[["dates"]][[i]]
-#   
-#   # Initialize an empty data frame for nowcast data
-#   nowcasts <- data.frame(date = dates,
-#                          case_true = case_true,
-#                          case_reported = case_reported)
-#   
-#   # Dynamically add model results
-#   for (model_name in names(models_to_run)) {
-#     samples <- results_list[[model_name]]
-#     nowcasts[[paste0("mean_", model_name)]] <- apply(samples, 2, mean)
-#     nowcasts[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
-#     nowcasts[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
-#   }
-#   
-#   # Create the base ggplot object
-#   p <- ggplot(nowcasts, aes(x = date)) +
-#     geom_line(aes(y = case_true, color = "Real Cases")) +
-#     geom_line(aes(y = case_reported, color = "Reported Cases"))
-#   
-#   # Dynamically add ribbons and lines for each model
-#   for (model_name in names(models_to_run)) {
-#     p <- p +
-#       geom_ribbon(aes_string(ymin = paste0("lower_", model_name),
-#                              ymax = paste0("upper_", model_name)),
-#                   fill = model_name, alpha = 0.3) +  # Use model name as fill color
-#       geom_line(aes_string(y = paste0("mean_", model_name), color = model_name))
-#   }
-#   
-#   # Add manual color scale
-#   model_colors <- c("Real Cases" = "red", "Reported Cases" = "black",
-#                     setNames(rainbow(length(models_to_run)), names(models_to_run)))  # Dynamic colors
-#   p <- p +
-#     scale_color_manual(values = model_colors) +
-#     labs(title = title,
-#          x = x_lab,
-#          y = y_lab,
-#          color = NULL) +
-#     theme_minimal() +
-#     theme(
-#       legend.position = c(0.1, 0.9),  # Legend position
-#       legend.justification = c(0, 1),  # Top-left alignment
-#       legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"), # Legend border
-#       legend.key = element_rect(fill = "white", color = NA),
-#       legend.text = element_text(size = 16),
-#       legend.title = element_text(size = 16),
-#       axis.text = element_text(size = 16),
-#       axis.title = element_text(size = 16)
-#     )
-#   p
-#   return(p)
-# }
+library(lubridate)
+library(dplyr)
 
 # check the q shape and output plots of fit
-fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1) {
+fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T) {
   if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
   
   # Normalize matrix columns
@@ -107,17 +51,23 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1) {
   plots <- list()
   for (page in pages) {
     p <- ggplot(plot_data, aes(x = x)) +
-      geom_line(aes(y = y), color = "black") +
-      geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1) +
+      geom_line(aes(y = y), color = "black")
+    
+    # Conditionally add the fit line based on if_fit parameter
+    if (if_fit) {
+      p <- p + geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1)
+    }
+    
+    p <- p + 
       facet_wrap_paginate(~ Row, ncol = ncol, nrow = nrow, page = page) +
       labs(title = paste("Fitted Plots (Page", page, ")"), x = NULL, y = NULL) +
       theme_minimal()
+    
     plots[[page]] <- p
   }
   
   return(plots)
 }
-
 
 
 nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
@@ -223,4 +173,63 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
 #   x_mid <- mean(range(data[[x_var]], na.rm = TRUE))  # mid value
 #   y_max <- max(data[[y_var]], na.rm = TRUE)          # max value
 #   return(c(0.9, y_max * 0.9))                        # right-top
+# }
+
+
+# nowcasts_plot <- function(results_list, models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+#                           title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast") {
+#   #
+#   case_true <- results_list[["case_true"]][[i]]
+#   case_reported <- results_list[["case_reported"]][[i]]
+#   dates <- results_list[["dates"]][[i]]
+#   
+#   # Initialize an empty data frame for nowcast data
+#   nowcasts <- data.frame(date = dates,
+#                          case_true = case_true,
+#                          case_reported = case_reported)
+#   
+#   # Dynamically add model results
+#   for (model_name in names(models_to_run)) {
+#     samples <- results_list[[model_name]]
+#     nowcasts[[paste0("mean_", model_name)]] <- apply(samples, 2, mean)
+#     nowcasts[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
+#     nowcasts[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
+#   }
+#   
+#   # Create the base ggplot object
+#   p <- ggplot(nowcasts, aes(x = date)) +
+#     geom_line(aes(y = case_true, color = "Real Cases")) +
+#     geom_line(aes(y = case_reported, color = "Reported Cases"))
+#   
+#   # Dynamically add ribbons and lines for each model
+#   for (model_name in names(models_to_run)) {
+#     p <- p +
+#       geom_ribbon(aes_string(ymin = paste0("lower_", model_name),
+#                              ymax = paste0("upper_", model_name)),
+#                   fill = model_name, alpha = 0.3) +  # Use model name as fill color
+#       geom_line(aes_string(y = paste0("mean_", model_name), color = model_name))
+#   }
+#   
+#   # Add manual color scale
+#   model_colors <- c("Real Cases" = "red", "Reported Cases" = "black",
+#                     setNames(rainbow(length(models_to_run)), names(models_to_run)))  # Dynamic colors
+#   p <- p +
+#     scale_color_manual(values = model_colors) +
+#     labs(title = title,
+#          x = x_lab,
+#          y = y_lab,
+#          color = NULL) +
+#     theme_minimal() +
+#     theme(
+#       legend.position = c(0.1, 0.9),  # Legend position
+#       legend.justification = c(0, 1),  # Top-left alignment
+#       legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"), # Legend border
+#       legend.key = element_rect(fill = "white", color = NA),
+#       legend.text = element_text(size = 16),
+#       legend.title = element_text(size = 16),
+#       axis.text = element_text(size = 16),
+#       axis.title = element_text(size = 16)
+#     )
+#   p
+#   return(p)
 # }

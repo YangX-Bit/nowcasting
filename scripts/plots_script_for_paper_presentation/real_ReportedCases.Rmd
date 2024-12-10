@@ -1,0 +1,143 @@
+---
+title: "MovingWindowSims"
+author: "Yang Xiao"
+date: "2024-11-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+library(rstan)
+# library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(aweek)
+library(lubridate)
+
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+# source from other paper
+source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
+out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+```
+
+
+```{r, warning=FALSE}
+nowcasts_plot_old <- function(results_list, D = NULL, report_unit = "week",
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast") {
+  
+  p_out <- list(); nowcasts_out <- list();
+  
+  if(report_unit == "week"){ factor_loc = 7
+  }else if(report_unit == "day"){ factor_loc = 1}
+  else{ stop("Wrong input of parameter report_unit. It has to be 'week' or 'day'.")}
+  for (i in 1:length(results_list$case_true)) {
+    # Extract data for the specific time window
+    case_true <- results_list[["case_true"]][[i]]
+    case_reported <- results_list[["case_reported"]][[i]]
+    dates <- results_list[["dates"]][[i]]
+    
+    now <- as.Date(last(dates)); earliest <- as.Date(first(dates))
+    last_date_for_delay <- now - days(D) * factor_loc
+    
+    # Initialize an empty data frame for nowcast data
+    nowcasts <- data.frame(date = dates,
+                           case_true = case_true,
+                           case_reported = case_reported,
+                           row.names = c(1:length(dates)))
+    
+    # Dynamically add model results
+    for (model_name in models_to_run) {
+      # Extract samples
+      samples <- results_list[[model_name]][[i]]$draws(variables = "lambda_t", format = "draws_matrix") 
+      nowcasts[[paste0("mean_", model_name)]] <- apply(samples, 2, mean)
+      nowcasts[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
+      nowcasts[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
+    }
+    #now <- max(nowcasts$dates)
+    nowcasts_out[[i]] <- nowcasts
+    
+    model_colors <- c(
+      "Real Cases" = "red", 
+      "Reported Cases" = "black",
+      "fixed_q" = "#228B22",   # 
+      "fixed_b" = "#ffff66",  # 
+      "b_poly" = "#8446c6",  # 
+      "b_spline" = "#4682B4" # 
+    )
+    # Create the base ggplot object
+    p <- ggplot(nowcasts, aes(x = date)) +
+      geom_line(aes(y = case_true, color = "Real Cases")) +
+      geom_line(aes(y = case_reported, color = "Reported Cases")) +
+      annotate("text", x = now, y = -1, 
+               label = paste0("now: ", now), hjust = 1,vjust = 2, color = "red") +
+      geom_point(data = data.frame(x = now, y = 0), aes(x = x, y = y, shape = "Today"), 
+                 size = 2, color = "red")+
+      scale_shape_manual(values = c("Today" = 17)) 
+    
+    if(last_date_for_delay >= earliest){
+      p <- p + geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
+        annotate("text", x = last_date_for_delay, y = -1, 
+                 label = last_date_for_delay, vjust = 2, color = "orange") 
+    }
+    
+    # Dynamically add ribbons and lines for each model
+    for (model_name in models_to_run) {
+      p <- p +
+        geom_ribbon(aes_string(ymin = paste0("lower_", model_name),
+                               ymax = paste0("upper_", model_name)),
+                    fill = model_colors[model_name], alpha = 0.3) +  # Use model name as fill color
+        geom_line(
+          aes_string(y = paste0("mean_", model_name)), 
+          color = model_colors[model_name]  # pre-defined color
+        )
+    }
+    # Add manual color scale
+    model_colors <- c("Real Cases" = "red", "Reported Cases" = "black",
+                      setNames(rainbow(length(models_to_run)), models_to_run))  # Dynamic colors
+    # legend_position <- adjust_legend_position(nowcasts, "date", "case_true")
+    
+    p <- p +
+      scale_color_manual(values = model_colors) +
+      labs(title = title,
+           x = x_lab,
+           y = y_lab,
+           color = NULL) +
+      theme_minimal() +
+      theme(
+        legend.position = c(0.7, 0.9),  # Legend position
+        legend.justification = c(0, 1),  # Top-left alignment
+        legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"), # Legend border
+        legend.key = element_rect(fill = "white", color = NA),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12)
+      )
+    p_out[[i]] <- p
+  }
+  return(list(plots = p_out,
+              nowcasts = nowcasts_out))
+}
+
+```
+
+
+```{r}
+nowcasts_plot_old(out,D = 26, report_unit = "week",  models_to_run = NULL)[["plots"]]
+```
+
+
+
+
+
