@@ -67,6 +67,7 @@ compiled_models <- list(
 ```{r, warning=FALSE}
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
 
 # setting: delay,  number of days
 seed <- 123
@@ -84,11 +85,12 @@ rownames(case_true) <- as.character(husO104$date)
 # exp plot
 husO104_exp_plot <- husO104 %>% select(-date) %>%
   as.matrix()
+rownames(husO104_exp_plot) <- rownames(case_true)
 
 page_num <- ceiling(nrow(husO104_exp_plot)/16)
 
 exp_plot <- fit_exp_plot(husO104_exp_plot, ncol = 4, nrow = 4, page = c(1:page_num),
-                         if_fit = F)
+                         if_fit = T)
 
 exp_plot
 ```
@@ -106,17 +108,24 @@ out <- nowcasting_moving_window(husO104_input, scoreRange = scoreRange,
                                 num_chains = 3, suppress_output = T)
 
 # save(out, file = file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
-# out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
 results <- nowcasts_plot(out, D = 15, report_unit = "week", 
                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 ```
 
 ```{r}
+
 print(scoreRange)
 for(i in 1:length(scoreRange)){
   print(calculate_metrics(results$nowcasts[i][[1]]))
 }
 
+hus_list <- list()
+count = 1
+for (i in c(3,5)) {
+  hus_list[[count]] <- calculate_metrics(results$nowcasts[i][[1]])
+  count = count + 1
+}
 ```
 
 

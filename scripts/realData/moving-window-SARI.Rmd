@@ -63,6 +63,7 @@ compiled_models <- list(
 ```{r, warning=FALSE}
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
 
 # setting: delay,  number of days
 seed <- 123
@@ -140,10 +141,11 @@ for(i in 1:length(scoreRange)){
 
 
 ```{r}
-results$plots
+nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q", "b_spline"))[["plots"]]
 ```
+
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = NULL)[["plots"]]
+nowcasts_plot(out,D = 26, report_unit = "week")[["plots"]]
 ```
 
 
