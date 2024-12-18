@@ -65,8 +65,9 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
     
     plots[[page]] <- p
   }
-  
-  return(plots)
+  list_out <- list(plots = plots,
+                   coefficients = coef_saved)
+  return(list_out)
 }
 
 
@@ -190,7 +191,6 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
   }else if(report_unit == "day"){ factor_loc = 1}
   else{ stop("Wrong input of parameter report_unit. It has to be 'week' or 'day'.")}
   
-  # 预定义颜色
   model_colors <- c(
     "Real Cases" = "red", 
     "Reported Cases" = "black",
@@ -225,7 +225,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
     }
     nowcasts_out[[i]] <- nowcasts
     
-    # 准备模型数据
+    # prepare the model for data
     model_data <- lapply(models_to_run, function(model_name) {
       data.frame(
         date = dates,
@@ -237,7 +237,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
     })
     model_data <- do.call(rbind, model_data)
     
-    # 重构绘图代码
+    # plots
     p <- ggplot() +
       geom_line(data = nowcasts, aes(x = date, y = case_true, color = "Real Cases"), linewidth = 1) +
       geom_line(data = nowcasts, aes(x = date, y = case_reported, color = "Reported Cases"), linewidth = 1) +
@@ -254,7 +254,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
                  label = last_date_for_delay, vjust = 2, color = "orange")
     }
     
-    # 绘制每个模型的置信区间和均值线
+    # CI and mean for each model
     p <- p +
       geom_ribbon(data = model_data, 
                   aes(x = date, ymin = lower, ymax = upper, fill = model), 

@@ -1,8 +1,3 @@
-
-root_dir <- "/Users/xiaoy0a/Desktop/GitHub/Dengue/dengue-tracker/data/weekly_data/infodengue"
-
-a <- get_infodengue_data(root_dir, start = "202410", end = "202430", states = "AC", D = 10, fill_missing = T)
-a$AC
 library(aweek)
 library(dplyr)
 library(readr)
@@ -172,9 +167,8 @@ get_infodengue_data <- function(root_dir, start, end, states, D = 0,
       M[start_row:end_row, X+1] <- NA
     }
     
-    # 设置行名为日期( dd/mm/yyyy )
     # all_dates 对应每一行的实际日期
-    rownames(M) <- format(all_dates, "%d/%m/%Y")
+    rownames(M) <- format(all_dates, "%Y-%m-%d")
     # 设置列名为 delay0 ... delayD
     colnames(M) <- paste0("delay", 0:D)
     
@@ -183,3 +177,18 @@ get_infodengue_data <- function(root_dir, start, end, states, D = 0,
   
   structure(result_list, data_log = data_log)
 }
+
+brazil_ufs <- c(
+  "AC", "AL", "AP",
+  "AM",
+  "BA", "CE", "DF", "ES",
+  "GO",
+  "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE",
+  "PI",
+  "RJ", "RN", "RS", "RO", "RR",
+  "SC",
+  "SP", "SE", "TO"
+)
+
+

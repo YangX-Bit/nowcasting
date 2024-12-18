@@ -30,15 +30,9 @@ path_source = file.path(path_proj, "source")
 
 # source
 source(file.path(path_source, "simulation", "simulations_functions_final.R"))
-
 # source from other paper
 source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
-# data import
-SARI <- as.data.frame(read.csv(file.path(path_proj, "data", "raw", "clean_data_srag_epiweek_delay_table_PR.csv"),))
 
-# set week
-set_week_start("Sunday")
-SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 ```
 
 ```{r}
@@ -64,69 +58,67 @@ compiled_models <- list(
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
+source(file.path(path_source, "functions", "tidy_dengueBR.R"))
+
 
 # setting: delay,  number of days
 seed <- 123
-D <- 15
-N_obs <- 200
+D <- 10
 
-# try-on in region 41002
-data_41002 <- SARI %>% filter(regionalsaude == 41002) %>%
-  select(-c("epiweek","epiyear","regionalsaude")) %>%
-  relocate(Notifications, .after = last_col())
-rownames(data_41002) <- data_41002$date
+# try-on AC
+root_dir <- "/Users/xiaoy0a/Desktop/GitHub/Dengue/dengue-tracker/data/weekly_data/infodengue"
 
-#transfer to cumu matrix
-data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
-data_41002_input <- as.matrix(data_41002[,c(1:27)])
+AC_EW10_to_EW39 <- get_infodengue_data(root_dir, start = "202410", end = "202439", states = "AC", D = 10, fill_missing = T)$AC
+AC_EW10_to_EW39[15,1] <- AC_EW10_to_EW39[14,1]
 
-# now <- as.Date("2024-02-01")
-scoreRange <- seq(as.Date("2009-07-05"),as.Date("2010-07-05"),by="56 day")
+# 2024-03-03 to 2024-12-08
+scoreRange <- seq(as.Date("2024-04-14"),as.Date("2024-09-22"),by="28 day")
 
 # input the true case vector
-case_true <- as.matrix(data_41002[, c("Notifications")])
-rownames(case_true) <- as.character(data_41002$date)
+AC_data <- read.csv(file.path(root_dir,"202449","AC_2024-12-08_infodengue.csv")) %>% filter(ew >= 202410 & ew <= 202439) %>% 
+  select(ew_start, sum_of_cases)
+
+case_true <- as.matrix(AC_data$sum_of_cases)
+rownames(case_true) <- as.character(AC_data$ew_start)
 ```
 
 ```{r}
-data41002_exp_plot <- data_41002 %>% 
-  filter(date >= min(scoreRange) & date <= max(scoreRange)) %>%
-  select(-Notifications_within_26w, -Notifications, -date) %>%
-  as.matrix()
+AC_matrix_for_plot <- AC_EW10_to_EW39[as.Date(rownames(AC_EW10_to_EW39)) <= (max(as.Date(rownames(AC_EW10_to_EW39))) - D*7),]
 
-page_num <- ceiling(nrow(data41002_exp_plot)/16)
 
-exp_plot <- fit_exp_plot(data41002_exp_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+page_num <- ceiling(nrow(AC_matrix_for_plot)/16)
 
-exp_plot
+AC_exp_plot <- fit_exp_plot(AC_matrix_for_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+
+AC_exp_plot$coefficients
 ```
 
 ```{r}
-exp_b_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
-                          b = exp_plot$coefficients)
+AC_exp_b_data <- data.frame( date = as.Date(rownames(AC_matrix_for_plot)),
+                          b = AC_exp_plot$coefficients)
 
-exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
+AC_exp_b_plot <- ggplot(AC_exp_b_data, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
   geom_smooth(method = "loess", se = TRUE,        
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
 
-exp_b_plot
+AC_exp_b_plot
 ```
 
 ```{r}
-out <- nowcasting_moving_window(data_41002_input, scoreRange = as.Date("2009-08-30"), 
+out <- nowcasting_moving_window(AC_EW10_to_EW39, scoreRange = as.Date("2024-09-01"), 
                                 case_true = case_true,
-                                start_date = as.Date("2009-06-15"),
+                                start_date = as.Date("2024-03-03"),
                                 #start_date = scoreRange[1] - weeks(20),
-                                D = 26, sigma_b = 0.5, seeds = 111,
+                                D = 10, sigma_b = 0.5, seeds = seed,
                                 models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
                                 num_chains = 3, suppress_output = T)
 
-#save(out, file = file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+save(out, file = file.path(path_proj, "data", "fitted_model","AC_EW10_to_EW39.RData"))
 out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
 results <- nowcasts_plot(out, D = 26, report_unit = "week", 
                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
