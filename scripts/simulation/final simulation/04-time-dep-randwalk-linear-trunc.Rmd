@@ -1,0 +1,137 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rstan)
+#library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simulate data
+
+### random walk
+```{r}
+# source(file.path(path_source, "simulation", "simulations_functions.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 30
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+
+data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
+                     #alpha =  c( seq(10, 300, by = 10),seq(300, 10, by = -10)),
+                    alpha_lamb =  c( rep(10,9),seq(10, 300, by = 30),seq(310, 0, by = -60),rep(10,5)), beta_lamb = 0.5,
+                    days = N_obs, 
+                    D_trunc = 15, D = 25, if_D_fully_reported = T,
+                    method =c("random_walk"),
+                    method_params = list( b = 0.2, sigma_rw = 0.1),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+data$case_true - as.numeric(data$case_reported[,16])
+# create triangular data
+data_trunc <- create_triangular_data(data$case_reported)
+
+# get indices of non-NAs 
+indices_data_trunc <- find_non_na_coords(data_trunc)
+
+data_trunc[is.na(data_trunc)] <- 0  
+
+print(data_trunc)
+
+```
+
+### basis for spline
+
+```{r}
+
+exp_plot <- fit_exp_plot(data$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot
+```
+```{r}
+exp_b_data <- data.frame( date = as.Date(rownames(data$case_reported)),
+                          b = exp_plot$coefficients)
+
+exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot
+```
+
+
+## fit model
+```{r}
+data$case_reported
+
+# now <- as.Date("2024-02-01")
+scoreRange <- seq(as.Date("2024-01-02"),as.Date("2024-01-30"),by="14 day")
+out <- nowcasting_moving_window(data$case_reported, scoreRange = scoreRange, 
+                                case_true = data$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = 15, sigma_b = 0.5, seeds = 111,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
+                                num_chains = 3, suppress_output = T)
+
+results <- nowcasts_plot(out, D = 15, report_unit = "day", 
+                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+```
+
+
+## check results
+```{r}
+results
+```
+
+```{r}
+print(scoreRange)
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results$nowcasts[i][[1]]))
+}
+```
+
+```{r}
+library(ggplot2)
+plot(fit_trunc, par = c("b_t_est")) +
+  geom_point(aes(x, y), data = data.frame(x = data$b, y = c(60:1)), color = "blue")
+
+```
+
+```{r}
+plot(data$b)
+```
+
+```{r}
+plot(fit_trunc, par = c("N_t")) +
+  geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(30:1)), color = "blue")+
+    geom_point(aes(x, y), data = data.frame(x = apply(data_trunc, 1, max), y = c(30:1)), color = "green")
+```
+
+```{r}
+plot(fit_trunc, par = c("N_t"))
+```
+

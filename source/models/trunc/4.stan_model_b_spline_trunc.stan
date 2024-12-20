@@ -35,13 +35,13 @@ model {
   alpha_lambda ~ gamma(2, 1);
   beta_lambda ~ gamma(2, 1);
   beta ~ normal(0, 1);
-  
+
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
   
-  // for (t in 2:N_obs) {
-  //   b_t[t] - b_t[t - 1] ~ normal(0, sigma_b);  // constraint for b_t
-  // }
+  for (t in 2:N_obs) {
+    b_t[t] - b_t[t - 1] ~ normal(0, sigma_b);  // constraint for b_t
+  }
   
 
   // Likelihood: Marginalized Poisson likelihood for N_t and Binomial for Y
@@ -66,9 +66,9 @@ generated quantities {
   for (t in 1:N_obs) {
     real lower_bound = sum(Y[t]); 
     N_t[t] = poisson_rng(lambda_t[t]);
-    while (N_t[t] < lower_bound) {
-      N_t[t] = poisson_rng(lambda_t[t]); 
-    }
+    // while (N_t[t] < lower_bound) {
+    //   N_t[t] = poisson_rng(lambda_t[t]); 
+    // }
   }
 }
 

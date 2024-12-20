@@ -89,8 +89,7 @@ AC_matrix_for_plot <- AC_EW10_to_EW39[as.Date(rownames(AC_EW10_to_EW39)) <= (max
 page_num <- ceiling(nrow(AC_matrix_for_plot)/16)
 
 AC_exp_plot <- fit_exp_plot(AC_matrix_for_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-
-AC_exp_plot$coefficients
+AC_exp_plot$plots
 ```
 
 ```{r}
@@ -108,19 +107,19 @@ AC_exp_b_plot
 ```
 
 ```{r}
-out <- nowcasting_moving_window(AC_EW10_to_EW39, scoreRange = as.Date("2024-09-01"), 
+out <- nowcasting_moving_window(AC_EW10_to_EW39, scoreRange = scoreRange, 
                                 case_true = case_true,
                                 start_date = as.Date("2024-03-03"),
                                 #start_date = scoreRange[1] - weeks(20),
-                                D = 10, sigma_b = 0.5, seeds = seed,
+                                D = 10, sigma_b = 0.1, seeds = seed,
                                 models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
                                 num_chains = 3, suppress_output = T)
 
-save(out, file = file.path(path_proj, "data", "fitted_model","AC_EW10_to_EW39.RData"))
-out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
-results <- nowcasts_plot(out, D = 26, report_unit = "week", 
+#  save(out, file = file.path(path_proj, "data", "fitted_model","AC_EW10_to_EW39.RData"))
+# out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+results <- nowcasts_plot(out, D = 10, report_unit = "week", 
                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 ```
 
@@ -129,30 +128,74 @@ print(scoreRange)
 for(i in 1:length(scoreRange)){
   print(calculate_metrics(results$nowcasts[i][[1]]))
 }
-```
-
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q", "b_spline"))[["plots"]]
+results$nowcasts
 ```
 
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week")[["plots"]]
+#SP states
+
+# try-on BR
+root_dir <- "/Users/xiaoy0a/Desktop/GitHub/Dengue/dengue-tracker/data/weekly_data/infodengue"
+
+BR_EW10_to_EW39 <- get_infodengue_data(root_dir, start = "202410", end = "202439", states = "BR", D = 10, fill_missing = T)$BR
+BR_EW10_to_EW39[15,1] <- BR_EW10_to_EW39[14,1]
+
+# 2024-03-03 to 2024-12-08
+scoreRange <- seq(as.Date("2024-04-14"),as.Date("2024-09-22"),by="28 day")
+
+# input the true case vector
+BR_data <- read.csv(file.path(root_dir,"202449","BR_2024-12-08_infodengue.csv")) %>% filter(ew >= 202410 & ew <= 202439) %>% 
+  select(ew_start, sum_of_cases)
+
+case_true <- as.matrix(BR_data$sum_of_cases)
+rownames(case_true) <- as.character(BR_data$ew_start)
 ```
 
-
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q"))[["plots"]]
+BR_matrix_for_plot <- BR_EW10_to_EW39[as.Date(rownames(BR_EW10_to_EW39)) <= (max(as.Date(rownames(BR_EW10_to_EW39))) - D*7),]
+
+
+page_num <- ceiling(nrow(BR_matrix_for_plot)/16)
+
+BR_exp_plot <- fit_exp_plot(BR_matrix_for_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+BR_exp_plot$plots
 ```
 
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_b"))[["plots"]]
+BR_exp_b_data <- data.frame( date = as.Date(rownames(BR_matrix_for_plot)),
+                          b = BR_exp_plot$coefficients)
+
+BR_exp_b_plot <- ggplot(BR_exp_b_data, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+BR_exp_b_plot
 ```
 
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_poly"))[["plots"]]
+out_SP <- nowcasting_moving_window(BR_EW10_to_EW39, scoreRange = scoreRange, 
+                                case_true = case_true,
+                                start_date = as.Date("2024-03-03"),
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = 10, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
+                                num_chains = 3, suppress_output = T)
+
+#  save(out, file = file.path(path_proj, "data", "fitted_model","BR_EW10_to_EW39.RData"))
+# out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+results_SP <- nowcasts_plot(out_SP, D = 10, report_unit = "week", 
+                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 ```
 
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_spline"))[["plots"]]
+print(scoreRange)
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_SP$nowcasts[i][[1]]))
+}
+results$nowcasts
 ```

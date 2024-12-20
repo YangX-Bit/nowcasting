@@ -1,35 +1,6 @@
 library(dplyr)
 library(tidyr)
 
-### functions to generate Generalized Dirichlet distribution
-# Parameters:
-#  n - number of samples
-#  alpha - alpha
-#  beta - beta
-###
-rGeneralizedDirichlet <- function(n = 1, alpha, beta) {
-  # n is the number of samples to generate
-  # alpha and beta are the parameter vectors for the Generalized Dirichlet distribution
-  k <- length(alpha)  # The dimension of the vector
-  X <- matrix(0, n, k)  # Initialize a matrix to store the results
-
-  # Generate Beta-distributed random numbers sequentially according to the definition
-  for (i in 1:n) {
-    x <- numeric(k)  # Store the k components of each sample
-    x[1] <- rbeta(1, alpha[1], beta[1])  # Generate X_1
-    prod_term <- 1 - x[1]  # The remaining product term
-    for (j in 2:(k - 1)) {
-      x[j] <- rbeta(1, alpha[j], beta[j]) * prod_term  # Generate X_j
-      prod_term <- prod_term - x[j]  # Update the remaining product term
-    }
-    x[k] <- prod_term  # The last component
-    X[i, ] <- x  # Store the generated sample
-  }
-
-  return(X)
-}
-
-
 generate_alpha <- function(n, range = c(0, 1), dist = "uniform", seed = NULL) {
   # check the range 
   if (length(range) != 2 || range[1] >= range[2]) {
@@ -61,202 +32,229 @@ generate_alpha <- function(n, range = c(0, 1), dist = "uniform", seed = NULL) {
 }
 
 
-### functions to generate p(delay probability)
-# Parameters:
-#  n - number of samples
-#  alpha - alpha
-#  beta - beta
-###
-simsP <- function(Type = "GD", gd_alpha = 1:20, gd_beta = 20:1, D = 15, days = 30, seed = 123) {
-  set.seed(seed)
-
-  Type <- match.arg(Type, c("GD", "Multi_GD", "basin"))
-
-  if (Type == "GD") {
-    # fixed prob
-    p <- as.numeric(rGeneralizedDirichlet(1, gd_alpha, gd_beta))
-
-  } else if (Type == "Multi_GD") {
-    # multi
-    p <- rGeneralizedDirichlet(days, gd_alpha, gd_beta)
-
-  } else {  # Type == "basin"
-    # spit into three parts
-    n <- split_into_three(days)
-    p <- matrix(0, nrow = days, ncol = D + 1)
-
-    for (i in 1:days) {
-      if (i <= n[1]) {
-        p[i, ] <- generate_controlled_sum(D + 1, alpha = 1, beta = 1000, order = "decreasing")
-
-      } else if (i <= (n[1] + n[2])) {
-        p[i, ] <- generate_controlled_sum(D + 1, alpha = 10, beta = 1)
-
-      } else {
-        p[i, ] <- generate_controlled_sum(D + 1, alpha = 1, beta = 1000, order = "increasing")
-      }
+simsQ <- function(
+    method = c("constant", "time_varying", "random_walk"),
+    D = 15, 
+    t = NULL, 
+    # Parameters for different methods:
+    # For "constant": provide 'b'
+    # For "time_varying": provide 'beta0', 'beta1'
+    # For "random_walk": provide 'b' (initial), 'sigma_rw'
+    b = NULL, 
+    beta0 = NULL, beta1 = NULL,
+    sigma_rw = NULL,
+    ensure_qd_one = TRUE
+) {
+  # 'method' defines how Q is simulated:
+  #   "constant": Q(d) = 1 - exp(-b * d)
+  #   "time_varying": b_t = exp(beta0 + beta1 * t), Q_t(d) = 1 - exp(-b_t[i] * d)
+  #   "random_walk": b_t evolves as a random walk in log-space, Q_t(d) = 1 - exp(-b_t[i] * d)
+  #
+  # 'ensure_qd_one': if TRUE, after computing qd, 
+  # we normalize so that qd(..., D+1) = 1 exactly.
+  #
+  # Returns a list with:
+  #   qd: 
+  #     - If method="constant", a vector of length D+1
+  #     - Otherwise, a matrix (t x (D+1))
+  #   b_t:
+  #     - The b_t values used. For "constant", b_t is just a single value.
+  #     - For "time_varying" and "random_walk", b_t is a vector of length t.
+  
+  method <- match.arg(method)
+  
+  # A helper function to normalize qd so that qd at D+1 is exactly 1.
+  normalize_qd <- function(qd) {
+    if (is.vector(qd)) {
+      # For a single vector
+      final_val <- qd[D+1]
+      if (final_val > 0) qd <- qd / final_val
+    } else {
+      # For a matrix, normalize each row
+      final_vals <- qd[, D+1]
+      # Avoid division by zero
+      valid_rows <- final_vals > 0
+      qd[valid_rows, ] <- qd[valid_rows, ] / final_vals[valid_rows]
     }
+    return(qd)
   }
-
-  return(p)
-}
-# 
-
-simsQ <- function(method = "constant", 
-                  b = 3, D = 15, t = 30,
-                  beta0 = -2, beta1 = 0.1, sigma_rw = 0.05) {
-  # 'method' defines how Q is simulated
-  # 'b' can be a constant or a time-varying function
-  # 'd' is the delay time, and 't' is the current time point (optional)
-  # 'sigma_rw' is the standard deviation of the random walk increment
   
   if (method == "constant") {
-    # Q with a constant b
-    qd <- 1 - exp(-b * 1:(D + 1))
-    
-    return(list(qd = qd, b_t = b))
+    if (is.null(b)) stop("For 'constant' method, 'b' must be provided.")
+    # No need for t
+    qd <- 1 - exp(-b * (1:(D+1)))
+    b_t <- b
     
   } else if (method == "time_varying") {
-    # Time-varying Q, b_t increases over time
-    if (is.null(t)) stop("Time 't' must be provided for time-varying method.")
-    
+    if (is.null(t)) stop("For 'time_varying' method, 't' must be provided.")
+    if (is.null(beta0) || is.null(beta1)) {
+      stop("For 'time_varying' method, 'beta0' and 'beta1' must be provided.")
+    }
     qd <- matrix(NA, nrow = t, ncol = D + 1)
-    b_t <-  exp(beta0 + beta1 * 1:t)   
-    
+    b_t <- exp(beta0 + beta1 * (1:t))
     for (i in 1:t) {
-      qd[i,] <- 1 - exp(-b_t[i] * 1:(D + 1))
+      qd[i, ] <- 1 - exp(-b_t[i] * (1:(D+1)))
     }
     
-    return(list(qd = qd, b_t = b_t)) 
-    
-  } else if (method == "random_walk") {
-    # Random walk Q, b_t fluctuates over time
-    if (is.null(t)) stop("Time 't' must be provided for random_walk method.")
-    qd <- matrix(NA, nrow = t, ncol = D + 1)  # Initialize matrix for each time step
-    b_t <- numeric(t)                         # Vector to store b_t values
-    b_t[1] <- b  # Initialize the first b_t value
-    
+  } else { # method == "random_walk"
+    if (is.null(t)) stop("For 'random_walk' method, 't' must be provided.")
+    if (is.null(b) || is.null(sigma_rw)) {
+      stop("For 'random_walk' method, 'b' (initial) and 'sigma_rw' must be provided.")
+    }
+    qd <- matrix(NA, nrow = t, ncol = D + 1)
+    b_t <- numeric(t)
+    b_t[1] <- b
+    # Evolve b_t as a random walk in log-space
     for (i in 2:t) {
-      b_t[i] <- exp(log(b_t[i - 1]) + rnorm(1, mean = 0, sd = sigma_rw))  # Random walk step
+      b_t[i] <- exp(log(b_t[i - 1]) + rnorm(1, mean = 0, sd = sigma_rw))
     }
-    
-    # Compute q(d) for each delay at each time step
+    # Compute qd
     for (i in 1:t) {
-      qd[i, ] <- 1 - exp(-b_t[i] * 1:(D + 1))
+      qd[i, ] <- 1 - exp(-b_t[i] * (1:(D+1)))
     }
-    
-    return(list(qd = qd, b_t = b_t))  # Return both Q and the time-varying b_t
-    
-  } else {
-    stop("Unknown method for Q simulation.")
   }
+  
+  # Normalize qd if required
+  if (ensure_qd_one) {
+    qd <- normalize_qd(qd)
+  }
+  
+  return(list(qd = qd, b_t = b_t))
 }
-
 set.seed(1)
-simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.3)
-simsQ("time_varying", t = 30)
-simsQ("constant", b = 3)
+simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.1)
+simsQ("time_varying", t = 30, beta0 = 0.1, beta1 = -0.05)
+simsQ("constant", b = 0.3)
 
-simsDataGenP <- function(alpha =  c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6) ), beta = 0.5,
-                         p = NULL,
-                         days = length(alpha), D = 15, seed = 123){
-  if(length(alpha) < days){
-    stop("Error! The length of alpha cannot be less than days!")
+
+
+simsDataGenQ <- function(
+    # Basic model parameters
+  alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
+  beta_lamb = 0.5,
+  days = 30,
+  
+  # Delays: 
+  # D_trunc is the truncated delay window we usually observe or assume as "final".
+  # D is the full delay window considered when if_D_fully_reported = TRUE.
+  D_trunc = 15,
+  D = 30,
+  if_D_fully_reported = FALSE,
+  
+  # Reporting dynamics method: "constant", "time_varying", or "random_walk".
+  # Use a named list `method_params` to hold the parameters required by the chosen method.
+  method = c("constant", "time_varying", "random_walk"),
+  method_params = list(
+    # For "constant": list(b = 3)
+    # For "time_varying": list(beta0 = -2, beta1 = 0.1)
+    # For "random_walk": list(b = 3, sigma_rw = 1)
+  ),
+  
+  # Starting date
+  date_start = as.Date("2024-01-01"),
+  
+  # Random seed
+  seed = 123
+) {
+  # Check inputs
+  method <- match.arg(method)
+  if (length(alpha_lamb) < days) {
+    stop("The length of alpha_lamb cannot be less than 'days'.")
+  }
+  if (D_trunc > D) {
+    stop("D_trunc must be less or equal to D.")
   }
   
+  # Decide which D to use internally based on if_D_fully_reported
+  # If TRUE, we simulate with a full delay window D and then truncate output
+  # If FALSE, we only simulate with D_trunc delay.
+  D_used <- if (if_D_fully_reported) D else D_trunc
+  
+  # Set seed for reproducibility
   set.seed(seed)
   
-  # Cut the probability according to the Maximal delay that we concern
-  p_cut <- ifelse(is.null(nrow(p)), p[c(1:(D+1))], p[, c(1:(D+1))])
+  # Generate the date sequence
+  date_end <- date_start + days - 1
+  date_seq <- as.Date(date_start:date_end)
   
-  # Arrays to accumulate the results across multiple simulations
-  lambda_t <- numeric(days)  # Lambda for each day 
-  case_true <- numeric(days) # Actual number of cases per day
-
-  # Simulate the true number of cases per day
-  for (t in 1:days) {
-    # Draw the Poisson intensity parameter lambda_t from a Gamma distribution
-    lambda_t[t] <- rgamma(1, shape = alpha[t], rate = beta)
-    
-    # Draw the actual number of cases N(t, ∞) from a Poisson distribution
-    case_true[t] <- rpois(1, lambda = lambda_t[t])
-  }
+  # Prepare output arrays
+  lambda_t <- numeric(days)
+  case_true <- matrix(numeric(days), ncol = 1)
+  rownames(case_true) <- as.character(date_seq)
   
-  case_reported <- matrix(0, nrow = days, ncol = D + 1)
-  # Reported cases based on delay distribution
-  if (is.null(nrow(p_cut))) {
-    p_cut <- p[c(1:(D+1))] # cut by maximal delay that we concern
-    for (i in 1:days) {
-      case_reported[i,] = rmultinom(1, size = case_true[i], prob = p_cut)
+  case_reported <- matrix(0, nrow = days, ncol = D_used + 1)
+  
+  # Generate reporting probabilities qd based on the chosen method.
+  # The simsQ function should return a list with:
+  # $qd: cumulative probabilities (either a vector for constant or a matrix for varying methods)
+  # $b_t: corresponding b(t) (if applicable)
+  
+  # Extract parameters according to the chosen method
+  if (method == "constant") {
+    # Expected parameters in method_params: b
+    if (!"b" %in% names(method_params)) stop("For method='constant', method_params must include 'b'.")
+    simsQ_out <- simsQ(method = "constant", b = method_params$b, D = D_used)
+  } else if (method == "time_varying") {
+    # Expected parameters in method_params: beta0, beta1
+    if (!all(c("beta0", "beta1") %in% names(method_params))) {
+      stop("For method='time_varying', method_params must include 'beta0' and 'beta1'.")
     }
+    simsQ_out <- simsQ(method = "time_varying", D = D_used, t = days, 
+                       beta0 = method_params$beta0, beta1 = method_params$beta1)
   } else {
-    p_cut <-  p[, c(1:(D+1))]
-    for (i in 1:days) {
-      case_reported[i,] = rmultinom(1, size = case_true[i], prob = p_cut[i, ])
+    # method == "random_walk"
+    # Expected parameters in method_params: b, sigma_rw
+    if (!all(c("b", "sigma_rw") %in% names(method_params))) {
+      stop("For method='random_walk', method_params must include 'b' and 'sigma_rw'.")
     }
-  }
-  out <- list(case_reported = t(apply(case_reported, 1, cumsum)), 
-              case_true = case_true, lambda_t = lambda_t,
-              case_reported_non_accum = case_reported
-              )
-  
-  return(out)
-}
-
-simsDataGenQ <- function(alpha_lamb =  c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6) ), beta_lamb = 0.5,
-                         b = 3, method = "constant",
-                         beta0 = -2, beta1 = 0.1,
-                         sigma_rw = 1,
-                         date_start = as.Date("2024-01-01"), days = 30, D = 15, seed = 123){
-  if(length(alpha_lamb) < days){
-    stop("Error! The length of alpha cannot be less than days!")
+    simsQ_out <- simsQ(method = "random_walk", b = method_params$b, D = D_used, t = days, 
+                       sigma_rw = method_params$sigma_rw)
   }
   
-  # date
-  date_end = date_start + days - 1
-  date = as.Date(date_start:date_end)
-  
-  set.seed(seed)
-  
-  # Arrays to accumulate the results
-  lambda_t <- numeric(days)  # Lambda for each day 
-  case_true <- numeric(days) # Actual number of cases per day
-  Q <- matrix(0, nrow = days, ncol = D + 1)
-  case_reported <-  matrix(0, nrow = days, ncol = D + 1)
-  
-  # report proportion
-  if(method == "constant"){
-    simsQ_out <- simsQ("constant", b = b, D = D)
-    prob_temp <- simsQ_out$qd
-  }else if(method == "time_varying"){
-    simsQ_out <- simsQ("time_varying", D = D, t = days, beta0 = beta0, beta1 = beta1)
-  }else{
-    simsQ_out <- simsQ(method = "random_walk", b = b, D = D, t = days, sigma_rw = sigma_rw)
-  }
-  
-  # Simulate the true number of cases per day
+  # Simulate data
   for (t in 1:days) {
-    # Draw the Poisson intensity parameter lambda_t from a Gamma distribution
+    # 1. Draw lambda_t from Gamma distribution
     lambda_t[t] <- rgamma(1, shape = alpha_lamb[t], rate = beta_lamb)
     
-    # Draw the actual number of cases from a Poisson distribution
+    # 2. Simulate the true number of cases for day t
     case_true[t] <- rpois(1, lambda = lambda_t[t])
     
-    # D times from binom
-    reported_temp <- numeric(D+1)
-    
-    if(method != "constant"){ prob_temp <- simsQ_out$qd[t,] }
-    
-    for(d in 1:(D+1)){
-      reported_temp[d] <- rbinom(1, size = case_true[t], prob = prob_temp[d])
+    # 3. Extract cumulative probabilities for day t
+    if (method == "constant") {
+      # qd is a constant vector
+      prob_temp <- simsQ_out$qd
+    } else {
+      # qd is a matrix of size (days x (D_used+1))
+      prob_temp <- simsQ_out$qd[t, ]
     }
-    case_reported[t, ] <- sort(reported_temp)
+    
+    # Convert cumulative probabilities to incremental probabilities
+    # p_temp[d] = qd[d] - qd[d-1] with qd[0] = 0
+    p_temp <- c(prob_temp[1], diff(prob_temp))
+    
+    # 4. Distribute the total cases into delay intervals using rmultinom
+    reported_temp <- rmultinom(1, size = case_true[t], prob = p_temp)
+    
+    # 5. Convert from increments to cumulative reported cases
+    case_reported[t, ] <- cumsum(reported_temp)
   }
-  rownames(case_reported) <- as.character(date)
-
-  out <- list(case_reported = case_reported, case_true = case_true,
-              lambda_t = lambda_t, qd = simsQ_out$qd, b = simsQ_out$b_t)
-  return(out)
+  
+  # If we used a full delay window (if_D_fully_reported = TRUE),
+  # we only return the truncated part of the matrix to mimic partial observation.
+  if (if_D_fully_reported) {
+    case_reported <- case_reported[, 1:(D_trunc + 1), drop = FALSE]
+  }
+  
+  rownames(case_reported) <- as.character(date_seq)
+  
+  # Return a list of results
+  return(list(
+    case_reported = case_reported,
+    case_true = case_true,
+    lambda_t = lambda_t,
+    qd = simsQ_out$qd,
+    b = simsQ_out$b_t
+  ))
 }
 
 # spline basis
@@ -272,8 +270,6 @@ create_basis <- function(N_obs, n_knots = 5){
   
   return(X_spline)
 }
-
-
 
 
 ### functions to transfer the simulation data to the form of data in the paper
