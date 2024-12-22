@@ -141,7 +141,7 @@ BR_EW10_to_EW39 <- get_infodengue_data(root_dir, start = "202410", end = "202439
 BR_EW10_to_EW39[15,1] <- BR_EW10_to_EW39[14,1]
 
 # 2024-03-03 to 2024-12-08
-scoreRange <- seq(as.Date("2024-04-14"),as.Date("2024-09-22"),by="28 day")
+scoreRange <- seq(as.Date("2024-04-14"),as.Date("2024-09-22"),by="35 day")
 
 # input the true case vector
 BR_data <- read.csv(file.path(root_dir,"202449","BR_2024-12-08_infodengue.csv")) %>% filter(ew >= 202410 & ew <= 202439) %>% 
@@ -190,6 +190,7 @@ out_SP <- nowcasting_moving_window(BR_EW10_to_EW39, scoreRange = scoreRange,
 # out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
 results_SP <- nowcasts_plot(out_SP, D = 10, report_unit = "week", 
                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+results_SP$plots
 ```
 
 ```{r}
@@ -197,5 +198,14 @@ print(scoreRange)
 for(i in 1:length(scoreRange)){
   print(calculate_metrics(results_SP$nowcasts[i][[1]]))
 }
-results$nowcasts
 ```
+
+
+```{r}
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_SP$nowcasts[i][[1]],D)))
+}
+
+
+```
+
