@@ -114,7 +114,7 @@ out <- nowcasting_moving_window(AC_EW10_to_EW39, scoreRange = scoreRange,
                                 D = 10, sigma_b = 0.1, seeds = seed,
                                 models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
                                 compiled_models = compiled_models,
-                                iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
 #  save(out, file = file.path(path_proj, "data", "fitted_model","AC_EW10_to_EW39.RData"))

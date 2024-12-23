@@ -34,7 +34,7 @@ generate_alpha <- function(n, range = c(0, 1), dist = "uniform", seed = NULL) {
 
 simsQ <- function(
     method = c("constant", "time_varying", "random_walk"),
-    D = 15, 
+    D = NULL,
     t = NULL, 
     # Parameters for different methods:
     # For "constant": provide 'b'
@@ -121,12 +121,10 @@ simsQ <- function(
   
   return(list(qd = qd, b_t = b_t))
 }
-set.seed(1)
-simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.1)
-simsQ("time_varying", t = 30, beta0 = 0.1, beta1 = -0.05)
-simsQ("constant", b = 0.3)
-
-
+# set.seed(1)
+# simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.1)
+# simsQ("time_varying", t = 30, beta0 = 0.1, beta1 = -0.05)
+# simsQ("constant", b = 0.3)
 
 simsDataGenQ <- function(
     # Basic model parameters
@@ -136,10 +134,10 @@ simsDataGenQ <- function(
   
   # Delays: 
   # D_trunc is the truncated delay window we usually observe or assume as "final".
-  # D is the full delay window considered when if_D_fully_reported = TRUE.
-  D_trunc = 15,
-  D = 30,
-  if_D_fully_reported = FALSE,
+  # D is the full delay window considered when if_fully_reported = TRUE.
+  D_trunc = NULL,
+  D_complete = NULL,
+  if_fully_reported = FALSE,
   
   # Reporting dynamics method: "constant", "time_varying", or "random_walk".
   # Use a named list `method_params` to hold the parameters required by the chosen method.
@@ -161,14 +159,22 @@ simsDataGenQ <- function(
   if (length(alpha_lamb) < days) {
     stop("The length of alpha_lamb cannot be less than 'days'.")
   }
-  if (D_trunc > D) {
-    stop("D_trunc must be less or equal to D.")
+  
+  if (D_trunc >= D_complete) {
+    stop("D_trunc must be strictly less than D_complete in the 'not fully reported' scenario.")
   }
   
-  # Decide which D to use internally based on if_D_fully_reported
-  # If TRUE, we simulate with a full delay window D and then truncate output
-  # If FALSE, we only simulate with D_trunc delay.
-  D_used <- if (if_D_fully_reported) D else D_trunc
+  if_fully_reported <- as.logical(if_fully_reported)
+  if (if_fully_reported) {
+    D_used <- D_trunc
+    # Make sure we REALLY converge to 1 at D_trunc => ensure_qd_one=TRUE
+    ensure_qd_one_flag <- TRUE
+  } else {
+    D_used <- D_complete
+    # We do NOT want to force qd to 1 at D_complete => ensure_qd_one=FALSE
+    ensure_qd_one_flag <- FALSE
+  }
+  
   
   # Set seed for reproducibility
   set.seed(seed)
@@ -183,6 +189,7 @@ simsDataGenQ <- function(
   rownames(case_true) <- as.character(date_seq)
   
   case_reported <- matrix(0, nrow = days, ncol = D_used + 1)
+  rownames(case_reported) <- as.character(date_seq)
   
   # Generate reporting probabilities qd based on the chosen method.
   # The simsQ function should return a list with:
@@ -193,31 +200,41 @@ simsDataGenQ <- function(
   if (method == "constant") {
     # Expected parameters in method_params: b
     if (!"b" %in% names(method_params)) stop("For method='constant', method_params must include 'b'.")
-    simsQ_out <- simsQ(method = "constant", b = method_params$b, D = D_used)
+    simsQ_out <- simsQ(method = "constant", 
+                       b = method_params$b, 
+                       D = D_used, ensure_qd_one = ensure_qd_one_flag)
   } else if (method == "time_varying") {
     # Expected parameters in method_params: beta0, beta1
     if (!all(c("beta0", "beta1") %in% names(method_params))) {
       stop("For method='time_varying', method_params must include 'beta0' and 'beta1'.")
     }
-    simsQ_out <- simsQ(method = "time_varying", D = D_used, t = days, 
-                       beta0 = method_params$beta0, beta1 = method_params$beta1)
+    simsQ_out <- simsQ(method = "time_varying", 
+                       t = days, 
+                       D = D_used, 
+                       beta0 = method_params$beta0, 
+                       beta1 = method_params$beta1, 
+                       ensure_qd_one = ensure_qd_one_flag)
   } else {
     # method == "random_walk"
     # Expected parameters in method_params: b, sigma_rw
     if (!all(c("b", "sigma_rw") %in% names(method_params))) {
       stop("For method='random_walk', method_params must include 'b' and 'sigma_rw'.")
     }
-    simsQ_out <- simsQ(method = "random_walk", b = method_params$b, D = D_used, t = days, 
-                       sigma_rw = method_params$sigma_rw)
+    simsQ_out <- simsQ(method = "random_walk", 
+                       t = days, 
+                       D = D_used,
+                       b = method_params$b, 
+                       sigma_rw = method_params$sigma_rw, 
+                       ensure_qd_one = ensure_qd_one_flag)
   }
   
   # Simulate data
-  for (t in 1:days) {
+  for (tt in seq_len(days)) {
     # 1. Draw lambda_t from Gamma distribution
-    lambda_t[t] <- rgamma(1, shape = alpha_lamb[t], rate = beta_lamb)
+    lambda_t[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
     
     # 2. Simulate the true number of cases for day t
-    case_true[t] <- rpois(1, lambda = lambda_t[t])
+    case_true[tt] <- rpois(1, lambda = lambda_t[tt])
     
     # 3. Extract cumulative probabilities for day t
     if (method == "constant") {
@@ -225,7 +242,7 @@ simsDataGenQ <- function(
       prob_temp <- simsQ_out$qd
     } else {
       # qd is a matrix of size (days x (D_used+1))
-      prob_temp <- simsQ_out$qd[t, ]
+      prob_temp <- simsQ_out$qd[tt, ]
     }
     
     # Convert cumulative probabilities to incremental probabilities
@@ -233,19 +250,20 @@ simsDataGenQ <- function(
     p_temp <- c(prob_temp[1], diff(prob_temp))
     
     # 4. Distribute the total cases into delay intervals using rmultinom
-    reported_temp <- rmultinom(1, size = case_true[t], prob = p_temp)
+    reported_temp <- rmultinom(1, size = case_true[tt], prob = p_temp)
     
     # 5. Convert from increments to cumulative reported cases
-    case_reported[t, ] <- cumsum(reported_temp)
+    case_reported[tt, ] <- cumsum(reported_temp)
   }
   
-  # If we used a full delay window (if_D_fully_reported = TRUE),
+  # If we used a full delay window (if_fully_reported = TRUE),
   # we only return the truncated part of the matrix to mimic partial observation.
-  if (if_D_fully_reported) {
+  if (!if_fully_reported) {
     case_reported <- case_reported[, 1:(D_trunc + 1), drop = FALSE]
+    simsQ_out$qd <- simsQ_out$qd[, 1:(D_trunc + 1), drop = FALSE]
   }
   
-  rownames(case_reported) <- as.character(date_seq)
+  
   
   # Return a list of results
   return(list(
@@ -253,10 +271,12 @@ simsDataGenQ <- function(
     case_true = case_true,
     lambda_t = lambda_t,
     qd = simsQ_out$qd,
-    b = simsQ_out$b_t
+    b = simsQ_out$b_t,
+    # Save which D was actually used
+    D_used = D_used,
+    ensure_qd_one_flag = ensure_qd_one_flag
   ))
 }
-
 # spline basis
 create_basis <- function(N_obs, n_knots = 5){
   time_points <- 1:N_obs

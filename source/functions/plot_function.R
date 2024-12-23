@@ -73,7 +73,8 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 
 nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
-                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast") {
+                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast",
+                          legend_position = "left") {
   
   p_out <- list(); nowcasts_out <- list();
   
@@ -154,7 +155,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
            color = NULL) +
       theme_minimal() +
       theme(
-        legend.position = c(0.7, 0.9),  # Legend position
+        legend.position = legend_position,  # Legend position
         legend.justification = c(0, 1),  # Top-left alignment
         legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"), # Legend border
         legend.key = element_rect(fill = "white", color = NA),
@@ -163,6 +164,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
         axis.text = element_text(size = 12),
         axis.title = element_text(size = 12)
       )
+    
     p_out[[i]] <- p
   }
   return(list(plots = p_out,
@@ -179,7 +181,8 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
 
 nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
-                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast") {
+                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast",
+                          legend_position = NULL) {
   
   library(ggplot2)
   library(lubridate)
@@ -269,7 +272,7 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
            y = y_lab) +
       theme_minimal() +
       theme(
-        legend.position = c(0.7, 0.9),
+        legend.position = legend_position,
         legend.justification = c(0, 1),
         legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"),
         legend.key = element_rect(fill = "white", color = NA),

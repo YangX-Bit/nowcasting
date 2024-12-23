@@ -1,0 +1,154 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source(file.path(path_source, "simulation", "simulations_functions.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+```
+
+```{r}
+#models
+fixed_q <- file.path(path_proj, "source", "models",
+                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+fixed_b <- file.path(path_proj, "source", "models",
+                     "trunc", "2.stan_model_fixed_b_trunc.stan")
+b_poly <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_b_poly_trunc.stan")
+b_spline <- file.path(path_proj, "source", "models", "trunc",
+                     "4.stan_model_b_spline_trunc.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  b_poly = cmdstan_model(b_poly),
+  b_spline = cmdstan_model(b_spline)
+)
+```
+
+
+## simulate data
+
+### Scenario 1 (Not fully reported)
+```{r}
+
+# setting:
+seed <- 123
+# disease intensity
+beta_lamb = 0.5
+
+set.seed(seed)
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+
+length(alpha_lamb)
+# random walk b
+b = 0.1; sigma_rw = 0.01
+
+D_trunc <- 10; D_complete <- 25; if_fully_rep <- F
+
+data_1 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+data_1$case_true - data_1$case_reported[,11]
+
+data_1
+
+# create triangular data
+# data_trunc <- create_triangular_data(data_1$case_reported)
+# 
+# # get indices of non-NAs
+# indices_data_trunc <- find_non_na_coords(data_trunc)
+# 
+# data_trunc[is.na(data_trunc)] <- 0
+# 
+# print(data_trunc)
+```
+
+### basis for spline
+
+```{r}
+page_num <- ceiling(nrow(data_1$case_reported)/16)
+exp_plot_1 <- fit_exp_plot(data_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_1
+```
+
+```{r}
+exp_b_data_1<- data.frame( date = as.Date(rownames(data_1$case_reported)),
+                          b = exp_plot_1$coefficients)
+
+exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_1
+```
+
+
+##$ fit model
+```{r}
+scoreRange_1 <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
+out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange_1, 
+                                case_true = data_1$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+results_1 <- nowcasts_plot(out_1, D = D_trunc, report_unit = "day", 
+                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+```
+
+
+## check results
+```{r}
+results_1
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange_1)){
+  print(calculate_metrics(results_1$nowcasts[i][[1]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(scoreRange_1)){
+  print(calculate_metrics(data.table::last(results_1$nowcasts[i][[1]], D_trunc)))
+}
+```
