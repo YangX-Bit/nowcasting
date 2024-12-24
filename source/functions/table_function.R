@@ -1,3 +1,66 @@
+nowcasts_table <- function(results_list, 
+                           D = NULL,
+                           report_unit = "week",
+                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline")) {
+  # Basic checks
+  if (is.null(D)) {
+    stop("Parameter 'D' must be provided.")
+  }
+  if (!report_unit %in% c("week", "day")) {
+    stop("report_unit must be 'week' or 'day'.")
+  }
+  
+  library(lubridate)
+  library(dplyr)
+  
+  # Decide factor for date shifting
+  factor_loc <- if (report_unit == "week") 7 else 1
+  
+  # Prepare output list of data frames
+  nowcasts_out <- list()
+  
+  n_runs <- length(results_list$case_true)  # how many sets of data we have
+  
+  for (i in seq_len(n_runs)) {
+    # Extract data
+    case_true     <- results_list[["case_true"]][[i]]
+    case_reported <- results_list[["case_reported"]][[i]]
+    dates         <- results_list[["dates"]][[i]]
+    
+    # Basic date references
+    now      <- as.Date(dplyr::last(dates))
+    earliest <- as.Date(dplyr::first(dates))
+    last_date_for_delay <- now - days(D * factor_loc)
+    
+    # Initialize a data frame for storing nowcasts
+    nowcasts_df <- data.frame(
+      date          = dates,
+      case_true     = case_true,
+      case_reported = case_reported,
+      row.names     = seq_along(dates)
+    )
+    
+    # Store these references as columns (the same for all rows in this i)
+    nowcasts_df$now                = now
+    nowcasts_df$earliest           = earliest
+    nowcasts_df$last_date_for_delay = last_date_for_delay
+    
+    # Dynamically add model results
+    for (model_name in models_to_run) {
+      # model_name might be "fixed_q", "fixed_b", ...
+      samples <- results_list[[model_name]][[i]]$draws(variables = "lambda_t", format = "draws_matrix")
+      nowcasts_df[[paste0("mean_", model_name)]]  <- apply(samples, 2, mean)
+      nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
+      nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
+    }
+    
+    # Save to output list
+    nowcasts_out[[i]] <- nowcasts_df
+  }
+  
+  return(nowcasts_out)
+}
+
 
 # measurement metrics
 calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "b_poly", "b_spline")) {

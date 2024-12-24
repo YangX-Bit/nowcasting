@@ -179,77 +179,78 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
 # }
 
 
-nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
+nowcasts_plot <- function(nowcasts_list,
+                          D = NULL,
+                          report_unit = "week",
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
-                          title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast",
+                          title = NULL,
+                          x_lab = NULL,
+                          y_lab = "Cases / Nowcast",
                           legend_position = NULL) {
-  
   library(ggplot2)
   library(lubridate)
   library(dplyr)
   
-  p_out <- list(); nowcasts_out <- list();
+  # Basic checks
+  if (is.null(D)) {
+    stop("Parameter 'D' must be provided.")
+  }
+  if (!report_unit %in% c("week", "day")) {
+    stop("report_unit must be 'week' or 'day'.")
+  }
+  factor_loc <- if (report_unit == "week") 7 else 1
   
-  if(report_unit == "week"){ factor_loc = 7
-  }else if(report_unit == "day"){ factor_loc = 1}
-  else{ stop("Wrong input of parameter report_unit. It has to be 'week' or 'day'.")}
-  
+  # You can define or allow passing custom colors
   model_colors <- c(
-    "Real Cases" = "red", 
-    "Reported Cases" = "black",
-    "fixed_q" = "#228B22",   
-    "fixed_b" = "#ffff66",  
-    "b_poly" = "#8446c6",  
-    "b_spline" = "#4682B4" 
+    "Real Cases"      = "red", 
+    "Reported Cases"  = "black",
+    "fixed_q"         = "#228B22",   
+    "fixed_b"         = "#ffff66",  
+    "b_poly"          = "#8446c6",  
+    "b_spline"        = "#4682B4" 
   )
   
-  for (i in 1:length(results_list$case_true)) {
-    case_true <- results_list[["case_true"]][[i]]
-    case_reported <- results_list[["case_reported"]][[i]]
-    dates <- results_list[["dates"]][[i]]
+  p_out <- list()
+  n_runs <- length(nowcasts_list)
+  
+  for (i in seq_len(n_runs)) {
+    # Extract the table for this run
+    nowcasts_df <- nowcasts_list[[i]]
     
-    now <- as.Date(dplyr::last(dates))
-    earliest <- as.Date(dplyr::first(dates))
-    last_date_for_delay <- now - days(D * factor_loc)
+    # Basic info from columns (they are the same for all rows in this i)
+    now      <- unique(nowcasts_df$now)
+    earliest <- unique(nowcasts_df$earliest)
+    last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
     
-    # Initialize an empty data frame for nowcast data
-    nowcasts <- data.frame(date = dates,
-                           case_true = case_true,
-                           case_reported = case_reported,
-                           row.names = c(1:length(dates)))
-    
-    # Dynamically add model results
-    for (model_name in models_to_run) {
-      # Extract samples
-      samples <- results_list[[model_name]][[i]]$draws(variables = "lambda_t", format = "draws_matrix") 
-      nowcasts[[paste0("mean_", model_name)]] <- apply(samples, 2, mean)
-      nowcasts[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
-      nowcasts[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
-    }
-    nowcasts_out[[i]] <- nowcasts
-    
-    # prepare the model for data
+    # Build a combined data frame for the model ribbons/lines
+    # for each model in models_to_run, we gather mean/upper/lower
+    # approach: lapply to produce small data frames, then rbind
     model_data <- lapply(models_to_run, function(model_name) {
       data.frame(
-        date = dates,
-        mean = nowcasts[[paste0("mean_", model_name)]],
-        lower = nowcasts[[paste0("lower_", model_name)]],
-        upper = nowcasts[[paste0("upper_", model_name)]],
+        date  = nowcasts_df$date,
+        mean  = nowcasts_df[[paste0("mean_", model_name)]],
+        lower = nowcasts_df[[paste0("lower_", model_name)]],
+        upper = nowcasts_df[[paste0("upper_", model_name)]],
         model = model_name
       )
-    })
-    model_data <- do.call(rbind, model_data)
+    }) %>% do.call(rbind, .)
     
-    # plots
+    # Start plot
     p <- ggplot() +
-      geom_line(data = nowcasts, aes(x = date, y = case_true, color = "Real Cases"), linewidth = 1) +
-      geom_line(data = nowcasts, aes(x = date, y = case_reported, color = "Reported Cases"), linewidth = 1) +
+      geom_line(data = nowcasts_df,
+                aes(x = date, y = case_true, color = "Real Cases"),
+                linewidth = 1) +
+      geom_line(data = nowcasts_df,
+                aes(x = date, y = case_reported, color = "Reported Cases"),
+                linewidth = 1) +
       annotate("text", x = now, y = -1, 
                label = paste0("now: ", now), hjust = 1, vjust = 2, color = "red") +
-      geom_point(data = data.frame(x = now, y = 0), aes(x = x, y = y, shape = "Today"), 
+      geom_point(data = data.frame(x = now, y = 0), 
+                 aes(x = x, y = y, shape = "Today"), 
                  size = 2, color = "red") +
       scale_shape_manual(values = c("Today" = 17), guide = "none")
     
+    # If we have a valid last_date_for_delay inside the range
     if (last_date_for_delay >= earliest) {
       p <- p + 
         geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
@@ -257,13 +258,13 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
                  label = last_date_for_delay, vjust = 2, color = "orange")
     }
     
-    # CI and mean for each model
+    # CI ribbons & mean lines for each model
     p <- p +
       geom_ribbon(data = model_data, 
-                  aes(x = date, ymin = lower, ymax = upper, fill = model), 
+                  aes(x = date, ymin = lower, ymax = upper, fill = model),
                   alpha = 0.3) +
-      geom_line(data = model_data, 
-                aes(x = date, y = mean, color = model), 
+      geom_line(data = model_data,
+                aes(x = date, y = mean, color = model),
                 linewidth = 1) +
       scale_color_manual(values = model_colors, name = "Legend") +
       scale_fill_manual(values = model_colors[models_to_run], guide = "none") +
@@ -272,19 +273,20 @@ nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
            y = y_lab) +
       theme_minimal() +
       theme(
-        legend.position = legend_position,
+        legend.position      = legend_position,
         legend.justification = c(0, 1),
-        legend.background = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"),
-        legend.key = element_rect(fill = "white", color = NA),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 12),
-        axis.text = element_text(size = 12),
-        axis.title = element_text(size = 12)
+        legend.background    = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"),
+        legend.key           = element_rect(fill = "white", color = NA),
+        legend.text          = element_text(size = 12),
+        legend.title         = element_text(size = 12),
+        axis.text            = element_text(size = 12),
+        axis.title           = element_text(size = 12)
       )
     
+    # Store this plot
     p_out[[i]] <- p
   }
   
-  return(list(plots = p_out,
-              nowcasts = nowcasts_out))
+  return(p_out)
 }
+
