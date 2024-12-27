@@ -106,7 +106,7 @@ simsQ <- function(
     b_t[1] <- b
     # Evolve b_t as a random walk in log-space
     for (i in 2:t) {
-      b_t[i] <- exp(log(b_t[i - 1]) + rnorm(1, mean = 0, sd = sigma_rw))
+      b_t[i] <- max(b_t[i - 1]+ rnorm(1, mean = 0, sd = sigma_rw), 0.01)
     }
     # Compute qd
     for (i in 1:t) {
@@ -121,10 +121,7 @@ simsQ <- function(
   
   return(list(qd = qd, b_t = b_t))
 }
-# set.seed(1)
-# simsQ(method = "random_walk", b = 0.3, D = 15, t = 30, sigma_rw = 0.1)
-# simsQ("time_varying", t = 30, beta0 = 0.1, beta1 = -0.05)
-# simsQ("constant", b = 0.3)
+
 
 simsDataGenQ <- function(
     # Basic model parameters
@@ -277,6 +274,7 @@ simsDataGenQ <- function(
     ensure_qd_one_flag = ensure_qd_one_flag
   ))
 }
+
 # spline basis
 create_basis <- function(N_obs, n_knots = 5){
   time_points <- 1:N_obs
