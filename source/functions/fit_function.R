@@ -82,15 +82,20 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     N_obs_local <- nrow(data_trunc) # num of obs
     indices_data_trunc <- find_non_na_coords(data_trunc) # coordinates for non-NAs
     data_trunc[is.na(data_trunc)] <- 0 # to avoid NAs in data
-    X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
+    #X_spline <- create_basis(N_obs_local, n_knots = 5) # functions to create basis
     if(nrow(data_trunc) <= D + 1){
       warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
     }
     
     # input list
+    # stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
+    #                         K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
+    #                         J = ncol(X_spline), X_spline = X_spline, sigma_b = sigma_b)
+    
     stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
                             K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
-                            J = ncol(X_spline), X_spline = X_spline, sigma_b = sigma_b)
+                            sigma_b = sigma_b)
+
     # return(stan_data_trunc)
     # Fit models based on what is selected 
     for (model_name in models_to_run) {

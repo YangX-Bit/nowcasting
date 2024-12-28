@@ -53,7 +53,7 @@ compiled_models <- list(
 ```{r}
 
 # setting:
-seed <- 123
+seed <- 111 #123
 # disease intensity
 beta_lamb = 0.5
 
@@ -66,16 +66,17 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
 
 length(alpha_lamb)
 # random walk b
-b = 0.1; sigma_rw = 0.01
+b = 0.1; 
+sigma_rw_1 = 0.01; sigma_rw_2 = 0.1; sigma_rw_3 = 0.3
 
-D_trunc <- 10; D_complete <- 25; if_fully_rep <- F
+D_trunc <- 15; D_complete <- 25; if_fully_rep <- F
 
 data_1 <- simsDataGenQ(
                     alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
                     days = length(alpha_lamb), 
                     D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
                     method =c("random_walk"),
-                    method_params = list( b = b, sigma_rw = sigma_rw),
+                    method_params = list( b = b, sigma_rw = sigma_rw_1),
                     date_start = as.Date("2024-01-01") 
                     , seed = seed)
 
@@ -104,8 +105,8 @@ exp_plot_1
 
 ```{r}
 exp_b_data_1<- data.frame( date = as.Date(rownames(data_1$case_reported)),
-                          b = exp_plot_1$coefficients)
-
+                          b = exp_plot_1$coefficients$b)
+exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
   geom_smooth(method = "loess", se = TRUE,        
@@ -117,10 +118,10 @@ exp_b_plot_1
 ```
 
 
-##$ fit model
+## fit model
 ```{r}
-scoreRange_1 <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
-out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange_1, 
+scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
+out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange, 
                                 case_true = data_1$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
@@ -129,26 +130,120 @@ out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange_
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
-results_1 <- nowcasts_plot(out_1, D = D_trunc, report_unit = "day", 
-                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+# results_table_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
+#                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+# 
+# nowcasts_plot(results_table_1, D = D_trunc,)
+
+results_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day")
 ```
 
 
 ## check results
 ```{r}
-results_1
+results_1_plots
 ```
 
 ```{r}
 # all cases
 for(i in 1:length(scoreRange_1)){
-  print(calculate_metrics(results_1$nowcasts[i][[1]]))
+  print(calculate_metrics(results_1[[i]]))
 }
 ```
 
 ```{r}
 # Within D
 for(i in 1:length(scoreRange_1)){
-  print(calculate_metrics(data.table::last(results_1$nowcasts[i][[1]], D_trunc)))
+  print(calculate_metrics(data.table::last(results_1[[i]], D_trunc)))
 }
+```
+
+
+# sigma_rw = 0.1
+
+```{r}
+data_2 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw_2),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+out_2 <- nowcasting_moving_window(data_2$case_reported, scoreRange = scoreRange, 
+                                case_true = data_2$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+results_2 <- nowcasts_table(out_2, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_2_plots <- nowcasts_plot(results_2, D = D_trunc, report_unit = "day")
+```
+
+```{r}
+page_num <- ceiling(nrow(data_1$case_reported)/16)
+exp_plot_2 <- fit_exp_plot(data_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_2
+```
+
+```{r}
+exp_b_data_2<- data.frame( date = as.Date(rownames(data_2$case_reported)),
+                          b = exp_plot_2$coefficients$b)
+exp_b_data_2
+exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_2
+```
+
+
+```{r}
+results_2_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_2[[i]]))
+}
+```
+
+# sigma_rw = 0.3
+
+```{r}
+data_3 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw_3),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+out_3 <- nowcasting_moving_window(data_3$case_reported, scoreRange = scoreRange, 
+                                case_true = data_2$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+results_3 <- nowcasts_table(out_3, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_3_plots <- nowcasts_plot(results_3, D = D_trunc, report_unit = "day")
 ```

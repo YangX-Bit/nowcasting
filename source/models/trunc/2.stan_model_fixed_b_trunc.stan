@@ -11,13 +11,15 @@ parameters {
   real<lower=0> beta_lambda;   // Gamma prior rate parameter for lambda
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
   real<lower=0> b;
+  real<lower=0> delta;
 }
 
 model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
-  b ~ normal(0,2);
+  b ~ uniform(0, 1);
+  delta ~ uniform(0, 0.5);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
@@ -27,7 +29,7 @@ model {
     int t = obs_index[k,1];
     int d = obs_index[k,2];
     
-    real q_d = 1 - exp(- b * d);
+    real q_d = 1 - exp(- b * (d + delta));
     Y[t,d] ~ poisson(lambda_t[t] * q_d);
   }
 }

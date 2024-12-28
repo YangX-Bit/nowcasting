@@ -81,8 +81,6 @@ data_2 <- simsDataGenQ(
 
 data_2$case_true - data_2$case_reported[,11]
 
-data_2
-
 # create triangular data
 # data_trunc <- create_triangular_data(data_2$case_reported)
 # 

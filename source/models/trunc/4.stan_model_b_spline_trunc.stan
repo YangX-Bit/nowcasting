@@ -3,8 +3,8 @@ data {
   int<lower=0> D;             // Maximum delay (D)
   array[N_obs, D] int<lower=0> Y;   // Reported cases (T x D matrix)
   // bsplines
-  int<lower=1> J;                          // number of basis functions
-  matrix[N_obs, J] X_spline;                   // basis function values(N_obs, J)
+  //int<lower=1> J;                          // number of basis functions
+  //matrix[N_obs, J] X_spline;                   // basis function values(N_obs, J)
   
   int<lower=1> K;                   // number of obs in total
   array[K, 2] int<lower=0> obs_index; // coordinates & values
@@ -16,31 +16,32 @@ parameters {
   real<lower=0> beta_lambda;   // Gamma prior rate parameter for lambda
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
   //
-  vector<lower=0>[J] beta;               // global spline coefficients (no clusters)
+  // vector<lower=0>[J] beta;               // global spline coefficients (no clusters)
+  vector<lower=0>[N_obs] b_t;
+  real<lower=0> delta;
 }
 
-transformed parameters {
+/*transformed parameters {
   vector<lower=0>[N_obs] b_t;                 // pre-calc b_t
   for (t in 1:N_obs) {
     b_t[t] = dot_product(X_spline[t], beta); // b(t) = X_spline[t] * beta
   }
 }
-
+*/
 model {
   // Priors
-  // alpha_lambda ~ uniform(0, 10);
-  // beta_lambda ~ uniform(0, 10);
-  // 
-  // beta ~ normal(0, 10);  // prior for spline coef
-  alpha_lambda ~ gamma(2, 1);
-  beta_lambda ~ gamma(2, 1);
-  beta ~ normal(0, 1);
+  alpha_lambda ~ uniform(0, 10);
+  beta_lambda ~ uniform(0, 10);
+  // beta ~ normal(0, 1);
+  b_t[1] ~ uniform(0, 1);
+  delta ~ uniform(0, 0.5);
+  
 
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
   
   for (t in 2:N_obs) {
-    b_t[t] - b_t[t - 1] ~ normal(0, sigma_b);  // constraint for b_t
+    b_t[t] ~ normal(b_t[t - 1], sigma_b);  // constraint for b_t
   }
   
 
@@ -49,7 +50,7 @@ model {
     int t = obs_index[k, 1];         
     int d = obs_index[k, 2];
     
-    real q_d = 1 - exp(- b_t[t] * d);
+    real q_d = 1 - exp(- b_t[t] * (d + delta));
     Y[t,d] ~ poisson(lambda_t[t] * q_d);
     //obs_index[k,3] ~ poisson(lambda_t[t] * q_d); //
   }
