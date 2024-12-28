@@ -12,7 +12,7 @@ parameters {
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
   real b0;// Parameter for delay function q(d)
   real b1;
-  real<lower = 0> delta;
+  real b2;
 }
 
 model {
@@ -20,8 +20,8 @@ model {
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
   b0 ~ normal(0, 5);  // Prior for parameter b
-  b1 ~ normal(0, 3); 
-  delta ~ uniform(0,1);
+  b1 ~ normal(0, 5); 
+  b2 ~ normal(0, 5);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
@@ -31,8 +31,15 @@ model {
     int t = obs_index[k,1];
     int d = obs_index[k,2];
     
-    real q_d = 1 - exp(- exp(b0 + b1 * t) * (d + delta)); 
+    real q_d = 1 - exp(- exp(b0 + b1 * t + b2 * t^2) * d); 
     Y[t,d] ~ poisson(lambda_t[t] * q_d);
+  }
+}
+
+generated quantities {
+  vector<lower=0>[N_obs] N_t;
+  for (t in 1:N_obs) {
+    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
   }
 }
 

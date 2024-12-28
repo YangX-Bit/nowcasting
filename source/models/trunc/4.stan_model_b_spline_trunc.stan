@@ -8,7 +8,7 @@ data {
   
   int<lower=1> K;                   // number of obs in total
   array[K, 2] int<lower=0> obs_index; // coordinates & values
-  real<lower=0>sigma_b;
+  //real<lower=0>sigma_b;
 }
 
 parameters {
@@ -17,8 +17,11 @@ parameters {
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
   //
   // vector<lower=0>[J] beta;               // global spline coefficients (no clusters)
-  vector<lower=0>[N_obs] b_t;
-  real<lower=0> delta;
+  vector<lower=0>[N_obs] b_t;  // Time-varying b(t)
+ // vector<lower=0>[N_obs] delta_t;  // Time-varying delta(t)
+  
+  //real<lower=0> mu_b;
+  //real<lower=0> sigma_b;
 }
 
 /*transformed parameters {
@@ -33,43 +36,39 @@ model {
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
   // beta ~ normal(0, 1);
-  b_t[1] ~ uniform(0, 1);
-  delta ~ uniform(0, 0.5);
+  b_t[1] ~ normal(0.2, 0.1);  // Initial value for b_t
+  //delta_t[1] ~ normal(0.2, 0.05);  // Initial value for delta_t
   
+  // mu_b ~ normal(0.5, 0.1);
+  // sigma_b ~ normal(0.05, 0.01);
 
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
   
   for (t in 2:N_obs) {
-    b_t[t] ~ normal(b_t[t - 1], sigma_b);  // constraint for b_t
+    b_t[t] ~ normal(b_t[t-1], 0.1);  // Random walk for b_t
+   // delta_t[t] ~ normal(delta_t[t-1], 0.1);  // Random walk for delta_t
   }
-  
+  //   for (t in 1:N_obs) {
+  //   b_t[t] ~ normal(mu_b, sigma_b);
+  // }
 
   // Likelihood: Marginalized Poisson likelihood for N_t and Binomial for Y
   for (k in 1:K) {
     int t = obs_index[k, 1];         
     int d = obs_index[k, 2];
     
-    real q_d = 1 - exp(- b_t[t] * (d + delta));
+    real q_d = 1 - exp(- b_t[t] * (d ));
     Y[t,d] ~ poisson(lambda_t[t] * q_d);
-    //obs_index[k,3] ~ poisson(lambda_t[t] * q_d); //
   }
 }
 
-// generated quantities {
-//   vector<lower=0>[N_obs] N_t;
-//   for (t in 1:N_obs) {
-//     N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
-//   }
-// }
+
 generated quantities {
   vector<lower=0>[N_obs] N_t;
   for (t in 1:N_obs) {
-    real lower_bound = sum(Y[t]); 
-    N_t[t] = poisson_rng(lambda_t[t]);
-    // while (N_t[t] < lower_bound) {
-    //   N_t[t] = poisson_rng(lambda_t[t]); 
-    // }
+    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
   }
 }
+
 

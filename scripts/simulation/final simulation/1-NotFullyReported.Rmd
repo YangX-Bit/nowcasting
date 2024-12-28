@@ -53,7 +53,7 @@ compiled_models <- list(
 ```{r}
 
 # setting:
-seed <- 111 #123
+seed <- 123
 # disease intensity
 beta_lamb = 0.5
 
@@ -125,20 +125,19 @@ out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange,
                                 case_true = data_1$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
-                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                models_to_run =c("fixed_q", "fixed_b", "b_poly", "b_spline"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
+a <- out_1$fixed_q[[1]]
 
-# results_table_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
-#                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
-# 
-# nowcasts_plot(results_table_1, D = D_trunc,)
+save(out_1, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
+# out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
 
 results_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 
-results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day")
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"))
 ```
 
 
@@ -149,14 +148,14 @@ results_1_plots
 
 ```{r}
 # all cases
-for(i in 1:length(scoreRange_1)){
+for(i in 1:length(scoreRange)){
   print(calculate_metrics(results_1[[i]]))
 }
 ```
 
 ```{r}
 # Within D
-for(i in 1:length(scoreRange_1)){
+for(i in 1:length(scoreRange)){
   print(calculate_metrics(data.table::last(results_1[[i]], D_trunc)))
 }
 ```
@@ -182,6 +181,8 @@ out_2 <- nowcasting_moving_window(data_2$case_reported, scoreRange = scoreRange,
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
+
+save(out_2, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01.RData"))
 
 results_2 <- nowcasts_table(out_2, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
@@ -221,6 +222,14 @@ for(i in 1:length(scoreRange)){
 }
 ```
 
+```{r}
+# Within D
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_2[[i]], D_trunc)))
+}
+```
+
+
 # sigma_rw = 0.3
 
 ```{r}
@@ -234,7 +243,7 @@ data_3 <- simsDataGenQ(
                     , seed = seed)
 
 out_3 <- nowcasting_moving_window(data_3$case_reported, scoreRange = scoreRange, 
-                                case_true = data_2$case_true,
+                                case_true = data_3$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
                                 models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
@@ -242,8 +251,48 @@ out_3 <- nowcasting_moving_window(data_3$case_reported, scoreRange = scoreRange,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
+save(out_3, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03.RData"))
+
 results_3 <- nowcasts_table(out_3, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
 
 results_3_plots <- nowcasts_plot(results_3, D = D_trunc, report_unit = "day")
+```
+
+```{r}
+page_num <- ceiling(nrow(data_3$case_reported)/16)
+exp_plot_3 <- fit_exp_plot(data_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_3
+```
+
+```{r}
+exp_b_data_3<- data.frame( date = as.Date(rownames(data_3$case_reported)),
+                          b = exp_plot_3$coefficients$b)
+exp_b_data_3
+exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_3
+```
+
+```{r}
+results_3_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_3[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_3[[i]], D_trunc)))
+}
 ```
