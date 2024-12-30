@@ -114,16 +114,14 @@ calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "b_poly", "b
   
   # Convert to a data frame
   results_df <- do.call(rbind, results)
-  results_df <- as.data.frame(results_df)  # Ensure it's a data frame
+  results_df <- as.data.frame(round(results_df,2))  # Ensure it's a data frame
   results_df$Method <- rownames(results_df)  # Add method names as a column
   rownames(results_df) <- NULL
   
   return(results_df)
 }
 
-
-highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL) {
-  
+highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2) {
   # If no date labels are provided, use default numeric labels
   if (is.null(date_labels)) {
     date_labels <- paste0("Scenario ", 1:4)
@@ -151,13 +149,13 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL) {
     group_by(Scenario) %>%
     mutate(across(all_of(cols_to_process), 
                   ~ ifelse(. == min(.), 
-                           paste0("\\textcolor{red}{", formatC(., format = "f", digits = 5), "}"),
-                           formatC(., format = "f", digits = 5)))) %>%
+                           paste0("\\textcolor{red}{", formatC(., format = "f", digits = digits), "}"),
+                           formatC(., format = "f", digits = digits)))) %>%
     # Special handling for Coverage Rate (highlight the maximum value)
     mutate(`Coverage_Rate` = 
              ifelse(`Coverage_Rate` == max(`Coverage_Rate`), 
-                    paste0("\\textcolor{red}{", formatC(`Coverage_Rate`, format = "f", digits = 5), "}"),
-                    formatC(`Coverage_Rate`, format = "f", digits = 5)))
+                    paste0("\\textcolor{red}{", formatC(`Coverage_Rate`, format = "f", digits = digits), "}"),
+                    formatC(`Coverage_Rate`, format = "f", digits = digits)))
   
   # Generate LaTeX table
   latex_table <- "\\begin{table}[htbp]\n\\centering\n"
@@ -200,5 +198,5 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL) {
   latex_table <- paste0(latex_table, "\\end{tabular}\n")
   latex_table <- paste0(latex_table, "\\end{table}")
   
-  return(latex_table)
+  return(cat(latex_table))
 }

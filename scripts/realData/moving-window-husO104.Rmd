@@ -95,6 +95,37 @@ exp_plot <- fit_exp_plot(husO104_exp_plot, ncol = 4, nrow = 4, page = c(1:page_n
 exp_plot
 ```
 
+```{r}
+exp_b_data_husO104 <- data.frame( date = as.Date(rownames(husO104_exp_plot)),
+                          b = exp_plot$coefficients$b)
+
+exp_b_plot_husO104 <- ggplot(exp_b_data_husO104, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_husO104
+```
+```{r}
+shapiro.test(exp_b_data_husO104$b)
+
+library(forecast)
+
+fit_ar1_husO104 <- Arima(exp_b_data_husO104$b, order = c(1, 0, 0))
+print(fit_ar1_husO104)
+
+fit_ar1_husO104$coef["ar1"]
+
+print(Box.test(fit_ar1_husO104$residuals, lag = 10, type = "Ljung-Box"))
+
+
+acf(fit_ar1_husO104$residuals, main = "ACF of residuals")
+pacf(fit_ar1_husO104$residuals, main = "PACF of residuals")
+
+auto.arima(fit_ar1_husO104$b)
+```
 
 ```{r}
 out <- nowcasting_moving_window(husO104_input, scoreRange = scoreRange, 

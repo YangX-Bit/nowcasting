@@ -103,7 +103,7 @@ exp_plot
 
 ```{r}
 exp_b_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
-                          b = exp_plot$coefficients)
+                          b = exp_plot$coefficients$b)
 
 exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -114,6 +114,27 @@ exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
 
 exp_b_plot
 ```
+
+```{r}
+shapiro.test(exp_b_data$b)
+
+library(forecast)
+
+fit_ar1_SARI <- Arima(exp_b_data$b, order = c(1, 0, 0))
+print(fit_ar1_SARI)
+
+fit_ar1_SARI$coef["ar1"]
+
+print(Box.test(fit_ar1_SARI$residuals, lag = 10, type = "Ljung-Box"))
+
+
+acf(fit_ar1_SARI$residuals, main = "ACF of residuals")
+pacf(fit_ar1_SARI$residuals, main = "PACF of residuals")
+
+auto.arima(fit_ar1_SARI$b)
+```
+
+
 
 ```{r}
 out <- nowcasting_moving_window(data_41002_input, scoreRange = as.Date("2009-08-30"), 

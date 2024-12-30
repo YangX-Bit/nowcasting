@@ -94,7 +94,7 @@ AC_exp_plot$plots
 
 ```{r}
 AC_exp_b_data <- data.frame( date = as.Date(rownames(AC_matrix_for_plot)),
-                          b = AC_exp_plot$coefficients)
+                          b = AC_exp_plot$coefficients$b)
 
 AC_exp_b_plot <- ggplot(AC_exp_b_data, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -102,6 +102,8 @@ AC_exp_b_plot <- ggplot(AC_exp_b_data, aes(x = date, y = b)) +
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+#shapiro.test(AC_exp_b_plot$data$b)
 
 AC_exp_b_plot
 ```
@@ -163,7 +165,7 @@ BR_exp_plot$plots
 
 ```{r}
 BR_exp_b_data <- data.frame( date = as.Date(rownames(BR_matrix_for_plot)),
-                          b = BR_exp_plot$coefficients)
+                          b = BR_exp_plot$coefficients$b)
 
 BR_exp_b_plot <- ggplot(BR_exp_b_data, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -172,6 +174,7 @@ BR_exp_b_plot <- ggplot(BR_exp_b_data, aes(x = date, y = b)) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
 
+shapiro.test(BR_exp_b_data$b)
 BR_exp_b_plot
 ```
 
@@ -209,3 +212,41 @@ for(i in 1:length(scoreRange)){
 
 ```
 
+# test AR(1)
+```{r}
+shapiro.test(AC_exp_b_plot$data$b)
+
+
+
+library(forecast)
+
+fit_ar1_AC <- Arima(AC_exp_b_plot$data$b, order = c(1, 0, 0))
+print(fit_ar1_AC)
+
+fit_ar1_AC$coef["ar1"]
+
+print(Box.test(fit_ar1_AC$residuals, lag = 10, type = "Ljung-Box"))
+
+
+acf(fit_ar1_AC$residuals, main = "ACF of residuals")
+pacf(fit_ar1_AC$residuals, main = "PACF of residuals")
+
+auto.arima(AC_exp_b_plot$data$b)
+```
+
+```{r}
+shapiro.test(BR_exp_b_plot$data$b)
+
+
+library(forecast)
+
+fit_ar1_BR <- Arima(BR_exp_b_plot$data$b, order = c(1, 0, 0))
+print(fit_ar1_BR)
+
+fit_ar1_BR$coef["ar1"]
+
+print(Box.test(fit_ar1_BR$residuals, lag = 10, type = "Ljung-Box"))
+
+acf(fit_ar1_BR$residuals, main = "ACF of residuals")
+pacf(fit_ar1_BR$residuals, main = "PACF of residuals")
+```

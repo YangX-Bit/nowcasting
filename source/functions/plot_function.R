@@ -259,18 +259,22 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 #   return(c(0.9, y_max * 0.9))                        # right-top
 # }
 
-
 nowcasts_plot <- function(nowcasts_list,
                           D = NULL,
                           report_unit = "week",
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+                          #models_to_run = c("Fixed q", "Fixed b", "Polynomial b", "Random walk b"),
                           title = NULL,
                           x_lab = NULL,
                           y_lab = "Cases / Nowcast",
-                          legend_position = NULL) {
+                          legend_position = NULL,
+                          combine_plots = FALSE,
+                          ncol = NULL,
+                          nrow = NULL) {
   library(ggplot2)
   library(lubridate)
   library(dplyr)
+  library(patchwork)  
   
   # Basic checks
   if (is.null(D)) {
@@ -279,9 +283,9 @@ nowcasts_plot <- function(nowcasts_list,
   if (!report_unit %in% c("week", "day")) {
     stop("report_unit must be 'week' or 'day'.")
   }
+  
   factor_loc <- if (report_unit == "week") 7 else 1
   
-  # You can define or allow passing custom colors
   model_colors <- c(
     "Real Cases"      = "red", 
     "Reported Cases"  = "black",
@@ -295,17 +299,12 @@ nowcasts_plot <- function(nowcasts_list,
   n_runs <- length(nowcasts_list)
   
   for (i in seq_len(n_runs)) {
-    # Extract the table for this run
     nowcasts_df <- nowcasts_list[[i]]
-    
-    # Basic info from columns (they are the same for all rows in this i)
-    now      <- unique(nowcasts_df$now)
+    now <- unique(nowcasts_df$now)
     earliest <- unique(nowcasts_df$earliest)
     last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
     
-    # Build a combined data frame for the model ribbons/lines
-    # for each model in models_to_run, we gather mean/upper/lower
-    # approach: lapply to produce small data frames, then rbind
+    # Build combined data for models
     model_data <- lapply(models_to_run, function(model_name) {
       data.frame(
         date  = nowcasts_df$date,
@@ -329,18 +328,7 @@ nowcasts_plot <- function(nowcasts_list,
       geom_point(data = data.frame(x = now, y = 0), 
                  aes(x = x, y = y, shape = "Today"), 
                  size = 2, color = "red") +
-      scale_shape_manual(values = c("Today" = 17), guide = "none")
-    
-    # If we have a valid last_date_for_delay inside the range
-    if (last_date_for_delay >= earliest) {
-      p <- p + 
-        geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
-        annotate("text", x = last_date_for_delay, y = -1, 
-                 label = last_date_for_delay, vjust = 2, color = "orange")
-    }
-    
-    # CI ribbons & mean lines for each model
-    p <- p +
+      scale_shape_manual(values = c("Today" = 17), guide = "none") +
       geom_ribbon(data = model_data, 
                   aes(x = date, ymin = lower, ymax = upper, fill = model),
                   alpha = 0.3) +
@@ -354,7 +342,7 @@ nowcasts_plot <- function(nowcasts_list,
            y = y_lab) +
       theme_minimal() +
       theme(
-        legend.position      = legend_position,
+        legend.position      = legend_position,   
         legend.justification = c(0, 1),
         legend.background    = element_rect(fill = "white", color = "black", size = 0.5, linetype = "solid"),
         legend.key           = element_rect(fill = "white", color = NA),
@@ -364,10 +352,33 @@ nowcasts_plot <- function(nowcasts_list,
         axis.title           = element_text(size = 12)
       )
     
-    # Store this plot
+    if (last_date_for_delay >= earliest) {
+      p <- p + 
+        geom_vline(xintercept = last_date_for_delay, color = "orange", linetype = "dashed", size = 1) +
+        annotate("text", x = last_date_for_delay, y = -1, 
+                 label = last_date_for_delay, vjust = 2, color = "orange")
+    }
+    
     p_out[[i]] <- p
   }
   
-  return(p_out)
+  # Combine plots in grid if requested
+  if (combine_plots) {
+    # caculate rows and cols
+    if (is.null(ncol) && is.null(nrow)) {
+      ncol <- ceiling(sqrt(n_runs))
+      nrow <- ceiling(n_runs / ncol)
+    }
+    
+    # ===== use guides = "collect" collect and combine =====
+    patchwork_plot <- wrap_plots(p_out, guides = "collect") +
+      plot_layout(ncol = ncol, nrow = nrow) +
+      plot_annotation(title = title) &
+      theme(legend.position = "bottom")   # legend on bottom
+    
+    return(patchwork_plot)
+  } else {
+    return(p_out)
+  }
 }
 

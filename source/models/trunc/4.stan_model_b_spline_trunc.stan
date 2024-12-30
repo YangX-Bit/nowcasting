@@ -24,13 +24,7 @@ parameters {
   //real<lower=0> sigma_b;
 }
 
-/*transformed parameters {
-  vector<lower=0>[N_obs] b_t;                 // pre-calc b_t
-  for (t in 1:N_obs) {
-    b_t[t] = dot_product(X_spline[t], beta); // b(t) = X_spline[t] * beta
-  }
-}
-*/
+
 model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
@@ -66,8 +60,11 @@ model {
 
 generated quantities {
   vector<lower=0>[N_obs] N_t;
+  vector<lower=0>[N_obs] Z_t;
   for (t in 1:N_obs) {
-    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
+    real q_d_temp = 1 - exp(- b_t[t] * D);
+    N_t[t] = poisson_rng(lambda_t[t] * q_d_temp); // Sample N_t from Poisson distribution
+    Z_t[t] = poisson_rng(lambda_t[t] * (1-q_d_temp));
   }
 }
 

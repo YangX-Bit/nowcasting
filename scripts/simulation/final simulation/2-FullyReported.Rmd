@@ -129,13 +129,14 @@ out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange,
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
-a <- out_1$fixed_q[[1]]
 
-save(out_1, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd001.RData"))
-# out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+#save(out_1, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd001.RData"))
+#load(file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd001.RData"))
+
 
 results_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
 
 results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"))
 ```
@@ -159,6 +160,27 @@ for(i in 1:length(scoreRange)){
   print(calculate_metrics(data.table::last(results_1[[i]], D_trunc)))
 }
 ```
+# output
+```{r}
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b01_sd001.png"), 
+       plot = results_1_plots, 
+       width = 10, height = 6, dpi = 300)
+# table
+fully_tables_1 <- list();count_1 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_1[[count_1]] <- calculate_metrics(results_1[[i]])
+  count_1 = count_1 + 1
+}
+print(cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange))))
+
+```
+
 
 
 # sigma_rw = 0.1
@@ -182,7 +204,8 @@ out_2 <- nowcasting_moving_window(data_2$case_reported, scoreRange = scoreRange,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
-save(out_2, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd01.RData"))
+#save(out_2, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd01.RData"))
+#load(file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd01.RData"))
 
 results_2 <- nowcasts_table(out_2, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
@@ -251,7 +274,8 @@ out_3 <- nowcasting_moving_window(data_3$case_reported, scoreRange = scoreRange,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
-save(out_3, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd03.RData"))
+#save(out_3, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd03.RData"))
+load(file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd03.RData"))
 
 results_3 <- nowcasts_table(out_3, D = D_trunc, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
@@ -295,4 +319,68 @@ for(i in 1:length(scoreRange)){
 for(i in 1:length(scoreRange)){
   print(calculate_metrics(data.table::last(results_3[[i]], D_trunc)))
 }
+```
+
+
+
+# output
+```{r}
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b01_sd001.png"), 
+       plot = results_1_plots, 
+       width = 10, height = 6, dpi = 300)
+# table
+fully_tables_1 <- list();count_1 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_1[[count_1]] <- calculate_metrics(results_1[[i]])
+  count_1 = count_1 + 1
+}
+cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+# output
+```{r}
+results_2_plots <- nowcasts_plot(results_2, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b01_sd01.png"), 
+       plot = results_2_plots, 
+       width = 10, height = 6, dpi = 300)
+# table
+fully_tables_2 <- list();count_2 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_2[[count_2]] <- calculate_metrics(results_2[[i]])
+  count_2 = count_2 + 1
+}
+cat(highlight_metrics(fully_tables_2, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+```{r}
+results_3_plots <- nowcasts_plot(results_3, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b01_sd03.png"), 
+       plot = results_3_plots, 
+       width = 10, height = 6, dpi = 300)
+# table
+fully_tables_3 <- list();count_3 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_3[[count_3]] <- calculate_metrics(results_3[[i]])
+  count_3 = count_3 + 1
+}
+cat(highlight_metrics(fully_tables_3, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
 ```
