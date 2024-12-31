@@ -36,7 +36,7 @@ slice_data <- function(data, scoreRange,
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, sigma_b = 0.1, seeds = 123,
-                                     models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+                                     models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
                                      num_chains = 3, suppress_output = TRUE){

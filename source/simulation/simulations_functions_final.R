@@ -1,293 +1,272 @@
 library(dplyr)
 library(tidyr)
 
-generate_alpha <- function(n, range = c(0, 1), dist = "uniform", seed = NULL) {
-  # check the range 
-  if (length(range) != 2 || range[1] >= range[2]) {
-    stop("range must be a vector of length 2 with range[1] < range[2].")
-  }
+simulateData <- function(
+    #------------------------------
+    # 1) Input control
+    #------------------------------
+    params = list(
+      # A. Data
+      data = list(
+        alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
+        beta_lamb  = 0.5,
+        days       = 30,            
+        date_start = as.Date("2024-01-01"),
+        seed       = 123
+      ),
+      # B. Delay report structure
+      reporting = list(
+        D_trunc          = 5,
+        D_complete       = 10,
+        if_fully_reported= FALSE   # FALSE => NFR; TRUE => FR
+      ),
+      # C. Model selection
+      q_model = list(
+        method       = "constant",  # "constant","time_varying","random_walk","ou"
+        # different params for diff methods
+        method_params= list(
+          # constant: b
+          # time_varying: beta0,beta1
+          # random_walk: b_init, sigma_rw
+          # ou: alpha, mu, b_init, sigma_ou
+          b = 0.5
+        )
+      )
+    )
+){
+  #---------------------------------------------------------
+  # 2) Local variebles
+  #---------------------------------------------------------
+  # (A) data
+  alpha_lamb  <- params$data$alpha_lamb
+  beta_lamb   <- params$data$beta_lamb
+  days        <- params$data$days
+  date_start  <- params$data$date_start
+  seed        <- params$data$seed
   
-  # set random seed
-  if (!is.null(seed)) {
-    set.seed(seed)
-  }
+  # (B) structure
+  D_trunc          <- params$reporting$D_trunc
+  D_complete       <- params$reporting$D_complete
+  if_fully_reported<- params$reporting$if_fully_reported
   
-  # produce random alpha value
-  if (dist == "uniform") {
-    # uniform
-    alpha <- runif(n, min = range[1], max = range[2])
-  } else if (dist == "normal") {
-    # normal
-    mean_val <- mean(range)  # mean is the middle value of the range
-    sd_val <- (range[2] - range[1]) / 4  # SD be the 1/4 of the range
-    alpha <- rnorm(n, mean = mean_val, sd = sd_val)
-    
-    # 
-    alpha <- pmax(pmin(alpha, range[2]), range[1])
-  } else {
-    stop("Unsupported distribution. Choose 'uniform' or 'normal'.")
-  }
+  # (C) model for qd
+  method          <- params$q_model$method
+  method_params   <- params$q_model$method_params
   
-  return(alpha)
-}
-
-
-simsQ <- function(
-    method = c("constant", "time_varying", "random_walk"),
-    D = NULL,
-    t = NULL, 
-    # Parameters for different methods:
-    # For "constant": provide 'b'
-    # For "time_varying": provide 'beta0', 'beta1'
-    # For "random_walk": provide 'b' (initial), 'sigma_rw'
-    b = NULL, 
-    beta0 = NULL, beta1 = NULL,
-    sigma_rw = NULL,
-    ensure_qd_one = TRUE
-) {
-  # 'method' defines how Q is simulated:
-  #   "constant": Q(d) = 1 - exp(-b * d)
-  #   "time_varying": b_t = exp(beta0 + beta1 * t), Q_t(d) = 1 - exp(-b_t[i] * d)
-  #   "random_walk": b_t evolves as a random walk in log-space, Q_t(d) = 1 - exp(-b_t[i] * d)
-  #
-  # 'ensure_qd_one': if TRUE, after computing qd, 
-  # we normalize so that qd(..., D+1) = 1 exactly.
-  #
-  # Returns a list with:
-  #   qd: 
-  #     - If method="constant", a vector of length D+1
-  #     - Otherwise, a matrix (t x (D+1))
-  #   b_t:
-  #     - The b_t values used. For "constant", b_t is just a single value.
-  #     - For "time_varying" and "random_walk", b_t is a vector of length t.
-  
-  method <- match.arg(method)
-  
-  # A helper function to normalize qd so that qd at D+1 is exactly 1.
-  normalize_qd <- function(qd) {
-    if (is.vector(qd)) {
-      # For a single vector
-      final_val <- qd[D+1]
-      if (final_val > 0) qd <- qd / final_val
-    } else {
-      # For a matrix, normalize each row
-      final_vals <- qd[, D+1]
-      # Avoid division by zero
-      valid_rows <- final_vals > 0
-      qd[valid_rows, ] <- qd[valid_rows, ] / final_vals[valid_rows]
-    }
-    return(qd)
-  }
-  
-  if (method == "constant") {
-    if (is.null(b)) stop("For 'constant' method, 'b' must be provided.")
-    # No need for t
-    qd <- 1 - exp(-b * (1:(D+1)))
-    b_t <- b
-    
-  } else if (method == "time_varying") {
-    if (is.null(t)) stop("For 'time_varying' method, 't' must be provided.")
-    if (is.null(beta0) || is.null(beta1)) {
-      stop("For 'time_varying' method, 'beta0' and 'beta1' must be provided.")
-    }
-    qd <- matrix(NA, nrow = t, ncol = D + 1)
-    b_t <- exp(beta0 + beta1 * (1:t))
-    for (i in 1:t) {
-      qd[i, ] <- 1 - exp(-b_t[i] * (1:(D+1)))
-    }
-    
-  } else { # method == "random_walk"
-    if (is.null(t)) stop("For 'random_walk' method, 't' must be provided.")
-    if (is.null(b) || is.null(sigma_rw)) {
-      stop("For 'random_walk' method, 'b' (initial) and 'sigma_rw' must be provided.")
-    }
-    qd <- matrix(NA, nrow = t, ncol = D + 1)
-    b_t <- numeric(t)
-    b_t[1] <- b
-    # Evolve b_t as a random walk in log-space
-    for (i in 2:t) {
-      b_t[i] <- max(b_t[i - 1]+ rnorm(1, mean = 0, sd = sigma_rw), 0.01)
-    }
-    # Compute qd
-    for (i in 1:t) {
-      qd[i, ] <- 1 - exp(-b_t[i] * (1:(D+1)))
-    }
-  }
-  
-  # Normalize qd if required
-  if (ensure_qd_one) {
-    qd <- normalize_qd(qd)
-  }
-  
-  return(list(qd = qd, b_t = b_t))
-}
-
-
-simsDataGenQ <- function(
-    # Basic model parameters
-  alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
-  beta_lamb = 0.5,
-  days = 30,
-  
-  # Delays: 
-  # D_trunc is the truncated delay window we usually observe or assume as "final".
-  # D is the full delay window considered when if_fully_reported = TRUE.
-  D_trunc = NULL,
-  D_complete = NULL,
-  if_fully_reported = FALSE,
-  
-  # Reporting dynamics method: "constant", "time_varying", or "random_walk".
-  # Use a named list `method_params` to hold the parameters required by the chosen method.
-  method = c("constant", "time_varying", "random_walk"),
-  method_params = list(
-    # For "constant": list(b = 3)
-    # For "time_varying": list(beta0 = -2, beta1 = 0.1)
-    # For "random_walk": list(b = 3, sigma_rw = 1)
-  ),
-  
-  # Starting date
-  date_start = as.Date("2024-01-01"),
-  
-  # Random seed
-  seed = 123
-) {
-  # Check inputs
-  method <- match.arg(method)
+  #---------------------------------------------------------
+  # 3) Check the input
+  #---------------------------------------------------------
   if (length(alpha_lamb) < days) {
-    stop("The length of alpha_lamb cannot be less than 'days'.")
+    stop("The length of `alpha_lamb` should be equal to the length of `days`！")
   }
   
   if (D_trunc >= D_complete) {
-    stop("D_trunc must be strictly less than D_complete in the 'not fully reported' scenario.")
+    stop("Ensure `D_trunc < D_complete` (for NFR scenario). For Fully Reported Case, set if_fully_reported=TRUE.")
   }
   
   if_fully_reported <- as.logical(if_fully_reported)
+  # In FR scenario, use D_trunc to generate Q(d) and ensure q_d(D_trunc) = 1
+  # In NFR scenario, use D_complete to generate Q(d) without forcing q_d to 1
   if (if_fully_reported) {
-    D_used <- D_trunc
-    # Make sure we REALLY converge to 1 at D_trunc => ensure_qd_one=TRUE
-    ensure_qd_one_flag <- TRUE
+    D_used            <- D_trunc
+    ensure_qd_one <- TRUE
   } else {
-    D_used <- D_complete
-    # We do NOT want to force qd to 1 at D_complete => ensure_qd_one=FALSE
-    ensure_qd_one_flag <- FALSE
+    D_used            <- D_complete
+    ensure_qd_one <- FALSE
   }
   
-  
-  # Set seed for reproducibility
+  #---------------------------------------------------------
+  # 4) Set Random Seed
+  #---------------------------------------------------------
   set.seed(seed)
   
-  # Generate the date sequence
-  date_end <- date_start + days - 1
-  date_seq <- as.Date(date_start:date_end)
-  
-  # Prepare output arrays
-  lambda_t <- numeric(days)
-  case_true <- matrix(numeric(days), ncol = 1)
-  rownames(case_true) <- as.character(date_seq)
-  
-  case_reported <- matrix(0, nrow = days, ncol = D_used + 1)
-  rownames(case_reported) <- as.character(date_seq)
-  
-  # Generate reporting probabilities qd based on the chosen method.
-  # The simsQ function should return a list with:
-  # $qd: cumulative probabilities (either a vector for constant or a matrix for varying methods)
-  # $b_t: corresponding b(t) (if applicable)
-  
-  # Extract parameters according to the chosen method
-  if (method == "constant") {
-    # Expected parameters in method_params: b
-    if (!"b" %in% names(method_params)) stop("For method='constant', method_params must include 'b'.")
-    simsQ_out <- simsQ(method = "constant", 
-                       b = method_params$b, 
-                       D = D_used, ensure_qd_one = ensure_qd_one_flag)
-  } else if (method == "time_varying") {
-    # Expected parameters in method_params: beta0, beta1
-    if (!all(c("beta0", "beta1") %in% names(method_params))) {
-      stop("For method='time_varying', method_params must include 'beta0' and 'beta1'.")
+  #---------------------------------------------------------
+  # 5) Internal Function to Generate b_t and q(d)
+  #---------------------------------------------------------
+  makeQ <- function(method, days, D, ensure_qd, method_params){
+    
+    # normalize_qd => Force the D+1 point to be 1
+    normalize_qd <- function(qd_mat){
+      if (is.vector(qd_mat)) {
+        fval <- qd_mat[D+1]
+        if (fval > 0) qd_mat <- qd_mat / fval
+      } else {
+        # matrix
+        fvals <- qd_mat[, D+1]
+        valid <- fvals > 0
+        qd_mat[valid, ] <- qd_mat[valid, ] / fvals[valid]
+      }
+      return(qd_mat)
     }
-    simsQ_out <- simsQ(method = "time_varying", 
-                       t = days, 
-                       D = D_used, 
-                       beta0 = method_params$beta0, 
-                       beta1 = method_params$beta1, 
-                       ensure_qd_one = ensure_qd_one_flag)
-  } else {
-    # method == "random_walk"
-    # Expected parameters in method_params: b, sigma_rw
-    if (!all(c("b", "sigma_rw") %in% names(method_params))) {
-      stop("For method='random_walk', method_params must include 'b' and 'sigma_rw'.")
+    
+    # outputs
+    b_t_out <- NULL
+    qd_out  <- NULL
+    
+    if (method == "constant"){
+      if (!("b" %in% names(method_params))) {
+        stop("method=constant requires b in method_params!")
+      }
+      b0    <- method_params$b
+      qd_out<- 1 - exp(-b0 * (1:(D+1)))
+      b_t_out <- b0
+      
+    } else if (method == "time_varying"){
+      if (!all(c("beta0","beta1") %in% names(method_params))) {
+        stop("method=time_varying requires beta0 and beta1!")
+      }
+      beta0 <- method_params$beta0
+      beta1 <- method_params$beta1
+      
+      b_t_out <- exp(beta0 + beta1*(1:days))
+      qd_out  <- matrix(NA, nrow=days, ncol=D+1)
+      for (i in seq_len(days)){
+        qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
+      }
+      
+    } else if (method == "random_walk"){
+      if (!all(c("b","sigma_rw") %in% names(method_params))) {
+        stop("method=random_walk requires b_init and sigma_rw!")
+      }
+      b_init   <- method_params$b_init
+      sigma_rw <- method_params$sigma_rw
+      
+      b_t_out  <- numeric(days)
+      b_t_out[1] <- b_init
+      for (i in 2:days){
+        proposal   <- b_t_out[i-1] + rnorm(1,0,sigma_rw)
+        b_t_out[i] <- max(proposal, 0.05)
+      }
+      
+      qd_out <- matrix(NA, nrow=days, ncol=D+1)
+      for (i in seq_len(days)){
+        qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
+      }
+      
+    } else if (method == "ou"){
+      # OU (Ornstein-Uhlenbeck)
+      #  alpha, mu, b_init, sigma_ou
+      if (!all(c("alpha","mu","b_init","sigma_ou") %in% names(method_params))) {
+        stop("method=ou requires alpha, mu, b_init, sigma_ou!")
+      }
+      alpha   <- method_params$alpha
+      mu      <- method_params$mu
+      b_init  <- method_params$b_init
+      sigma_o <- method_params$sigma_ou
+      
+      b_t_out  <- numeric(days)
+      b_t_out[1] <- b_init
+      for (i in 2:days){
+        drift       <- alpha*(mu - b_t_out[i-1])
+        proposal    <- b_t_out[i-1] + drift + rnorm(1,0,sigma_o)
+        b_t_out[i]  <- max(proposal, 0.05)
+      }
+      
+      qd_out <- matrix(NA, nrow=days, ncol=D+1)
+      for (i in seq_len(days)){
+        qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
+      }
+      
+    } else {
+      stop("method must be one of constant, time_varying, random_walk, ou!")
     }
-    simsQ_out <- simsQ(method = "random_walk", 
-                       t = days, 
-                       D = D_used,
-                       b = method_params$b, 
-                       sigma_rw = method_params$sigma_rw, 
-                       ensure_qd_one = ensure_qd_one_flag)
+    
+    # if ensure_qd = T, then do normalization
+    if (ensure_qd) {
+      qd_out <- normalize_qd(qd_out)
+    }
+    
+    return(list(qd=qd_out, b_t=b_t_out))
   }
   
-  # Simulate data
-  for (tt in seq_len(days)) {
-    # 1. Draw lambda_t from Gamma distribution
-    lambda_t[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
+  #---------------------------------------------------------
+  # 6) use makeQ() to generate q(d) and b_t
+  #---------------------------------------------------------
+  simsQ_out <- makeQ(
+    method        = method,
+    days          = days,
+    D             = D_used,
+    ensure_qd     = ensure_qd_one,
+    method_params = method_params
+  )
+  
+  #---------------------------------------------------------
+  # 7) start simulation
+  #---------------------------------------------------------
+  # generate the date sequence
+  date_seq <- seq.Date(from=date_start, by="day", length.out = days)
+  
+  #
+  lambda_t     <- numeric(days)        # disease intensity
+  case_true    <- integer(days)        
+  case_reported<- matrix(0, nrow=days, ncol=D_used+1)
+  rownames(case_reported) <- as.character(date_seq)
+  
+  for (tt in seq_len(days)){
     
-    # 2. Simulate the true number of cases for day t
-    case_true[tt] <- rpois(1, lambda = lambda_t[tt])
+    # 1) λ_t ~ Gamma
+    lambda_t[tt] <- rgamma(1, shape=alpha_lamb[tt], rate=beta_lamb)
     
-    # 3. Extract cumulative probabilities for day t
-    if (method == "constant") {
-      # qd is a constant vector
+    # 2) true num of cases
+    case_true[tt] <- rpois(1, lambda=lambda_t[tt])
+    
+    # 3) Cumulated report proportion of a certain day
+    if (is.vector(simsQ_out$qd)){
+      # constant -> simsQ_out$qd 是一个 vector
       prob_temp <- simsQ_out$qd
     } else {
-      # qd is a matrix of size (days x (D_used+1))
+      # else -> simsQ_out$qd is a (days x (D+1)) matrix
       prob_temp <- simsQ_out$qd[tt, ]
     }
     
-    # Convert cumulative probabilities to incremental probabilities
-    # p_temp[d] = qd[d] - qd[d-1] with qd[0] = 0
+    # 4) cumu prop -> single prop
     p_temp <- c(prob_temp[1], diff(prob_temp))
     
-    # 4. Distribute the total cases into delay intervals using rmultinom
-    reported_temp <- rmultinom(1, size = case_true[tt], prob = p_temp)
+    # 5) distribute case_true[tt] to each delay d = 0,1,2,...
+    reported_temp <- rmultinom(n=1, size=case_true[tt], prob=p_temp)
     
-    # 5. Convert from increments to cumulative reported cases
+    # 6) cumulated report case
     case_reported[tt, ] <- cumsum(reported_temp)
   }
   
-  # If we used a full delay window (if_fully_reported = TRUE),
-  # we only return the truncated part of the matrix to mimic partial observation.
-  if (!if_fully_reported) {
-    case_reported <- case_reported[, 1:(D_trunc + 1), drop = FALSE]
-    simsQ_out$qd <- simsQ_out$qd[, 1:(D_trunc + 1), drop = FALSE]
+  case_true = as.matrix(case_true)
+  rownames(case_true) = as.character(date_seq)
+  
+  #---------------------------------------------------------
+  # 8) if_fully_reported = FALSE (i.e. NFR), we only keep first D_trunc+1 cols
+  #---------------------------------------------------------
+  if (!if_fully_reported){
+    case_reported <- case_reported[, 1:(D_trunc+1), drop=FALSE]
+    # cut them by D_trunc
+    #  constant => qd is vector; or qd is matrix
+    if (is.vector(simsQ_out$qd)){
+      simsQ_out$qd <- simsQ_out$qd[1:(D_trunc+1)]
+    } else {
+      simsQ_out$qd <- simsQ_out$qd[, 1:(D_trunc+1), drop=FALSE]
+    }
   }
   
-  
-  
-  # Return a list of results
+  #---------------------------------------------------------
+  # 9) output
+  #---------------------------------------------------------
   return(list(
+    # reported cases
     case_reported = case_reported,
-    case_true = case_true,
-    lambda_t = lambda_t,
-    qd = simsQ_out$qd,
-    b = simsQ_out$b_t,
-    # Save which D was actually used
-    D_used = D_used,
-    ensure_qd_one_flag = ensure_qd_one_flag
+    # true cases
+    case_true  = case_true,
+    lambda_t   = round(lambda_t),
+    # b(t) & q(d)
+    b_t        = round(simsQ_out$b_t, 2),
+    qd         = round(simsQ_out$qd, 2),
+    # other inf
+    date_seq   = date_seq,
+    D_used     = D_used,
+    # lable for FR/NFR
+    if_fully_reported = if_fully_reported
   ))
 }
 
-# spline basis
-create_basis <- function(N_obs, n_knots = 5){
-  time_points <- 1:N_obs
-  
-  knot_dist <- 1 / (n_knots + 1)
-  probs <- seq(knot_dist, 1 - knot_dist, by = knot_dist)
-  knots <- quantile(time_points, probs = probs)
-  # spline basis matrix
-  spline_basis <- bs(time_points, knots = knots, degree = 3, intercept = TRUE)
-  X_spline <- cbind(1, as.matrix(spline_basis))
-  
-  return(X_spline)
-}
+
 
 
 ### functions to transfer the simulation data to the form of data in the paper

@@ -1,7 +1,7 @@
 nowcasts_table <- function(results_list, 
                            D = NULL,
                            report_unit = "week",
-                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline")) {
+                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b")) {
   # Basic checks
   if (is.null(D)) {
     stop("Parameter 'D' must be provided.")
@@ -63,7 +63,7 @@ nowcasts_table <- function(results_list,
 
 
 # measurement metrics
-calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "b_poly", "b_spline")) {
+calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "linear_b", "ou_b")) {
   # Ensure required columns exist
   required_columns <- c("date", "case_true")
   for (method in methods) {

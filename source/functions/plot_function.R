@@ -153,7 +153,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 
 # 
 # nowcasts_plot <- function(results_list, D = NULL, report_unit = "week",
-#                           models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+#                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
 #                           title = NULL, x_lab = NULL, y_lab = "Cases / Nowcast",
 #                           legend_position = "left") {
 #   
@@ -193,8 +193,8 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 #       "Reported Cases" = "black",
 #       "fixed_q" = "#228B22",   # 
 #       "fixed_b" = "#ffff66",  # 
-#       "b_poly" = "#8446c6",  # 
-#       "b_spline" = "#4682B4" # 
+#       "linear_b" = "#8446c6",  # 
+#       "ou_b" = "#4682B4" # 
 #     )
 #     # Create the base ggplot object
 #     p <- ggplot(nowcasts, aes(x = date)) +
@@ -262,8 +262,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 nowcasts_plot <- function(nowcasts_list,
                           D = NULL,
                           report_unit = "week",
-                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"),
-                          #models_to_run = c("Fixed q", "Fixed b", "Polynomial b", "Random walk b"),
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                           title = NULL,
                           x_lab = NULL,
                           y_lab = "Cases / Nowcast",
@@ -291,8 +290,15 @@ nowcasts_plot <- function(nowcasts_list,
     "Reported Cases"  = "black",
     "fixed_q"         = "#228B22",   
     "fixed_b"         = "#ffff66",  
-    "b_poly"          = "#8446c6",  
-    "b_spline"        = "#4682B4" 
+    "linear_b"          = "#8446c6",  
+    "ou_b"        = "#4682B4" 
+  )
+  
+  model_labels <- c(
+    "fixed_q"  = "Fixed q",
+    "fixed_b"  = "Fixed b",
+    "linear_b" = "Linear b",
+    "ou_b"     = "OU b"
   )
   
   p_out <- list()
@@ -335,8 +341,10 @@ nowcasts_plot <- function(nowcasts_list,
       geom_line(data = model_data,
                 aes(x = date, y = mean, color = model),
                 linewidth = 1) +
-      scale_color_manual(values = model_colors, name = "Legend") +
-      scale_fill_manual(values = model_colors[models_to_run], guide = "none") +
+      scale_color_manual(values = model_colors, name = "Legend",
+                         labels = c("Real Cases", "Reported Cases", model_labels[models_to_run])) +
+      scale_fill_manual(values = model_colors[models_to_run], guide = "none",
+                        labels = model_labels[models_to_run]) +
       labs(title = title,
            x = x_lab,
            y = y_lab) +

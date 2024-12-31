@@ -17,7 +17,7 @@ model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
-  b ~ uniform(0, 3);
+  b ~ uniform(0.1, 1);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
@@ -35,6 +35,7 @@ model {
 generated quantities {
   vector<lower=0>[N_obs] N_t;
   for (t in 1:N_obs) {
+    //real q_d_final = 1 - exp(- b * D);
     N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
   }
 }
