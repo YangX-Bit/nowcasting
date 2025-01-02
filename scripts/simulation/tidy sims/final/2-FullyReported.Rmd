@@ -261,7 +261,7 @@ results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day", mo
 
 
 ```{r}
-out_3_FR <- nowcasting_moving_window(FR_3$case_reported, scoreRange = as.Date("2024-02-15"), 
+out_3_FR <- nowcasting_moving_window(FR_3$case_reported, scoreRange = scoreRange, 
                                 case_true = FR_3$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D, sigma_b = 0.1, seeds = seed,
@@ -355,7 +355,7 @@ results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd001.png"), 
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd001.png"), 
        plot = results_1_FR_plots, 
        width = 10, height = 12, dpi = 300)
 # table
@@ -376,7 +376,7 @@ results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd01.png"), 
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd01.png"), 
        plot = results_2_FR_plots, 
        width = 10, height = 12, dpi = 300)
 # table
@@ -396,7 +396,7 @@ results_3_FR_plots <- nowcasts_plot(results_3_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd03.png"), 
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd03.png"), 
        plot = results_3_FR_plots, 
        width = 10, height = 12, dpi = 300)
 # table
