@@ -97,9 +97,9 @@ params_1 <- list(
 scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
 #scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 # generate
-NFR_1 <- simulateData(params_1)
+FR_1 <- simulateData(params_1)
 
-#NFR_1$case_true - NFR_1$case_reported[,11]
+#FR_1$case_true - FR_1$case_reported[,11]
 ```
 
 
@@ -125,7 +125,7 @@ params_2 <- list(
   )
 )
 
-NFR_2 <- simulateData(params_2)
+FR_2 <- simulateData(params_2)
 ```
 
 
@@ -151,21 +151,21 @@ params_3 <- list(
   )
 )
 
-NFR_3 <- simulateData(params_3)
-# sum(abs(NFR_3$b_t - NFR_2$b_t))
+FR_3 <- simulateData(params_3)
+# sum(abs(FR_3$b_t - FR_2$b_t))
 # 
-# sum(abs(NFR_3$b_t - NFR_1$b_t))
+# sum(abs(FR_3$b_t - FR_1$b_t))
 ```
 
 
 ```{r}
 # exploritary analysis
-page_num <- ceiling(nrow(NFR_1$case_reported)/16)
-exp_plot_1 <- fit_exp_plot(NFR_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+page_num <- ceiling(nrow(FR_1$case_reported)/16)
+exp_plot_1 <- fit_exp_plot(FR_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_1)
 
 
-exp_b_data_1<- data.frame( date = as.Date(rownames(NFR_1$case_reported)),
+exp_b_data_1<- data.frame( date = as.Date(rownames(FR_1$case_reported)),
                           b = exp_plot_1$coefficients)
 exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
@@ -180,11 +180,11 @@ print(exp_b_plot_1)
 
 ```{r}
 # exploritary analysis
-exp_plot_2 <- fit_exp_plot(NFR_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_2 <- fit_exp_plot(FR_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_2)
 
 
-exp_b_data_2<- data.frame( date = as.Date(rownames(NFR_2$case_reported)),
+exp_b_data_2<- data.frame( date = as.Date(rownames(FR_2$case_reported)),
                           b = exp_plot_2$coefficients)
 exp_b_data_2
 exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
@@ -199,11 +199,11 @@ print(exp_b_plot_2)
 
 ```{r}
 # exploritary analysis
-exp_plot_3 <- fit_exp_plot(NFR_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_3 <- fit_exp_plot(FR_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_3)
 
 
-exp_b_data_3<- data.frame( date = as.Date(rownames(NFR_3$case_reported)),
+exp_b_data_3<- data.frame( date = as.Date(rownames(FR_3$case_reported)),
                           b = exp_plot_3$coefficients)
 exp_b_data_3
 exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
@@ -219,8 +219,8 @@ print(exp_b_plot_3)
 
 ## fit model
 ```{r}
-out_1_FR <- nowcasting_moving_window(NFR_1$case_reported, scoreRange = scoreRange, 
-                                case_true = NFR_1$case_true,
+out_1_FR <- nowcasting_moving_window(FR_1$case_reported, scoreRange = scoreRange, 
+                                case_true = FR_1$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
@@ -240,8 +240,8 @@ results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D_trunc, report_unit = "da
 ```
 
 ```{r}
-out_2_FR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRange, 
-                                case_true = NFR_2$case_true,
+out_2_FR <- nowcasting_moving_window(FR_2$case_reported, scoreRange = scoreRange, 
+                                case_true = FR_2$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
@@ -261,8 +261,8 @@ results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D_trunc, report_unit = "da
 
 
 ```{r}
-out_3_FR <- nowcasting_moving_window(NFR_3$case_reported, scoreRange = as.Date("2024-02-15"), 
-                                case_true = NFR_3$case_true,
+out_3_FR <- nowcasting_moving_window(FR_3$case_reported, scoreRange = as.Date("2024-02-15"), 
+                                case_true = FR_3$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D_trunc, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
