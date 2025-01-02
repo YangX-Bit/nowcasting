@@ -135,7 +135,7 @@ simulateData <- function(
       b_t_out[1] <- b_init
       for (i in 2:days){
         proposal   <- b_t_out[i-1] + rnorm(1,0,sigma_rw)
-        b_t_out[i] <- max(proposal, 0.05)
+        b_t_out[i] <- max(min(proposal, 1), 0.05)
       }
       
       qd_out <- matrix(NA, nrow=days, ncol=D+1)
@@ -154,13 +154,31 @@ simulateData <- function(
       b_init  <- method_params$b_init
       sigma_o <- method_params$sigma_ou
       
-      b_t_out  <- numeric(days)
+      b_t_out <- numeric(days)
       b_t_out[1] <- b_init
+      
+      # Iterate to generate log_b_t using the OU process
       for (i in 2:days){
-        drift       <- alpha*(mu - b_t_out[i-1])
-        proposal    <- b_t_out[i-1] + drift + rnorm(1,0,sigma_o)
-        b_t_out[i]  <- max(proposal, 0.05)
+        drift <- alpha * (mu - b_t_out[i - 1])
+        proposal <- b_t_out[i - 1] + drift + rnorm(1, 0, sigma_o)
+        
+        # Ensure log_b_t does not go below log(0.05)
+        b_t_out[i] <- max(min(proposal, 1), 0.05)
       }
+      
+      # log_b_t_out <- numeric(days)
+      # log_b_t_out[1] <- log(b_init)
+      # 
+      # # Iterate to generate log_b_t using the OU process
+      # for (i in 2:days){
+      #   drift <- alpha * (log(mu) - log_b_t_out[i - 1])
+      #   proposal <- log_b_t_out[i - 1] + drift + rnorm(1, 0, log(sigma_o))
+      #   
+      #   # Ensure log_b_t does not go below log(0.05)
+      #   log_b_t_out[i] <- max(proposal, log(0.05))
+      # }
+      # # Transform back to the original scale
+      # b_t_out <- exp(log_b_t_out)
       
       qd_out <- matrix(NA, nrow=days, ncol=D+1)
       for (i in seq_len(days)){
@@ -256,8 +274,8 @@ simulateData <- function(
     case_true  = case_true,
     lambda_t   = round(lambda_t),
     # b(t) & q(d)
-    b_t        = round(simsQ_out$b_t, 2),
-    qd         = round(simsQ_out$qd, 2),
+    b_t        = round(simsQ_out$b_t, 4),
+    qd         = round(simsQ_out$qd, 4),
     # other inf
     date_seq   = date_seq,
     D_used     = D_used,

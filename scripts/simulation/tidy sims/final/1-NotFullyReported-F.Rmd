@@ -69,7 +69,7 @@ days = 60
 D_trunc <- 10; D_complete <- 20; if_fully_rep <- F
 # model
 method = "ou"; 
-alpha_ou=0.4; mu_ou=0.2; b_init=0.1; 
+alpha_ou=0.4; mu_ou=0.2; b_init=0.2; 
 # sd changes for each scenario
 sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
 
@@ -166,7 +166,7 @@ print(exp_plot_1)
 
 
 exp_b_data_1<- data.frame( date = as.Date(rownames(NFR_1$case_reported)),
-                          b = exp_plot_1$coefficients$b)
+                          b = exp_plot_1$coefficients)
 exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -185,7 +185,7 @@ print(exp_plot_2)
 
 
 exp_b_data_2<- data.frame( date = as.Date(rownames(NFR_2$case_reported)),
-                          b = exp_plot_2$coefficients$b)
+                          b = exp_plot_2$coefficients)
 exp_b_data_2
 exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -204,7 +204,7 @@ print(exp_plot_3)
 
 
 exp_b_data_3<- data.frame( date = as.Date(rownames(NFR_3$case_reported)),
-                          b = exp_plot_3$coefficients$b)
+                          b = exp_plot_3$coefficients)
 exp_b_data_3
 exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -318,9 +318,11 @@ results_2_plots
 
 ```{r}
 # all cases
-for(i in 1:length(scoreRange)){
+for(i in 1:length(results_2)){
   print(calculate_metrics(results_2[[i]]))
 }
+
+
 ```
 
 ```{r}

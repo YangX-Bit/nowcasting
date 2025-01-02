@@ -35,7 +35,6 @@ model {
 generated quantities {
   vector<lower=0>[N_obs] N_t;
   for (t in 1:N_obs) {
-    //real q_d_final = 1 - exp(- b * D);
     N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
   }
 }
