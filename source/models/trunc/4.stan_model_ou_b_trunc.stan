@@ -16,17 +16,17 @@ parameters {
   real mu;                                 // Long-term mean
   real<lower=0> sigma_ou;                 // Diffusion coefficient
 
-  vector[N_obs] log_b_t;                  // Logarithm of b_t parameter for stability
+  vector<lower=0.05, upper=1>[N_obs] b_t;                  // Logarithm of b_t parameter for stability
 }
 
 transformed parameters {
-  vector<lower=0.05, upper=1>[N_obs] b_t;
+  // vector<lower=0.05, upper=1>[N_obs] b_t;
   matrix[N_obs, D] q_d_matrix;
 
   // Calculate b_t[t] = exp(log_b_t[t]) to ensure b_t[t] is positive
-  for (n in 1:N_obs){
-    b_t[n] = exp(log_b_t[n]);
-  }
+  // for (n in 1:N_obs){
+  //   b_t[n] = exp(log_b_t[n]);
+  // }
 
   // Precompute all q_d values
   for (n in 1:N_obs){
