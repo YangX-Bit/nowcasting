@@ -66,7 +66,7 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
 beta_lamb = 0.5
 n_obs = 60
 # reprot structure
-D_trunc <- 10; D_complete <- 20; if_fully_reported <- F
+D <- 10; D_complete <- 20; if_fully_reported <- F
 # model
 method = "ou"; 
 alpha_ou=0.4; mu_ou=0.1; b_init=0.1; 
@@ -83,7 +83,7 @@ params_1 <- list(
     seed       = seed
   ),
   reporting = list(
-    D_trunc           = D_trunc,     
+    D           = D,     
     D_complete        = D_complete,    
     if_fully_reported = if_fully_reported
   ),
@@ -94,8 +94,8 @@ params_1 <- list(
   )
 )
 # date that we run
-scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
-#scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+#scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 # generate
 NFR_1 <- simulateData(params_1)
 
@@ -114,7 +114,7 @@ params_2 <- list(
     seed       = seed
   ),
   reporting = list(
-    D_trunc           = D_trunc,     
+    D           = D,     
     D_complete        = D_complete,    
     if_fully_reported = if_fully_reported
   ),
@@ -140,7 +140,7 @@ params_3 <- list(
     seed       = seed
   ),
   reporting = list(
-    D_trunc           = D_trunc,     
+    D           = D,     
     D_complete        = D_complete,    
     if_fully_reported = if_fully_reported
   ),
@@ -222,7 +222,7 @@ print(exp_b_plot_3)
 out_1_NFR <- nowcasting_moving_window(NFR_1$case_reported, scoreRange = scoreRange, 
                                 case_true = NFR_1$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                D = D, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
@@ -232,10 +232,10 @@ out_1_NFR <- nowcasting_moving_window(NFR_1$case_reported, scoreRange = scoreRan
 #save(out_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd001.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
-results_1_NFR <- nowcasts_table(out_1_NFR, D = D_trunc, report_unit = "day", 
+results_1_NFR <- nowcasts_table(out_1_NFR, D = D, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
-results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 
 ```
 
@@ -243,7 +243,7 @@ results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D_trunc, report_unit = "
 out_2_NFR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRange, 
                                 case_true = NFR_2$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                D = D, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
@@ -253,10 +253,10 @@ out_2_NFR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRan
 #save(out_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd01.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
-results_2_NFR <- nowcasts_table(out_2_NFR, D = D_trunc, report_unit = "day", 
+results_2_NFR <- nowcasts_table(out_2_NFR, D = D, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
-results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ``` 
 
 
@@ -264,7 +264,7 @@ results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D_trunc, report_unit = "
 out_3_NFR <- nowcasting_moving_window(NFR_3$case_reported, scoreRange = scoreRange, 
                                 case_true = NFR_3$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                D = D, sigma_b = 0.1, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
@@ -274,17 +274,13 @@ out_3_NFR <- nowcasting_moving_window(NFR_3$case_reported, scoreRange = scoreRan
 #save(out_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd03.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
-results_3_NFR <- nowcasts_table(out_3_NFR, D = D_trunc, report_unit = "day", 
+results_3_NFR <- nowcasts_table(out_3_NFR, D = D, report_unit = "day", 
                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
-results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 
 ```
 
-
-
-
-###################
 
 
 
@@ -307,7 +303,7 @@ for(i in 1:length(results_1_NFR)){
 ```{r}
 # Within D
 for(i in 1:length(results_1_NFR)){
-  print(calculate_metrics(data.table::last(results_1_NFR[[i]], D_trunc)))
+  print(calculate_metrics(data.table::last(results_1_NFR[[i]], D)))
 }
 ```
 
@@ -330,7 +326,7 @@ for(i in 1:length(results_2_NFR)){
 ```{r}
 # Within D
 for(i in 1:length(results_2_NFR)){
-  print(calculate_metrics(data.table::last(results_2_NFR[[i]], D_trunc)))
+  print(calculate_metrics(data.table::last(results_2_NFR[[i]], D)))
 }
 ```
 
@@ -350,14 +346,14 @@ for(i in 1:length(results_3_NFR)){
 ```{r}
 # Within D
 for(i in 1:length(results_3_NFR)){
-  print(calculate_metrics(data.table::last(results_3_NFR[[i]], D_trunc)))
+  print(calculate_metrics(data.table::last(results_3_NFR[[i]], D)))
 }
 ```
 
 
 # output
 ```{r}
-results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D_trunc, report_unit = "day",
+results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day",
                                  models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
                                  combine_plots = T, ncol = 2
                                  )
@@ -378,7 +374,7 @@ cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Pol
 
 # output
 ```{r}
-results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D_trunc, report_unit = "day",
+results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D, report_unit = "day",
                                  models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
                                  combine_plots = T, ncol = 2
                                  )
@@ -398,7 +394,7 @@ cat(highlight_metrics(fully_tables_2, method_names =c("Fixed q", "Fixed b", "Pol
 ```
 
 ```{r}
-results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D_trunc, report_unit = "day",
+results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D, report_unit = "day",
                                  models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
                                  combine_plots = T, ncol = 2
                                  )

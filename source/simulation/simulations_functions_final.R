@@ -16,7 +16,7 @@ simulateData <- function(
       ),
       # B. Delay report structure
       reporting = list(
-        D_trunc          = 5,
+        D          = 5,
         D_complete       = 10,
         if_fully_reported= FALSE   # FALSE => NFR; TRUE => FR
       ),
@@ -45,7 +45,7 @@ simulateData <- function(
   seed        <- params$data$seed
   
   # (B) structure
-  D_trunc          <- params$reporting$D_trunc
+  D          <- params$reporting$D
   D_complete       <- params$reporting$D_complete
   if_fully_reported<- params$reporting$if_fully_reported
   
@@ -60,15 +60,15 @@ simulateData <- function(
     stop("The length of `alpha_lamb` should be equal to the length of `n_obs`！")
   }
   
-  if (D_trunc >= D_complete) {
-    stop("Ensure `D_trunc < D_complete` (for NFR scenario). For Fully Reported Case, set if_fully_reported=TRUE.")
+  if (D >= D_complete) {
+    stop("Ensure `D < D_complete` (for NFR scenario). For Fully Reported Case, set if_fully_reported=TRUE.")
   }
   
   if_fully_reported <- as.logical(if_fully_reported)
-  # In FR scenario, use D_trunc to generate Q(d) and ensure q_d(D_trunc) = 1
+  # In FR scenario, use D to generate Q(d) and ensure q_d(D) = 1
   # In NFR scenario, use D_complete to generate Q(d) without forcing q_d to 1
   if (if_fully_reported) {
-    D_used            <- D_trunc
+    D_used            <- D
     ensure_Q_to_one <- TRUE
   } else {
     D_used            <- D_complete
@@ -101,6 +101,7 @@ simulateData <- function(
     date_start = date_start,
     simsQ_out  = simsQ_out,
     D_used     = D_used,
+    D = D,
     if_fully_reported = if_fully_reported
   )
   
@@ -117,6 +118,7 @@ runSimulation <- function(
     date_start,
     simsQ_out,
     D_used,
+    D,
     if_fully_reported
 ) {
   # Generate the date sequence
@@ -162,12 +164,12 @@ runSimulation <- function(
   
   # If not fully reported (NFR), keep only the first D_used + 1 columns
   if (!if_fully_reported){
-    case_reported <- case_reported[, 1:(D_used + 1), drop = FALSE]
+    case_reported <- case_reported[, 1:(D + 1), drop = FALSE]
     
     if (is.vector(simsQ_out$qd)){
-      simsQ_out$qd <- simsQ_out$qd[1:(D_used + 1)]
+      simsQ_out$qd <- simsQ_out$qd[1:(D + 1)]
     } else {
-      simsQ_out$qd <- simsQ_out$qd[, 1:(D_used + 1), drop = FALSE]
+      simsQ_out$qd <- simsQ_out$qd[, 1:(D + 1), drop = FALSE]
     }
   }
   
