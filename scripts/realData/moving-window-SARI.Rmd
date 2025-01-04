@@ -42,22 +42,22 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 ```
 
 ```{r}
+#models
 fixed_q <- file.path(path_proj, "source", "models",
                      "trunc", "1.stan_model_fixed_q_trunc.stan")
 fixed_b <- file.path(path_proj, "source", "models",
                      "trunc", "2.stan_model_fixed_b_trunc.stan")
-b_poly <- file.path(path_proj, "source", "models", "trunc",
-                     "3.stan_model_b_poly_trunc.stan")
-b_spline <- file.path(path_proj, "source", "models", "trunc",
-                     "4.stan_model_b_spline_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_linear_b_trunc.stan")
+ou_b <-  file.path(path_proj, "source", "models", "trunc",
+                      "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
   fixed_q = cmdstan_model(fixed_q),
   fixed_b = cmdstan_model(fixed_b),
-  b_poly = cmdstan_model(b_poly),
-  b_spline = cmdstan_model(b_spline)
+  linear_b = cmdstan_model(linear_b),
+  ou_b = cmdstan_model(ou_b)
 )
-
 ```
 
 ```{r, warning=FALSE}
@@ -67,7 +67,7 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # setting: delay,  number of days
 seed <- 123
-D <- 15
+D <- 26
 N_obs <- 200
 
 # try-on in region 41002
@@ -103,7 +103,7 @@ exp_plot
 
 ```{r}
 exp_b_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
-                          b = exp_plot$coefficients$b)
+                          b = exp_plot$coefficients)
 
 exp_b_plot <- ggplot(exp_b_data, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -137,51 +137,42 @@ auto.arima(fit_ar1_SARI$b)
 
 
 ```{r}
-out <- nowcasting_moving_window(data_41002_input, scoreRange = as.Date("2009-08-30"), 
+scoreRange_SARI <- seq(as.Date("2009-08-01"),as.Date("2009-12-27"),by="28 day")
+
+out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
                                 case_true = case_true,
                                 start_date = as.Date("2009-06-15"),
                                 #start_date = scoreRange[1] - weeks(20),
-                                D = 26, sigma_b = 0.5, seeds = 111,
-                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                D = D, seeds = 111,
+                                models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 500,
                                 num_chains = 3, suppress_output = T)
 
 #save(out, file = file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
-out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
-results <- nowcasts_plot(out, D = 26, report_unit = "week", 
-                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+results_SARI_plots <- nowcasts_plot(results_SARI, D = D, report_unit = "week", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
 
 ```{r}
-print(scoreRange)
-for(i in 1:length(scoreRange)){
-  print(calculate_metrics(results$nowcasts[i][[1]]))
+results_SARI_plots
+```
+
+
+```{r}
+for(i in 1:length(results_SARI)){
+  print(calculate_metrics(results_SARI[[i]]))
 }
 ```
 
 
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q", "b_spline"))[["plots"]]
-```
 
 ```{r}
-nowcasts_plot(out,D = 26, report_unit = "week")[["plots"]]
-```
+for(i in 1:length(results_SARI)){
+  print(calculate_metrics(data.table::last(results_SARI[[i]],D)))
+}
 
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_b"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_poly"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_spline"))[["plots"]]
 ```

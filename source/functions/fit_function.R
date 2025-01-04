@@ -22,7 +22,7 @@ slice_data <- function(data, scoreRange,
   } else if (!is.null(window_day_length)) {
     # Slice based on window_length and scoreRange
     for (score in scoreRange) {
-      start_window <- as.Date(score) - days(window_day_length)
+      start_window <- as.Date(score) - window_day_length
       slice <- data[dates >= start_window & dates <= as.Date(score), , drop = FALSE]
       if (nrow(slice) > 0) {
         result[[paste(window_day_length,"days_window_up_to", last(rownames(slice)), sep = "_")]] <- as.matrix(slice)
@@ -35,7 +35,7 @@ slice_data <- function(data, scoreRange,
 
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
-                                     D = 20, sigma_b = 0.1, seeds = 123,
+                                     D = 20, seeds = 123,
                                      models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
@@ -87,14 +87,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
       warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
     }
     
-    # input list
-    # stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
-    #                         K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
-    #                         J = ncol(X_spline), X_spline = X_spline, sigma_b = sigma_b)
-    
     stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
-                            K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
-                            sigma_b = sigma_b)
+                            K = nrow(indices_data_trunc), obs_index = indices_data_trunc)
 
     # return(stan_data_trunc)
     # Fit models based on what is selected 

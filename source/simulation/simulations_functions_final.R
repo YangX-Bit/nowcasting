@@ -67,6 +67,9 @@ simulateData <- function(
   if_fully_reported <- as.logical(if_fully_reported)
   # In FR scenario, use D to generate Q(d) and ensure q_d(D) = 1
   # In NFR scenario, use D_complete to generate Q(d) without forcing q_d to 1
+  
+  # D_used = the actual maximum lag dimension that -->
+  # --> we are using to generate the final reported matrix
   if (if_fully_reported) {
     D_used            <- D
     ensure_Q_to_one <- TRUE
@@ -106,7 +109,7 @@ simulateData <- function(
   )
   
   #---------------------------------------------------------
-  # 9) output
+  # 7) output
   #---------------------------------------------------------
   return(simulation_result)
 }
@@ -239,7 +242,7 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
     }
     
   } else if (method == "random_walk"){
-    if (!all(c("b","sigma_rw") %in% names(method_params))) {
+    if (!all(c("b_init","sigma_rw") %in% names(method_params))) {
       stop("method=random_walk requires b_init and sigma_rw!")
     }
     b_init   <- method_params$b_init
@@ -249,7 +252,8 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
     b_t_out[1] <- b_init
     for (i in 2:n_obs){
       proposal   <- b_t_out[i-1] + rnorm(1,0,sigma_rw)
-      b_t_out[i] <- max(min(proposal, 1), 0.05)
+      # to make sure  0.05<= b_t >= 1. More realistic
+      b_t_out[i] <- max(min(proposal, 1), 0.05) 
     }
     
     qd_out <- matrix(NA, nrow=n_obs, ncol=D+1)

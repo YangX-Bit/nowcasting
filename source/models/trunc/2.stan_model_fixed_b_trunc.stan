@@ -10,14 +10,14 @@ parameters {
   real<lower=0> alpha_lambda;  // Gamma prior shape parameter for lambda
   real<lower=0> beta_lambda;   // Gamma prior rate parameter for lambda
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
-  real<lower=0> b;
+  real<lower=0.05> b;
 }
 
 model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
-  b ~ uniform(0, 1);
+  b ~ uniform(0, 2);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);

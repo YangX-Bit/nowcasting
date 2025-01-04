@@ -50,16 +50,16 @@ fixed_q <- file.path(path_proj, "source", "models",
                      "trunc", "1.stan_model_fixed_q_trunc.stan")
 fixed_b <- file.path(path_proj, "source", "models",
                      "trunc", "2.stan_model_fixed_b_trunc.stan")
-b_poly <- file.path(path_proj, "source", "models", "trunc",
-                     "3.stan_model_b_poly_trunc.stan")
-b_spline <- file.path(path_proj, "source", "models", "trunc",
-                     "4.stan_model_b_spline_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_linear_b_trunc.stan")
+ou_b <-  file.path(path_proj, "source", "models", "trunc",
+                      "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
   fixed_q = cmdstan_model(fixed_q),
   fixed_b = cmdstan_model(fixed_b),
-  b_poly = cmdstan_model(b_poly),
-  b_spline = cmdstan_model(b_spline)
+  linear_b = cmdstan_model(linear_b),
+  ou_b = cmdstan_model(ou_b)
 )
 
 ```
@@ -74,18 +74,18 @@ seed <- 123
 D <- 15
 
 # now <- as.Date("2024-02-01")
-scoreRange <- seq(first(husO104$date) + days(D),last(husO104$date),by="5 day")
+scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="5 day")
 
 # input the true case vector
-case_true <- as.matrix(husO104[, c("delay15")])
-rownames(case_true) <- as.character(husO104$date)
+case_true_husO104 <- as.matrix(husO104[, c("delay15")])
+rownames(case_true_husO104) <- as.character(husO104$date)
 ```
 
 ```{r}
 # exp plot
 husO104_exp_plot <- husO104 %>% select(-date) %>%
   as.matrix()
-rownames(husO104_exp_plot) <- rownames(case_true)
+rownames(husO104_exp_plot) <- rownames(case_true_husO104)
 
 page_num <- ceiling(nrow(husO104_exp_plot)/16)
 
@@ -97,7 +97,7 @@ exp_plot
 
 ```{r}
 exp_b_data_husO104 <- data.frame( date = as.Date(rownames(husO104_exp_plot)),
-                          b = exp_plot$coefficients$b)
+                          b = exp_plot$coefficients)
 
 exp_b_plot_husO104 <- ggplot(exp_b_data_husO104, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -128,54 +128,42 @@ auto.arima(fit_ar1_husO104$b)
 ```
 
 ```{r}
-out <- nowcasting_moving_window(husO104_input, scoreRange = scoreRange, 
-                                case_true = case_true,
+scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="5 day")
+
+out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  as.Date("2011-06-16"), 
+                                case_true = case_true_husO104,
                                 start_date = as.Date("2011-05-07"),
                                 #start_date = scoreRange[1] - weeks(20),
                                 D = 15, sigma_b = 0.5, seeds = seed,
-                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                models_to_run =  c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 
 # save(out, file = file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
-out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
-results <- nowcasts_plot(out, D = 15, report_unit = "week", 
-                         models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+#out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+
+results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
 
 ```{r}
+results_husO104_plots
+```
 
-print(scoreRange)
-for(i in 1:length(scoreRange)){
-  print(calculate_metrics(results$nowcasts[i][[1]]))
+
+```{r}
+for(i in 1:length(results_husO104)){
+  print(calculate_metrics(results_husO104[[i]]))
+}
+```
+
+
+```{r}
+for(i in 1:length(results_husO104)){
+  print(calculate_metrics(data.table::last(results_husO104[[i]],D)))
 }
 
-hus_list <- list()
-count = 1
-for (i in c(3,5)) {
-  hus_list[[count]] <- calculate_metrics(results$nowcasts[i][[1]])
-  count = count + 1
-}
-```
-
-
-```{r}
-results$plots
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_q"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("fixed_b"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_poly"))[["plots"]]
-```
-
-```{r}
-nowcasts_plot(out,D = 26, report_unit = "week",  models_to_run = c("b_spline"))[["plots"]]
 ```

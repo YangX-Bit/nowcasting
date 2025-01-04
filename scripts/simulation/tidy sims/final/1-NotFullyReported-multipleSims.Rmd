@@ -12,6 +12,7 @@ library(cmdstanr)
 library(splines)
 library(ggplot2)
 library(reshape2)
+library(dplyr)
 ```
 
 
@@ -57,6 +58,8 @@ compiled_models <- list(
 ###### setting #####
 seed <- 123
 set.seed(seed)
+
+num_sims <- 2
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -95,11 +98,35 @@ params_1 <- list(
 )
 # date that we run
 #scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
-scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
-# generate
-NFR_1 <- simulateData(params_1)
+#scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 
-NFR_1$case_true - NFR_1$case_reported[,11]
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"))
+
+NFR_1 <- list()
+# generate
+for (i in 1:num_sims) {
+  NFR_1[[i]] <- simulateData(
+        params_1 <- list(
+      data = list(
+        alpha_lamb = alpha_lamb,  
+        beta_lamb  = beta_lamb,
+        n_obs       = n_obs,
+        date_start = as.Date("2024-01-01"),
+        seed       = i
+      ),
+      reporting = list(
+        D           = D,     
+        D_complete        = D_complete,    
+        if_fully_reported = if_fully_reported
+      ),
+      q_model = list(
+        method        = method,
+        method_params = list(alpha = alpha_ou, mu = mu_ou, 
+                             b_init = b_init, sigma_ou = sigma_ou_1)
+      )
+    )
+  )
+}
 ```
 
 
@@ -158,85 +185,184 @@ NFR_3 <- simulateData(params_3)
 ```
 
 
-```{r}
-# exploritary analysis
-page_num <- ceiling(nrow(NFR_1$case_reported)/16)
-exp_plot_1 <- fit_exp_plot(NFR_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_1)
-
-
-exp_b_data_1<- data.frame( date = as.Date(rownames(NFR_1$case_reported)),
-                          b = exp_plot_1$coefficients)
-exp_b_data_1
-exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
-  geom_point(color = "black", size = 1.5) +       
-  geom_smooth(method = "loess", se = TRUE,        
-              color = "blue", fill = "grey", alpha = 0.5) +
-  theme_minimal() +
-  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-
-print(exp_b_plot_1)
-```
-
-```{r}
-# exploritary analysis
-exp_plot_2 <- fit_exp_plot(NFR_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_2)
-
-
-exp_b_data_2<- data.frame( date = as.Date(rownames(NFR_2$case_reported)),
-                          b = exp_plot_2$coefficients)
-exp_b_data_2
-exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
-  geom_point(color = "black", size = 1.5) +       
-  geom_smooth(method = "loess", se = TRUE,        
-              color = "blue", fill = "grey", alpha = 0.5) +
-  theme_minimal() +
-  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-
-print(exp_b_plot_2)
-```
-
-```{r}
-# exploritary analysis
-exp_plot_3 <- fit_exp_plot(NFR_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_3)
-
-
-exp_b_data_3<- data.frame( date = as.Date(rownames(NFR_3$case_reported)),
-                          b = exp_plot_3$coefficients)
-exp_b_data_3
-exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
-  geom_point(color = "black", size = 1.5) +       
-  geom_smooth(method = "loess", se = TRUE,        
-              color = "blue", fill = "grey", alpha = 0.5) +
-  theme_minimal() +
-  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-
-print(exp_b_plot_3)
-```
-
-
 ## fit model
 ```{r}
-out_1_NFR <- nowcasting_moving_window(NFR_1$case_reported, scoreRange = scoreRange, 
-                                case_true = NFR_1$case_true,
+out_list_1_NFR <- list()
+for (i in 1:num_sims){
+  out_list_1_NFR[[i]] <- 
+    nowcasting_moving_window(NFR_1[[i]]$case_reported, scoreRange = scoreRange, 
+                                case_true = NFR_1[[i]]$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
-                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                D = D, seeds = seed,
+                                #models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                models_to_run =c("fixed_q",  "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
-
+}
 
 #save(out_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd001.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
-results_1_NFR <- nowcasts_table(out_1_NFR, D = D, report_unit = "day", 
-                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
-results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+# results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
+```{r}
+results_1_NFR <- compute_all_nowcasts_tables(out_list_1_NFR, D, "day", c("fixed_q","ou_b"))
+
+# plots
+results_1_NFR_avg <- average_nowcasts_tables(results_1_NFR)
+
+nowcasts_plot(
+  nowcasts_list = results_1_NFR_avg,
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q","ou_b"),
+  combine_plots = TRUE,
+  title = "Averaged Nowcasts Over All Replicates"
+)
+
+# Average metrics
+metrics_1_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_1_NFR,
+  methods       = c("fixed_q","ou_b")
+)
+
+metrics_1_NFR_avg
+
+
+#
+# for (t in seq_along(metrics_1_NFR_avg)) {
+#   cat("===== Window", t, "=====\n")
+#   print(metrics_1_NFR_avg[[t]])
+# }
+```
+
+```{r}
+results_1_NFR <- list()
+all_metrics_1_NFR <- list()
+for (i in 1:num_sims){
+results_1_NFR[[i]] <- nowcasts_table(out_list_1_NFR[[i]], D = D, report_unit = "day", 
+                          models_to_run =c("fixed_q",  "ou_b"),                          replicate_id = i)
+}
+
+
+for (i in 1:num_sims){
+  table_i_list <- results_1_NFR[[i]]
+  metrics_i_list <- list()
+    for (t in seq_along(table_i_list)) {
+    df_rt <- table_i_list[[t]]
+    
+    # Compute metrics for replicate r, time window t
+    metrics_rt <- calculate_metrics(df_rt,
+                                    methods = c("fixed_q",  "ou_b"))
+    
+    metrics_i_list[[t]] <- metrics_rt
+    }
+  all_metrics_1_NFR[[i]] <- metrics_i_list
+}
+
+# combine
+T <- length(all_metrics_1_NFR[[1]])
+
+# We'll store T final "averaged" metrics data frames
+metrics_t_averaged_1_NFR <- vector(mode="list", length=T)
+
+for (t in seq_len(T)) {
+  # Extract metrics from all replicates for this time window
+  metrics_for_t_list <- list()
+  for (i in seq_len(num_sims)) {
+    metrics_for_t_list[[i]] <- all_metrics_1_NFR[[i]][[t]]
+    # which has columns like: RMSE, RMSPE, MAPE, Interval_Width, Coverage_Rate, Method
+    # Possibly you want to add replicate_id = r here, if not already
+  }
+  
+  # Combine row-wise
+  metrics_for_t <- dplyr::bind_rows(metrics_for_t_list)
+  
+  # Now average across replicate
+  # Typically group by "Method" to compute average metrics
+  metrics_avg_t <- metrics_for_t %>%
+    group_by(Method) %>%
+    summarize(
+      RMSE = mean(RMSE, na.rm=TRUE),
+      RMSPE = mean(RMSPE, na.rm=TRUE),
+      MAE = mean(MAE, na.rm=TRUE),
+      MAPE = mean(MAPE, na.rm=TRUE),
+      Interval_Width = mean(Interval_Width, na.rm=TRUE),
+      Coverage_Rate = mean(Coverage_Rate, na.rm=TRUE),
+      .groups = "drop"
+    )
+  
+  # Optionally round or reorder
+  metrics_avg_t <- metrics_avg_t %>%
+    mutate_if(is.numeric, round, 2)
+  
+  # store final table for window t
+  metrics_t_averaged_1_NFR[[t]] <- metrics_avg_t
+}
+
+```
+```{r}
+library(dplyr)
+
+# Number of time windows
+T <- length(results_1_NFR[[1]])  # assume all replicates have the same T windows
+
+# Prepare a list to hold the T averaged data frames
+results_1_NFR_avg <- vector("list", length = T)
+
+for (t in seq_len(T)) {
+  # Gather the data frames from each replicate for this time window t
+  df_list_t <- lapply(seq_len(num_sims), function(i) results_1_NFR[[i]][[t]])
+  # Each df_list_t[[i]] is a data frame with columns like
+  # date, case_true, case_reported, mean_fixed_q, lower_fixed_q, ..., mean_ou_b, lower_ou_b, upper_ou_b, etc.
+
+  # We'll create an averaged data frame for time window t
+  # Let's assume that each replicate's df has the same rows in the same order.
+
+  # Start with a copy of the first replicate's data frame as a "template"
+  df_avg_t <- df_list_t[[1]]
+
+  # Identify numeric columns to average.
+  # For instance, we might want to average:
+  #   case_true, case_reported,
+  #   mean_fixed_q, lower_fixed_q, upper_fixed_q,
+  #   mean_ou_b,    lower_ou_b,    upper_ou_b
+  # Possibly exclude "date" or anything not numeric.
+  numeric_cols <- c("case_true","case_reported",
+                    "mean_fixed_q","lower_fixed_q","upper_fixed_q",
+                    "mean_ou_b",   "lower_ou_b",   "upper_ou_b")
+
+  # For each numeric col, compute row-wise mean across all replicates
+  for (colname in numeric_cols) {
+    vals <- sapply(df_list_t, function(df) df[[colname]])  
+    # vals is a matrix: row = each date, column = each replicate
+    # Now compute row means
+    df_avg_t[[colname]] <- rowMeans(vals, na.rm = TRUE)
+  }
+
+  # (Optional) If replicate data frames have 'replicate_id' or other columns, you can remove or keep them
+  df_avg_t$replicate_id <- NULL
+
+  # Store the averaged data frame for window t
+  results_1_NFR_avg[[t]] <- df_avg_t
+}
+
+
+p <- nowcasts_plot(
+  nowcasts_list = results_1_NFR_avg, 
+  D = D, 
+  report_unit = "day",
+  models_to_run = c("fixed_q","ou_b"),  # whichever models you included
+  title = "Averaged Nowcasts Over All Simulations",
+  combine_plots = TRUE  # show all T windows in a grid
+)
+p
+
+```
+
+
 
 ```{r}
 out_2_NFR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRange, 

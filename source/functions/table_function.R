@@ -1,11 +1,10 @@
 nowcasts_table <- function(results_list, 
                            D = NULL,
                            report_unit = "week",
-                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b")) {
+                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                           replicate_id = NA_integer_) {
   # Basic checks
-  if (is.null(D)) {
-    stop("Parameter 'D' must be provided.")
-  }
+  if (is.null(D)) stop("Parameter 'D' must be provided.")
   if (!report_unit %in% c("week", "day")) {
     stop("report_unit must be 'week' or 'day'.")
   }
@@ -15,12 +14,9 @@ nowcasts_table <- function(results_list,
   
   # Decide factor for date shifting
   factor_loc <- if (report_unit == "week") 7 else 1
-  
-  # Prepare output list of data frames
   nowcasts_out <- list()
   
   n_runs <- length(results_list$case_true)  # how many sets of data we have
-  
   for (i in seq_len(n_runs)) {
     # Extract data
     case_true     <- results_list[["case_true"]][[i]]
@@ -41,9 +37,12 @@ nowcasts_table <- function(results_list,
     )
     
     # Store these references as columns (the same for all rows in this i)
-    nowcasts_df$now                = now
-    nowcasts_df$earliest           = earliest
-    nowcasts_df$last_date_for_delay = last_date_for_delay
+    nowcasts_df$now                <- now
+    nowcasts_df$earliest           <- earliest
+    nowcasts_df$last_date_for_delay <- last_date_for_delay
+    if (!is.na(replicate_id)) {
+      nowcasts_df$replicate_id       <- replicate_id # for replicate
+    }
     
     # Dynamically add model results
     for (model_name in models_to_run) {
@@ -120,6 +119,176 @@ calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "linear_b", 
   
   return(results_df)
 }
+
+
+# --------------------------------------------------
+# compute_all_nowcasts_tables()
+# --------------------------------------------------
+# out_list:  a list of length num_sims
+#            e.g. out_list_1_NFR, where out_list[[i]]
+#            has the data needed for nowcasts_table()
+# D:         max delay
+# report_unit: "day" or "week"
+# models_to_run: c("fixed_q","fixed_b","linear_b","ou_b"), etc.
+# replicate_ids: a vector of replicate IDs, e.g. 1:num_sims
+#
+# Return: a list of length num_sims, 
+#   each element is the *list* returned by nowcasts_table()
+#   i.e. results_list[[i]] is itself a list of length T
+#   (one data frame per time window).
+# --------------------------------------------------
+
+compute_all_nowcasts_tables <- function(
+    out_list,
+    D,
+    report_unit = "day",
+    models_to_run = c("fixed_q","ou_b"),
+    replicate_ids = 1:length(out_list)
+){
+  num_sims <- length(out_list)
+  results_all <- vector("list", length = num_sims)
+  
+  for (i in seq_len(num_sims)) {
+    # Call nowcasts_table for each replicate
+    results_all[[i]] <- nowcasts_table(
+      results_list  = out_list[[i]],  # this replicate's data
+      D             = D,
+      report_unit   = report_unit,
+      models_to_run = models_to_run,
+      replicate_id  = replicate_ids[i]   # store replicate ID
+    )
+  }
+  return(results_all)
+}
+
+
+# --------------------------------------------------
+# average_nowcasts_tables()
+# --------------------------------------------------
+# results_all: the object returned by compute_all_nowcasts_tables().
+#   A list of length num_sims, each element is a list of T data frames.
+# numeric_cols: optional vector of columns you want to average.
+#   If NULL, we auto-detect columns that start with mean_, lower_, upper_,
+#   plus case_true, case_reported, etc.
+#
+# Return: a list of length T, each element is a single data frame
+#   with averaged columns across replicates.
+# --------------------------------------------------
+
+average_nowcasts_tables <- function(results_all, numeric_cols = NULL) {
+  num_sims <- length(results_all)
+  # number of time windows T
+  T <- length(results_all[[1]])  
+  # (assuming each replicate has the same T)
+  
+  # detect numeric columns by looking at the first data frame
+  if (is.null(numeric_cols)) {
+    # e.g., look at the first replicate's first window
+    df_example <- results_all[[1]][[1]]
+    # pick columns that might typically be averaged
+    typical_prefixes <- c("mean_","lower_","upper_",
+                          "case_true","case_reported")
+    # a naive approach: keep those that start with typical prefixes or exactly match
+    # you can refine this logic
+    all_cols <- names(df_example)
+    numeric_cols <- all_cols[sapply(all_cols, function(x){
+      startsWith(x,"mean_") ||
+        startsWith(x,"lower_") ||
+        startsWith(x,"upper_") ||
+        x %in% c("case_true","case_reported")
+    })]
+  }
+  
+  # Prepare the output
+  results_avg <- vector("list", length = T)
+  
+  # Loop over each time window t
+  for (t in seq_len(T)) {
+    # Gather the data frames from each replicate
+    df_list_t <- lapply(seq_len(num_sims), function(i) {
+      results_all[[i]][[t]]
+    })
+    
+    # Start with a copy of the first replicate as a "template"
+    df_avg_t <- df_list_t[[1]]
+    
+    # For each col in numeric_cols, compute row-wise mean across replicates
+    for (colname in numeric_cols) {
+      vals <- sapply(df_list_t, function(df) df[[colname]])
+      # rowMeans across replicates
+      df_avg_t[[colname]] <- rowMeans(vals, na.rm = TRUE)
+    }
+    
+    # You might remove 'replicate_id' or keep it, but it won't make sense averaged
+    if ("replicate_id" %in% names(df_avg_t)) {
+      df_avg_t$replicate_id <- NULL
+    }
+    
+    # Store
+    results_avg[[t]] <- df_avg_t
+  }
+  
+  return(results_avg)
+}
+
+# --------------------------------------------------
+# average_nowcasts_metrics()
+# --------------------------------------------------
+# results_all: the same object returned by compute_all_nowcasts_tables().
+# methods: which models to compute metrics for, e.g. c("fixed_q","ou_b")
+#
+# Returns a list of length T, each is a data frame of averaged metrics.
+# e.g. metrics_avg_t has columns: Method, RMSE, MAPE, Coverage_Rate, etc.
+# --------------------------------------------------
+
+average_nowcasts_metrics <- function(results_all, methods = c("fixed_q","ou_b")) {
+  library(dplyr)
+  
+  num_sims <- length(results_all)
+  T <- length(results_all[[1]])  # number of windows
+  
+  # We'll store the final average metrics for each window t in here
+  metrics_t_averaged <- vector("list", length = T)
+  
+  # For each time window t
+  for (t in seq_len(T)) {
+    # Collect the metrics from all replicates for this window
+    metrics_for_t_list <- list()
+    
+    for (r in seq_len(num_sims)) {
+      df_rt <- results_all[[r]][[t]]  # the data frame for replicate r, window t
+      
+      # compute metrics
+      metrics_rt <- calculate_metrics(df_rt, methods = methods)
+      # optionally add replicate_id:
+      # metrics_rt$replicate_id <- r
+      metrics_for_t_list[[r]] <- metrics_rt
+    }
+    
+    # Combine row-wise
+    metrics_for_t <- dplyr::bind_rows(metrics_for_t_list)
+    
+    # Average across replicates
+    metrics_avg_t <- metrics_for_t %>%
+      group_by(Method) %>%
+      summarize(
+        RMSE           = mean(RMSE, na.rm=TRUE),
+        RMSPE          = mean(RMSPE, na.rm=TRUE),
+        MAE            = mean(MAE, na.rm=TRUE),
+        MAPE           = mean(MAPE, na.rm=TRUE),
+        Interval_Width = mean(Interval_Width, na.rm=TRUE),
+        Coverage_Rate  = mean(Coverage_Rate, na.rm=TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate_if(is.numeric, round, 2)
+    
+    metrics_t_averaged[[t]] <- metrics_avg_t
+  }
+  
+  return(metrics_t_averaged)
+}
+
+
 
 highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2) {
   # If no date labels are provided, use default numeric labels

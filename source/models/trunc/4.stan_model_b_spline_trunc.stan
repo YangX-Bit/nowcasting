@@ -2,9 +2,6 @@ data {
   int<lower=0> N_obs;         // Number of time points (T)
   int<lower=0> D;             // Maximum delay (D)
   array[N_obs, D] int<lower=0> Y;   // Reported cases (T x D matrix)
-  // bsplines
-  //int<lower=1> J;                          // number of basis functions
-  //matrix[N_obs, J] X_spline;                   // basis function values(N_obs, J)
   
   int<lower=1> K;                   // number of obs in total
   array[K, 2] int<lower=0> obs_index; // coordinates & values
@@ -20,8 +17,6 @@ parameters {
   vector<lower=0>[N_obs] b_t;  // Time-varying b(t)
  // vector<lower=0>[N_obs] delta_t;  // Time-varying delta(t)
   
-  //real<lower=0> mu_b;
-  //real<lower=0> sigma_b;
 }
 
 
@@ -29,13 +24,9 @@ model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
-  // beta ~ normal(0, 1);
   b_t[1] ~ normal(0.2, 0.1);  // Initial value for b_t
   //delta_t[1] ~ normal(0.2, 0.05);  // Initial value for delta_t
   
-  // mu_b ~ normal(0.5, 0.1);
-  // sigma_b ~ normal(0.05, 0.01);
-
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
   
