@@ -175,63 +175,52 @@ compute_all_nowcasts_tables <- function(
 #   with averaged columns across replicates.
 # --------------------------------------------------
 
-average_nowcasts_metrics <- function(
-    results_all,
-    methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-    filter_length = NULL  # e.g., D, to use last D rows
-) {
-  library(dplyr)
-  
+average_nowcasts_tables <- function(results_all, numeric_cols = NULL) {
   num_sims <- length(results_all)
-  T <- length(results_all[[1]])  # number of windows
+  # Assume each replicate has the same number of windows T
+  T <- length(results_all[[1]])  
   
-  # We'll store the final average metrics for each window t
-  metrics_t_averaged <- vector("list", length = T)
-  
-  for (t in seq_len(T)) {
-    # Collect the metrics from all replicates for this window
-    metrics_for_t_list <- list()
-    
-    for (r in seq_len(num_sims)) {
-      df_rt <- results_all[[r]][[t]]  # the data frame for replicate r, window t
-      
-      # If we want to filter the last 'filter_length' rows
-      if (!is.null(filter_length) && filter_length > 0) {
-        n_rows <- nrow(df_rt)
-        start_row <- max(1, n_rows - filter_length + 1)
-        df_rt <- df_rt[start_row:n_rows, , drop = FALSE]
-      }
-      
-      # Compute metrics on the filtered or full data
-      metrics_rt <- calculate_metrics(df_rt, methods = methods)
-      # Optionally add replicate_id = r or keep it separate
-      # metrics_rt$replicate_id <- r
-      
-      metrics_for_t_list[[r]] <- metrics_rt
-    }
-    
-    # Combine row-wise
-    metrics_for_t <- bind_rows(metrics_for_t_list)
-    
-    # Average across replicates
-    metrics_avg_t <- metrics_for_t %>%
-      group_by(Method) %>%
-      summarize(
-        RMSE           = mean(RMSE, na.rm=TRUE),
-        RMSPE          = mean(RMSPE, na.rm=TRUE),
-        MAE            = mean(MAE, na.rm=TRUE),
-        MAPE           = mean(MAPE, na.rm=TRUE),
-        Interval_Width = mean(Interval_Width, na.rm=TRUE),
-        Coverage_Rate  = mean(Coverage_Rate, na.rm=TRUE),
-        .groups = "drop"
-      ) %>%
-      mutate_if(is.numeric, round, 2)
-    
-    metrics_t_averaged[[t]] <- metrics_avg_t
+  # Auto-detect numeric columns if not provided
+  if (is.null(numeric_cols)) {
+    df_example <- results_all[[1]][[1]]
+    typical_prefixes <- c("mean_","lower_","upper_","case_true","case_reported")
+    all_cols <- names(df_example)
+    numeric_cols <- all_cols[sapply(all_cols, function(x) {
+      startsWith(x, "mean_") ||
+        startsWith(x, "lower_") ||
+        startsWith(x, "upper_") ||
+        x %in% c("case_true", "case_reported")
+    })]
   }
   
-  return(metrics_t_averaged)
+  # Prepare output: a list of length T
+  results_avg <- vector("list", length = T)
+  
+  for (t in seq_len(T)) {
+    # Gather data frames from each replicate for window t
+    df_list_t <- lapply(seq_len(num_sims), function(i) {
+      results_all[[i]][[t]]
+    })
+    # Use first replicate as a template
+    df_avg_t <- df_list_t[[1]]
+    
+    # For each numeric column, compute row-wise mean
+    for (colname in numeric_cols) {
+      vals <- sapply(df_list_t, function(df) df[[colname]])
+      df_avg_t[[colname]] <- rowMeans(vals, na.rm = TRUE)
+    }
+    
+    # Remove replicate_id if present
+    if ("replicate_id" %in% names(df_avg_t)) {
+      df_avg_t$replicate_id <- NULL
+    }
+    
+    results_avg[[t]] <- df_avg_t
+  }
+  
+  return(results_avg)
 }
+
 
 # --------------------------------------------------
 # average_nowcasts_metrics()

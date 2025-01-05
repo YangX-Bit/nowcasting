@@ -211,7 +211,7 @@ for (i in 1:num_sims){
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
-```
+```   
 
 ```{r}
 out_list_2_NFR <- list()
@@ -237,6 +237,7 @@ for (i in 1:num_sims){
 ```
 
 ```{r}
+time_1_s <- Sys.time()
 out_list_3_NFR <- list()
 for (i in 1:num_sims){
   print(paste0("Now is working on ",i,"th simulation."))
@@ -251,6 +252,7 @@ for (i in 1:num_sims){
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 }
+time_1 <- Sys.time() - time_1_s
 
 save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd03_sims5.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
