@@ -142,7 +142,7 @@ compute_all_nowcasts_tables <- function(
     out_list,
     D,
     report_unit = "day",
-    models_to_run = c("fixed_q","ou_b"),
+    models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
     replicate_ids = 1:length(out_list)
 ){
   num_sims <- length(out_list)
@@ -175,60 +175,62 @@ compute_all_nowcasts_tables <- function(
 #   with averaged columns across replicates.
 # --------------------------------------------------
 
-average_nowcasts_tables <- function(results_all, numeric_cols = NULL) {
+average_nowcasts_metrics <- function(
+    results_all,
+    methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+    filter_length = NULL  # e.g., D, to use last D rows
+) {
+  library(dplyr)
+  
   num_sims <- length(results_all)
-  # number of time windows T
-  T <- length(results_all[[1]])  
-  # (assuming each replicate has the same T)
+  T <- length(results_all[[1]])  # number of windows
   
-  # detect numeric columns by looking at the first data frame
-  if (is.null(numeric_cols)) {
-    # e.g., look at the first replicate's first window
-    df_example <- results_all[[1]][[1]]
-    # pick columns that might typically be averaged
-    typical_prefixes <- c("mean_","lower_","upper_",
-                          "case_true","case_reported")
-    # a naive approach: keep those that start with typical prefixes or exactly match
-    # you can refine this logic
-    all_cols <- names(df_example)
-    numeric_cols <- all_cols[sapply(all_cols, function(x){
-      startsWith(x,"mean_") ||
-        startsWith(x,"lower_") ||
-        startsWith(x,"upper_") ||
-        x %in% c("case_true","case_reported")
-    })]
-  }
+  # We'll store the final average metrics for each window t
+  metrics_t_averaged <- vector("list", length = T)
   
-  # Prepare the output
-  results_avg <- vector("list", length = T)
-  
-  # Loop over each time window t
   for (t in seq_len(T)) {
-    # Gather the data frames from each replicate
-    df_list_t <- lapply(seq_len(num_sims), function(i) {
-      results_all[[i]][[t]]
-    })
+    # Collect the metrics from all replicates for this window
+    metrics_for_t_list <- list()
     
-    # Start with a copy of the first replicate as a "template"
-    df_avg_t <- df_list_t[[1]]
-    
-    # For each col in numeric_cols, compute row-wise mean across replicates
-    for (colname in numeric_cols) {
-      vals <- sapply(df_list_t, function(df) df[[colname]])
-      # rowMeans across replicates
-      df_avg_t[[colname]] <- rowMeans(vals, na.rm = TRUE)
+    for (r in seq_len(num_sims)) {
+      df_rt <- results_all[[r]][[t]]  # the data frame for replicate r, window t
+      
+      # If we want to filter the last 'filter_length' rows
+      if (!is.null(filter_length) && filter_length > 0) {
+        n_rows <- nrow(df_rt)
+        start_row <- max(1, n_rows - filter_length + 1)
+        df_rt <- df_rt[start_row:n_rows, , drop = FALSE]
+      }
+      
+      # Compute metrics on the filtered or full data
+      metrics_rt <- calculate_metrics(df_rt, methods = methods)
+      # Optionally add replicate_id = r or keep it separate
+      # metrics_rt$replicate_id <- r
+      
+      metrics_for_t_list[[r]] <- metrics_rt
     }
     
-    # You might remove 'replicate_id' or keep it, but it won't make sense averaged
-    if ("replicate_id" %in% names(df_avg_t)) {
-      df_avg_t$replicate_id <- NULL
-    }
+    # Combine row-wise
+    metrics_for_t <- bind_rows(metrics_for_t_list)
     
-    # Store
-    results_avg[[t]] <- df_avg_t
+    # Average across replicates
+    metrics_avg_t <- metrics_for_t %>%
+      group_by(Method) %>%
+      summarize(
+        RMSE           = mean(RMSE, na.rm=TRUE),
+        RMSPE          = mean(RMSPE, na.rm=TRUE),
+        MAE            = mean(MAE, na.rm=TRUE),
+        MAPE           = mean(MAPE, na.rm=TRUE),
+        Interval_Width = mean(Interval_Width, na.rm=TRUE),
+        Coverage_Rate  = mean(Coverage_Rate, na.rm=TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate_if(is.numeric, round, 2)
+    
+    metrics_t_averaged[[t]] <- metrics_avg_t
   }
   
-  return(results_avg)
+  return(metrics_t_averaged)
 }
 
 # --------------------------------------------------
@@ -241,16 +243,19 @@ average_nowcasts_tables <- function(results_all, numeric_cols = NULL) {
 # e.g. metrics_avg_t has columns: Method, RMSE, MAPE, Coverage_Rate, etc.
 # --------------------------------------------------
 
-average_nowcasts_metrics <- function(results_all, methods = c("fixed_q","ou_b")) {
+average_nowcasts_metrics <- function(
+    results_all,
+    methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+    filter_length = NULL  # e.g., D, to use last D rows
+) {
   library(dplyr)
   
   num_sims <- length(results_all)
   T <- length(results_all[[1]])  # number of windows
   
-  # We'll store the final average metrics for each window t in here
+  # We'll store the final average metrics for each window t
   metrics_t_averaged <- vector("list", length = T)
   
-  # For each time window t
   for (t in seq_len(T)) {
     # Collect the metrics from all replicates for this window
     metrics_for_t_list <- list()
@@ -258,15 +263,23 @@ average_nowcasts_metrics <- function(results_all, methods = c("fixed_q","ou_b"))
     for (r in seq_len(num_sims)) {
       df_rt <- results_all[[r]][[t]]  # the data frame for replicate r, window t
       
-      # compute metrics
+      # If we want to filter the last 'filter_length' rows
+      if (!is.null(filter_length) && filter_length > 0) {
+        n_rows <- nrow(df_rt)
+        start_row <- max(1, n_rows - filter_length + 1)
+        df_rt <- df_rt[start_row:n_rows, , drop = FALSE]
+      }
+      
+      # Compute metrics on the filtered or full data
       metrics_rt <- calculate_metrics(df_rt, methods = methods)
-      # optionally add replicate_id:
+      # Optionally add replicate_id = r or keep it separate
       # metrics_rt$replicate_id <- r
+      
       metrics_for_t_list[[r]] <- metrics_rt
     }
     
     # Combine row-wise
-    metrics_for_t <- dplyr::bind_rows(metrics_for_t_list)
+    metrics_for_t <- bind_rows(metrics_for_t_list)
     
     # Average across replicates
     metrics_avg_t <- metrics_for_t %>%

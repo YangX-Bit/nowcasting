@@ -59,7 +59,7 @@ compiled_models <- list(
 seed <- 123
 set.seed(seed)
 
-num_sims <- 2
+num_sims <- 5
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -97,16 +97,16 @@ params_1 <- list(
   )
 )
 # date that we run
-#scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
+scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
 #scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 
-scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"))
+#scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"))
 
 NFR_1 <- list()
 # generate
 for (i in 1:num_sims) {
   NFR_1[[i]] <- simulateData(
-        params_1 <- list(
+        params <- list(
       data = list(
         alpha_lamb = alpha_lamb,  
         beta_lamb  = beta_lamb,
@@ -132,56 +132,61 @@ for (i in 1:num_sims) {
 
 ```{r}
 # input list
-params_2 <- list(
-  data = list(
-    alpha_lamb = alpha_lamb,  
-    beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
-    date_start = as.Date("2024-01-01"),
-    seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
-  ),
-  q_model = list(
-    method        = method,
-    method_params = list(alpha = alpha_ou, mu = mu_ou, 
-                         b_init = b_init, sigma_ou = sigma_ou_2)
+NFR_2 <- list()
+# generate
+for (i in 1:num_sims) {
+  NFR_2[[i]] <- simulateData(
+        params <- list(
+      data = list(
+        alpha_lamb = alpha_lamb,  
+        beta_lamb  = beta_lamb,
+        n_obs       = n_obs,
+        date_start = as.Date("2024-01-01"),
+        seed       = i
+      ),
+      reporting = list(
+        D           = D,     
+        D_complete        = D_complete,    
+        if_fully_reported = if_fully_reported
+      ),
+      q_model = list(
+        method        = method,
+        method_params = list(alpha = alpha_ou, mu = mu_ou, 
+                             b_init = b_init, sigma_ou = sigma_ou_2)
+      )
+    )
   )
-)
-
-NFR_2 <- simulateData(params_2)
+}
 ```
 
 
 ```{r}
 # input list
-params_3 <- list(
-  data = list(
-    alpha_lamb = alpha_lamb,  
-    beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
-    date_start = as.Date("2024-01-01"),
-    seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
-  ),
-  q_model = list(
-    method        = method,
-    method_params = list(alpha = alpha_ou, mu = mu_ou, 
-                         b_init = b_init, sigma_ou = sigma_ou_3)
+NFR_3 <- list()
+# generate
+for (i in 1:num_sims) {
+  NFR_3[[i]] <- simulateData(
+        params <- list(
+      data = list(
+        alpha_lamb = alpha_lamb,  
+        beta_lamb  = beta_lamb,
+        n_obs       = n_obs,
+        date_start = as.Date("2024-01-01"),
+        seed       = i
+      ),
+      reporting = list(
+        D           = D,     
+        D_complete        = D_complete,    
+        if_fully_reported = if_fully_reported
+      ),
+      q_model = list(
+        method        = method,
+        method_params = list(alpha = alpha_ou, mu = mu_ou, 
+                             b_init = b_init, sigma_ou = sigma_ou_3)
+      )
+    )
   )
-)
-
-NFR_3 <- simulateData(params_3)
-# sum(abs(NFR_3$b_t - NFR_2$b_t))
-# 
-# sum(abs(NFR_3$b_t - NFR_1$b_t))
+}
 ```
 
 
@@ -189,35 +194,82 @@ NFR_3 <- simulateData(params_3)
 ```{r}
 out_list_1_NFR <- list()
 for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
   out_list_1_NFR[[i]] <- 
     nowcasting_moving_window(NFR_1[[i]]$case_reported, scoreRange = scoreRange, 
                                 case_true = NFR_1[[i]]$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D, seeds = seed,
-                                #models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-                                models_to_run =c("fixed_q",  "ou_b"),
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T)
 }
 
-#save(out_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd001.RData"))
+#save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd001_sims5.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
+
+# results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+```
+
+```{r}
+out_list_2_NFR <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_list_2_NFR[[i]] <- 
+    nowcasting_moving_window(NFR_2[[i]]$case_reported, scoreRange = scoreRange, 
+                                case_true = NFR_2[[i]]$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+}
+
+#save(out_list_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd01_sims5.RData"))
 #load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
 
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
+
 ```{r}
-results_1_NFR <- compute_all_nowcasts_tables(out_list_1_NFR, D, "day", c("fixed_q","ou_b"))
+out_list_3_NFR <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_list_3_NFR[[i]] <- 
+    nowcasting_moving_window(NFR_3[[i]]$case_reported, scoreRange = scoreRange, 
+                                case_true = NFR_3[[i]]$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+}
+
+save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd03_sims5.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
+
+
+# results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+```
+
+```{r}
+results_1_NFR <- compute_all_nowcasts_tables(out_list_1_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
 results_1_NFR_avg <- average_nowcasts_tables(results_1_NFR)
 
-nowcasts_plot(
+plots_1_NFR <- nowcasts_plot(
   nowcasts_list = results_1_NFR_avg,
   D = D,
   report_unit = "day",
-  models_to_run = c("fixed_q","ou_b"),
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
   combine_plots = TRUE,
   title = "Averaged Nowcasts Over All Replicates"
 )
@@ -225,11 +277,19 @@ nowcasts_plot(
 # Average metrics
 metrics_1_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_1_NFR,
-  methods       = c("fixed_q","ou_b")
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b")
 )
 
 metrics_1_NFR_avg
 
+# Average metrics
+metrics_1_NFR_avg_incomplete <- average_nowcasts_metrics(
+  results_all   = results_1_NFR,
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  filter_length = D
+)
+
+metrics_1_NFR_avg_incomplete
 
 #
 # for (t in seq_along(metrics_1_NFR_avg)) {
@@ -238,235 +298,87 @@ metrics_1_NFR_avg
 # }
 ```
 
+
 ```{r}
-results_1_NFR <- list()
-all_metrics_1_NFR <- list()
-for (i in 1:num_sims){
-results_1_NFR[[i]] <- nowcasts_table(out_list_1_NFR[[i]], D = D, report_unit = "day", 
-                          models_to_run =c("fixed_q",  "ou_b"),                          replicate_id = i)
-}
+results_2_NFR <- compute_all_nowcasts_tables(out_list_2_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
+# plots
+results_2_NFR_avg <- average_nowcasts_tables(results_2_NFR)
 
-for (i in 1:num_sims){
-  table_i_list <- results_1_NFR[[i]]
-  metrics_i_list <- list()
-    for (t in seq_along(table_i_list)) {
-    df_rt <- table_i_list[[t]]
-    
-    # Compute metrics for replicate r, time window t
-    metrics_rt <- calculate_metrics(df_rt,
-                                    methods = c("fixed_q",  "ou_b"))
-    
-    metrics_i_list[[t]] <- metrics_rt
-    }
-  all_metrics_1_NFR[[i]] <- metrics_i_list
-}
-
-# combine
-T <- length(all_metrics_1_NFR[[1]])
-
-# We'll store T final "averaged" metrics data frames
-metrics_t_averaged_1_NFR <- vector(mode="list", length=T)
-
-for (t in seq_len(T)) {
-  # Extract metrics from all replicates for this time window
-  metrics_for_t_list <- list()
-  for (i in seq_len(num_sims)) {
-    metrics_for_t_list[[i]] <- all_metrics_1_NFR[[i]][[t]]
-    # which has columns like: RMSE, RMSPE, MAPE, Interval_Width, Coverage_Rate, Method
-    # Possibly you want to add replicate_id = r here, if not already
-  }
-  
-  # Combine row-wise
-  metrics_for_t <- dplyr::bind_rows(metrics_for_t_list)
-  
-  # Now average across replicate
-  # Typically group by "Method" to compute average metrics
-  metrics_avg_t <- metrics_for_t %>%
-    group_by(Method) %>%
-    summarize(
-      RMSE = mean(RMSE, na.rm=TRUE),
-      RMSPE = mean(RMSPE, na.rm=TRUE),
-      MAE = mean(MAE, na.rm=TRUE),
-      MAPE = mean(MAPE, na.rm=TRUE),
-      Interval_Width = mean(Interval_Width, na.rm=TRUE),
-      Coverage_Rate = mean(Coverage_Rate, na.rm=TRUE),
-      .groups = "drop"
-    )
-  
-  # Optionally round or reorder
-  metrics_avg_t <- metrics_avg_t %>%
-    mutate_if(is.numeric, round, 2)
-  
-  # store final table for window t
-  metrics_t_averaged_1_NFR[[t]] <- metrics_avg_t
-}
-
-```
-```{r}
-library(dplyr)
-
-# Number of time windows
-T <- length(results_1_NFR[[1]])  # assume all replicates have the same T windows
-
-# Prepare a list to hold the T averaged data frames
-results_1_NFR_avg <- vector("list", length = T)
-
-for (t in seq_len(T)) {
-  # Gather the data frames from each replicate for this time window t
-  df_list_t <- lapply(seq_len(num_sims), function(i) results_1_NFR[[i]][[t]])
-  # Each df_list_t[[i]] is a data frame with columns like
-  # date, case_true, case_reported, mean_fixed_q, lower_fixed_q, ..., mean_ou_b, lower_ou_b, upper_ou_b, etc.
-
-  # We'll create an averaged data frame for time window t
-  # Let's assume that each replicate's df has the same rows in the same order.
-
-  # Start with a copy of the first replicate's data frame as a "template"
-  df_avg_t <- df_list_t[[1]]
-
-  # Identify numeric columns to average.
-  # For instance, we might want to average:
-  #   case_true, case_reported,
-  #   mean_fixed_q, lower_fixed_q, upper_fixed_q,
-  #   mean_ou_b,    lower_ou_b,    upper_ou_b
-  # Possibly exclude "date" or anything not numeric.
-  numeric_cols <- c("case_true","case_reported",
-                    "mean_fixed_q","lower_fixed_q","upper_fixed_q",
-                    "mean_ou_b",   "lower_ou_b",   "upper_ou_b")
-
-  # For each numeric col, compute row-wise mean across all replicates
-  for (colname in numeric_cols) {
-    vals <- sapply(df_list_t, function(df) df[[colname]])  
-    # vals is a matrix: row = each date, column = each replicate
-    # Now compute row means
-    df_avg_t[[colname]] <- rowMeans(vals, na.rm = TRUE)
-  }
-
-  # (Optional) If replicate data frames have 'replicate_id' or other columns, you can remove or keep them
-  df_avg_t$replicate_id <- NULL
-
-  # Store the averaged data frame for window t
-  results_1_NFR_avg[[t]] <- df_avg_t
-}
-
-
-p <- nowcasts_plot(
-  nowcasts_list = results_1_NFR_avg, 
-  D = D, 
+plots_2_NFR <- nowcasts_plot(
+  nowcasts_list = results_2_NFR_avg,
+  D = D,
   report_unit = "day",
-  models_to_run = c("fixed_q","ou_b"),  # whichever models you included
-  title = "Averaged Nowcasts Over All Simulations",
-  combine_plots = TRUE  # show all T windows in a grid
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = "Averaged Nowcasts Over All Replicates"
 )
-p
 
-```
+# Average metrics
+metrics_2_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_2_NFR,
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b")
+)
 
+metrics_2_NFR_avg
 
+# Average metrics
+metrics_2_NFR_avg_incomplete <- average_nowcasts_metrics(
+  results_all   = results_2_NFR,
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  filter_length = D
+)
 
-```{r}
-out_2_NFR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRange, 
-                                case_true = NFR_2$case_true,
-                                start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
-                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-                                compiled_models = compiled_models,
-                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
-
-
-#save(out_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd01.RData"))
-#load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
-
-results_2_NFR <- nowcasts_table(out_2_NFR, D = D, report_unit = "day", 
-                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
-
-results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
-``` 
+metrics_2_NFR_avg_incomplete
 
 
-```{r}
-out_3_NFR <- nowcasting_moving_window(NFR_3$case_reported, scoreRange = scoreRange, 
-                                case_true = NFR_3$case_true,
-                                start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
-                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-                                compiled_models = compiled_models,
-                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
-
-
-#save(out_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd03.RData"))
-#load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
-
-results_3_NFR <- nowcasts_table(out_3_NFR, D = D, report_unit = "day", 
-                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
-
-results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
-
-```
-
-
-## check results
-```{r}
-results_1_NFR_plots
+#
+# for (t in seq_along(metrics_2_NFR_avg)) {
+#   cat("===== Window", t, "=====\n")
+#   print(metrics_2_NFR_avg[[t]])
+# }
 ```
 
 ```{r}
-# all cases
-for(i in 1:length(results_1_NFR)){
-  print(calculate_metrics(results_1_NFR[[i]]))
-}
+results_3_NFR <- compute_all_nowcasts_tables(out_list_3_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+# plots
+results_3_NFR_avg <- average_nowcasts_tables(results_3_NFR)
+
+plots_3_NFR <- nowcasts_plot(
+  nowcasts_list = results_3_NFR_avg,
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = "Averaged Nowcasts Over All Replicates"
+)
+
+# Average metrics
+metrics_3_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_3_NFR,
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b")
+)
+
+metrics_3_NFR_avg
+
+# Average metrics
+metrics_3_NFR_avg_incomplete <- average_nowcasts_metrics(
+  results_all   = results_3_NFR,
+  methods       = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  filter_length = D
+)
+
+metrics_3_NFR_avg_incomplete
+
+
+#
+# for (t in seq_along(metrics_3_NFR_avg)) {
+#   cat("===== Window", t, "=====\n")
+#   print(metrics_3_NFR_avg[[t]])
+# }
 ```
 
-```{r}
-# Within D
-for(i in 1:length(results_1_NFR)){
-  print(calculate_metrics(data.table::last(results_1_NFR[[i]], D)))
-}
-```
-
-
-# sigma_rw = 0.1
-
-```{r}
-results_2_NFR_plots
-```
-
-```{r}
-# all cases
-for(i in 1:length(results_2_NFR)){
-  print(calculate_metrics(results_2_NFR[[i]]))
-}
-
-```
-
-```{r}
-# Within D
-for(i in 1:length(results_2_NFR)){
-  print(calculate_metrics(data.table::last(results_2_NFR[[i]], D)))
-}
-```
-
-
-# sigma_rw = 0.3
-```{r}
-results_3_NFR_plots
-```
-
-```{r}
-# all cases
-for(i in 1:length(results_3_NFR)){
-  print(calculate_metrics(results_3_NFR[[i]]))
-}
-```
-
-```{r}
-# Within D
-for(i in 1:length(results_3_NFR)){
-  print(calculate_metrics(data.table::last(results_3_NFR[[i]], D)))
-}
-```
 
 
 # output
