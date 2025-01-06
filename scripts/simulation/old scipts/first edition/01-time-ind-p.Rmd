@@ -1,0 +1,76 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simuoate data
+
+### plot report proportion Q
+```{r}
+source(file.path(path_source, "simulation", "simulations_functions.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 58
+# constant  P
+p <- simsP(Type = "GD", gd_alpha = 1:20, gd_beta = 20:1, D = 15, days = 58)
+plot(p, type = "b", xlab = expression("Delay"),  
+     ylab = expression("Report proportion"))
+
+q <- cumsum(p)
+plot(q, type = "b", xlab = expression("Delay"),  
+     ylab = expression("Accumulated report proportion"))
+```
+
+
+### generate data
+```{r}
+data <- simsDataGenP(days = N_obs, p = p , seed = seed)
+
+data$lambda
+data$case_true
+data$case_reported
+```
+
+## fit model
+```{r}
+stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+
+fit <- stan(
+  file = file.path(path_proj, "source", "models", "stan_model_time-ind-p.stan"),  
+  data = stan_data, 
+  iter = 2000, chains = 3, seed = 123
+)
+```
+
+
+## check results
+```{r}
+print(fit)
+```
+
+```{r}
+round(p[1:16],2)
+```
+
+```{r}
+library(ggplot2)
+plot(fit, pars = c("p")) +
+  geom_point(aes(x, y), data = data.frame(x = round(p[1:(D+1)],2), y = c((D+1):1)), color = "blue")
+```
+

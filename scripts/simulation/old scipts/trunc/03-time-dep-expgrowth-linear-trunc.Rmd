@@ -1,0 +1,94 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+library(cmdstanr)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simulate data
+
+```{r}
+source(file.path(path_source, "simulation", "simulations_functions.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 58
+num_sims <- 1
+
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+data <- simsDataGenQ(days = N_obs, method = "time_varying",
+                     beta0 = beta0, beta1 = beta1, seed = seed)
+
+# create triangular data
+data_trunc <- create_triangular_data(data$case_reported)
+
+# get indices of non-NAs 
+indices_data_trunc <- find_non_na_coords(data_trunc)
+
+data_trunc[is.na(data_trunc)] <- 0   
+
+print(data_trunc)
+```
+
+
+```{r}
+model_path <- file.path(path_proj, "source", "models", "trunc",
+                        "stan_model_dep-expgrowth-linear.stan")
+# model <- cmdstan_model(model_path)
+# 
+# stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+# 
+# 
+# fit <- model$sample(
+#   data = stan_data,
+#   seed = 123,
+#   chains = 3,
+#   iter_warmup = 1000,   
+#   iter_sampling = 1000 
+# )
+```
+
+
+
+
+
+## fit model
+```{r}
+stan_data_trunc <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
+                   K = nrow(indices_data_trunc), obs_index = indices_data_trunc)
+
+fit_trunc <- stan(
+  file = file.path(path_proj, "source", "models", "trunc",
+                        "stan_model_dep-expgrowth-linear-trunc.stan"),  
+  data = stan_data_trunc, 
+  iter = 2000, chains = 3, seed = 123
+)
+```
+
+
+## check results
+```{r}
+print(fit_trunc)
+```
+
+```{r}
+library(ggplot2)
+plot(fit_trunc, par = c("b0", "b1")) +
+  geom_point(aes(x, y), data = data.frame(x = c(-2,0.01), y = c(2,1)), color = "blue")
+```
+

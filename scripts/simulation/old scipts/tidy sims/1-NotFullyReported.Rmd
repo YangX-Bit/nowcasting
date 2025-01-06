@@ -1,0 +1,366 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source(file.path(path_source, "simulation", "simulations_functions.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+```
+
+```{r}
+#models
+fixed_q <- file.path(path_proj, "source", "models",
+                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+fixed_b <- file.path(path_proj, "source", "models",
+                     "trunc", "2.stan_model_fixed_b_trunc.stan")
+b_poly <- file.path(path_proj, "source", "models", "trunc",
+                     "3.stan_model_b_poly_trunc.stan")
+b_spline <- file.path(path_proj, "source", "models", "trunc",
+                     "4.stan_model_b_spline_trunc.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  b_poly = cmdstan_model(b_poly),
+  b_spline = cmdstan_model(b_spline)
+)
+```
+
+
+## simulate data
+
+### Scenario 1 (Not fully reported)
+```{r}
+
+# setting:
+seed <- 123
+# disease intensity
+beta_lamb = 0.5
+
+set.seed(seed)
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+
+length(alpha_lamb)
+# random walk b
+b = 0.2; 
+sigma_rw_1 = 0.01; sigma_rw_2 = 0.1; sigma_rw_3 = 0.3
+
+D_trunc <- 10; D_complete <- 20; if_fully_rep <- F
+
+scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
+
+data_1 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw_1),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+data_1$case_true - data_1$case_reported[,11]
+
+data_1
+
+# create triangular data
+# data_trunc <- create_triangular_data(data_1$case_reported)
+# 
+# # get indices of non-NAs
+# indices_data_trunc <- find_non_na_coords(data_trunc)
+# 
+# data_trunc[is.na(data_trunc)] <- 0
+# 
+# print(data_trunc)
+```
+
+### basis for spline
+
+```{r}
+page_num <- ceiling(nrow(data_1$case_reported)/16)
+exp_plot_1 <- fit_exp_plot(data_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_1
+```
+
+```{r}
+exp_b_data_1<- data.frame( date = as.Date(rownames(data_1$case_reported)),
+                          b = exp_plot_1$coefficients$b)
+exp_b_data_1
+exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_1
+```
+
+
+## fit model
+```{r}
+
+out_1 <- nowcasting_moving_window(data_1$case_reported, scoreRange = scoreRange, 
+                                case_true = data_1$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "b_poly", "b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+
+#save(out_1, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
+load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd001.RData"))
+
+results_1 <- nowcasts_table(out_1, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"))
+```
+
+
+## check results
+```{r}
+results_1_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_1[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_1[[i]], D_trunc)))
+}
+```
+
+
+# sigma_rw = 0.1
+
+```{r}
+data_2 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw_2),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+
+out_2 <- nowcasting_moving_window(data_2$case_reported, scoreRange = scoreRange, 
+                                case_true = data_2$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+#save(out_2, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01.RData"))
+load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd01.RData"))
+
+results_2 <- nowcasts_table(out_2, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_2_plots <- nowcasts_plot(results_2, D = D_trunc, report_unit = "day")
+```
+
+```{r}
+page_num <- ceiling(nrow(data_1$case_reported)/16)
+exp_plot_2 <- fit_exp_plot(data_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_2
+```
+
+```{r}
+exp_b_data_2<- data.frame( date = as.Date(rownames(data_2$case_reported)),
+                          b = exp_plot_2$coefficients$b)
+exp_b_data_2
+exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_2
+```
+
+
+```{r}
+results_2_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_2[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_2[[i]], D_trunc)))
+}
+```
+
+
+# sigma_rw = 0.3
+
+```{r}
+data_3 <- simsDataGenQ(
+                    alpha_lamb = alpha_lamb, beta_lamb = beta_lamb,
+                    days = length(alpha_lamb), 
+                    D_trunc = D_trunc, D_complete = D_complete, if_fully_reported = if_fully_rep,
+                    method =c("random_walk"),
+                    method_params = list( b = b, sigma_rw = sigma_rw_3),
+                    date_start = as.Date("2024-01-01") 
+                    , seed = seed)
+data_3
+out_3 <- nowcasting_moving_window(data_3$case_reported, scoreRange = scoreRange, 
+                                case_true = data_3$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D_trunc, sigma_b = 0.1, seeds = seed,
+                                models_to_run = c("fixed_q", "fixed_b", "b_poly","b_spline"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T)
+
+#save(out_3, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03.RData"))
+load(file.path(path_proj,"data", "fitted_model", "simulation", "NotFR_b01_sd03.RData"))
+
+
+results_3 <- nowcasts_table(out_3, D = D_trunc, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "b_poly", "b_spline"))
+
+results_3_plots <- nowcasts_plot(results_3, D = D_trunc, report_unit = "day")
+```
+
+```{r}
+page_num <- ceiling(nrow(data_3$case_reported)/16)
+exp_plot_3 <- fit_exp_plot(data_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_3
+```
+
+```{r}
+exp_b_data_3<- data.frame( date = as.Date(rownames(data_3$case_reported)),
+                          b = exp_plot_3$coefficients$b)
+exp_b_data_3
+exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_b_plot_3
+```
+
+```{r}
+results_3_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(results_3[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(scoreRange)){
+  print(calculate_metrics(data.table::last(results_3[[i]], D_trunc)))
+}
+```
+
+
+# output
+```{r}
+results_1_plots <- nowcasts_plot(results_1, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd001.png"), 
+       plot = results_1_plots, 
+       width = 10, height = 12, dpi = 300)
+# table
+fully_tables_1 <- list();count_1 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_1[[count_1]] <- calculate_metrics(results_1[[i]])
+  count_1 = count_1 + 1
+}
+cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+# output
+```{r}
+results_2_plots <- nowcasts_plot(results_2, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd01.png"), 
+       plot = results_2_plots, 
+       width = 10, height = 12, dpi = 300)
+# table
+fully_tables_2 <- list();count_2 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_2[[count_2]] <- calculate_metrics(results_2[[i]])
+  count_2 = count_2 + 1
+}
+cat(highlight_metrics(fully_tables_2, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+```{r}
+results_3_plots <- nowcasts_plot(results_3, D = D_trunc, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "b_poly" , "b_spline"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd03.png"), 
+       plot = results_3_plots, 
+       width = 10, height = 12, dpi = 300)
+# table
+fully_tables_3 <- list();count_3 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_3[[count_3]] <- calculate_metrics(results_3[[i]])
+  count_3 = count_3 + 1
+}
+cat(highlight_metrics(fully_tables_3, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```

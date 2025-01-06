@@ -1,0 +1,141 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rstan)
+#library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simulate data
+
+```{r}
+# source(file.path(path_source, "simulation", "simulations_functions.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 30
+num_sims <- 1
+
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+data <- simsDataGenQ(#alpha = c(1:10, seq(1, 232, by = 4)),
+                     #alpha =  c( seq(10, 300, by = 10),seq(300, 10, by = -10)),
+                    alpha =  c( rep(10,10),seq(10, 300, by = 30),seq(310, 0, by = -60),rep(10,5)),,
+                     days = N_obs, method = "random_walk",
+                     b = 0.1, sigma_rw = 0.1, seed = seed)
+
+# create triangular data
+data_trunc <- create_triangular_data(data$case_reported)
+
+# get indices of non-NAs 
+indices_data_trunc <- find_non_na_coords(data_trunc)
+
+data_trunc[is.na(data_trunc)] <- 0  
+
+print(data_trunc)
+```
+
+### basis for spline
+```{r}
+
+time_points <- 1:N_obs
+
+n_knots <- 5
+knot_dist <- 1 / (n_knots + 1)
+probs <- seq(knot_dist, 1 - knot_dist, by = knot_dist)
+knots <- quantile(time_points, probs = probs)
+
+spline_basis <- bs(time_points, knots = knots, degree = 3, intercept = TRUE)
+X_spline <- cbind(1, as.matrix(spline_basis))
+# 
+
+basis_df <- data.frame(time = time_points, X_spline)
+basis_long <- reshape2::melt(basis_df, id.vars = "time")
+
+ggplot(basis_long, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  labs(title = "B-spline Basis Functions for Time",
+       x = "Time (Days)",
+       y = "Basis Value") +
+  theme_minimal()
+```
+
+
+## fit model
+```{r}
+stan_data_trunc <- list(N_obs = N_obs, D = D + 1, Y = data_trunc,
+                  K = nrow(indices_data_trunc), obs_index = indices_data_trunc,
+                  J = ncol(X_spline),
+                  X_spline = X_spline,
+                  sigma_b = 0.1)
+
+# init_values <- list(
+#   list(lambda_t = rep(1, N_obs), b_t = rep(0.1, N_obs)),  # Chain 1
+#   list(lambda_t = rep(2, N_obs), b_t = rep(0.1, N_obs)),  # Chain 2
+#   list(lambda_t = rep(3, N_obs), b_t = rep(0.1, N_obs))  # Chain 3
+# )
+
+
+fit_trunc <- stan(
+  file = file.path(path_proj, "source", "models",
+                   "trunc", "stan_model_dep-spline-trunc.stan"),  
+  data = stan_data_trunc, 
+  iter = 10000, chains = 3, seed = 222
+  #init = init_values
+)
+```
+
+
+## check results
+```{r}
+#print(fit_trunc, pars = "b_t_est")
+
+print(fit_trunc, pars = "N_t")
+```
+
+```{r}
+summary(fit_trunc)$summary[, "Rhat"]
+
+summary(fit_trunc)$summary[, "n_eff"]
+```
+
+
+```{r}
+library(ggplot2)
+plot(fit_trunc, par = c("b_t_est")) +
+  geom_point(aes(x, y), data = data.frame(x = data$b, y = c(60:1)), color = "blue")
+
+```
+
+```{r}
+plot(data$b)
+```
+
+```{r}
+plot(fit_trunc, par = c("N_t")) +
+  geom_point(aes(x, y), data = data.frame(x = data$case_true, y = c(30:1)), color = "blue")+
+    geom_point(aes(x, y), data = data.frame(x = apply(data_trunc, 1, max), y = c(30:1)), color = "green")
+```
+
+```{r}
+plot(fit_trunc, par = c("N_t"))
+```
+

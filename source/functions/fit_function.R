@@ -39,7 +39,9 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
-                                     num_chains = 3, suppress_output = TRUE){
+                                     num_chains = 3, suppress_output = TRUE,
+                                     posterior_draws_path = file.path(path_proj, "source", "models",
+                                                                      "posterior_draws")){
   if(is.null(case_true)){
     stop("You must input true cases.")
   }
@@ -106,7 +108,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
           iter_sampling = iter_sampling,
           iter_warmup = iter_warmup,
           chains = num_chains,
-          refresh = refresh
+          refresh = refresh,
+          output_dir = posterior_draws_path
         )
       }
       
