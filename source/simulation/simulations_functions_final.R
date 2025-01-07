@@ -22,13 +22,13 @@ simulateData <- function(
       ),
       # C. Model selection
       q_model = list(
-        method       = "constant",  # "constant","time_varying","random_walk","ou"
+        method       = "fixed_b",  # "fixed_q", "fixed_b", "linear_b", "ou_b"
         # different params for diff methods
         method_params= list(
-          # constant: b
-          # time_varying: beta0,beta1
-          # random_walk: b_init, sigma_rw
-          # ou: alpha, mu, b_init, sigma_ou
+          # fixed_q: p vector
+          # fixed_b: b
+          # linear_b: beta0, beta1
+          # ou_b: alpha, mu, b_init, sigma_ou
           b = 0.5
         )
       )
@@ -93,7 +93,7 @@ simulateData <- function(
     D             = D_used,
     ensure_Q_to_one     = ensure_Q_to_one
   )
-  
+
   #---------------------------------------------------------
   # 6) simulation
   #---------------------------------------------------------
@@ -132,7 +132,7 @@ runSimulation <- function(
   case_true    <- integer(n_obs)        # True number of cases
   case_reported<- matrix(0, nrow = n_obs, ncol = D_used + 1)  # Reported cases
   rownames(case_reported) <- as.character(date_seq)
-  
+ tt=1
   # Simulation process
   for (tt in seq_len(n_obs)){
     
@@ -220,7 +220,14 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
   b_t_out <- NULL
   qd_out  <- NULL
   
-  if (method == "constant"){
+  if (method == "fixed_q"){
+    if (!("q" %in% names(method_params))) {
+      stop("method=constant requires b in method_params!")
+    }
+    qd_out    <- method_params$q
+    b_t_out <- NA_integer_
+    
+  } else if (method == "fixed_b"){
     if (!("b" %in% names(method_params))) {
       stop("method=constant requires b in method_params!")
     }
@@ -228,7 +235,7 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
     qd_out<- 1 - exp(-b0 * (1:(D+1)))
     b_t_out <- b0
     
-  } else if (method == "time_varying"){
+  } else if (method == "linear_b"){
     if (!all(c("beta0","beta1") %in% names(method_params))) {
       stop("method=time_varying requires beta0 and beta1!")
     }
@@ -240,28 +247,7 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
     for (i in seq_len(n_obs)){
       qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
     }
-    
-  } else if (method == "random_walk"){
-    if (!all(c("b_init","sigma_rw") %in% names(method_params))) {
-      stop("method=random_walk requires b_init and sigma_rw!")
-    }
-    b_init   <- method_params$b_init
-    sigma_rw <- method_params$sigma_rw
-    
-    b_t_out  <- numeric(n_obs)
-    b_t_out[1] <- b_init
-    for (i in 2:n_obs){
-      proposal   <- b_t_out[i-1] + rnorm(1,0,sigma_rw)
-      # to make sure  0.05<= b_t >= 1. More realistic
-      b_t_out[i] <- max(min(proposal, 1), 0.05) 
-    }
-    
-    qd_out <- matrix(NA, nrow=n_obs, ncol=D+1)
-    for (i in seq_len(n_obs)){
-      qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
-    }
-    
-  } else if (method == "ou"){
+  } else if (method == "ou_b"){
     # OU (Ornstein-Uhlenbeck)
     #  alpha, mu, b_init, sigma_ou
     if (!all(c("alpha","mu","b_init","sigma_ou") %in% names(method_params))) {
@@ -284,27 +270,13 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
       b_t_out[i] <- max(min(proposal, 1), 0.05)
     }
     
-    # log_b_t_out <- numeric(n_obs)
-    # log_b_t_out[1] <- log(b_init)
-    # 
-    # # Iterate to generate log_b_t using the OU process
-    # for (i in 2:n_obs){
-    #   drift <- alpha * (log(mu) - log_b_t_out[i - 1])
-    #   proposal <- log_b_t_out[i - 1] + drift + rnorm(1, 0, log(sigma_o))
-    #   
-    #   # Ensure log_b_t does not go below log(0.05)
-    #   log_b_t_out[i] <- max(proposal, log(0.05))
-    # }
-    # # Transform back to the original scale
-    # b_t_out <- exp(log_b_t_out)
-    
     qd_out <- matrix(NA, nrow=n_obs, ncol=D+1)
     for (i in seq_len(n_obs)){
       qd_out[i,] <- 1 - exp(-b_t_out[i] * (1:(D+1)))
     }
     
   } else {
-    stop("method must be one of constant, time_varying, random_walk, ou!")
+    stop("method must be one of fixed_q, fixed_b, linear_b, ou_b!")
   }
   
   # if ensure_Q_to_one = T, then do normalization
@@ -313,6 +285,14 @@ generateQ <- function(method, method_params, n_obs, D, ensure_Q_to_one = TRUE ){
   }
   
   return(list(qd=qd_out, b_t=b_t_out))
+}
+
+## generate exponential decay q. A quick easy way
+generate_exponential_q <- function(D, lambda = 0.3) {
+  q <- exp(-lambda * (1:(D+1)))
+  q <- q / sum(q)  # Normalize to sum to 1
+  q_out <- cumsum(q)
+  return(q_out)
 }
 
 

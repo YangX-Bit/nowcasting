@@ -54,7 +54,7 @@ compiled_models <- list(
 seed <- 123
 set.seed(seed)
 
-num_sims <- 1
+num_sims <- 10
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -66,7 +66,7 @@ n_obs = 60
 # reprot structure
 D <- 10; D_complete <- 20; if_fully_reported <- F
 # model
-method = "ou"; 
+method = "ou_b"; 
 alpha_ou=0.4; mu_ou=0.1; b_init=0.1; 
 # sd changes for each scenario
 sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
@@ -199,11 +199,12 @@ for (i in 1:num_sims){
                                 #models_to_run =c("fixed_q",  "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
-load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
+save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims10.RData"))
+#load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```   
@@ -221,12 +222,12 @@ for (i in 1:num_sims){
                                 #models_to_run =c("fixed_q",  "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-#save(out_list_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims5.RData"))
+save(out_list_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims10.RData"))
 #load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims5.RData"))
-
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
@@ -244,11 +245,12 @@ for (i in 1:num_sims){
                                 #models_to_run =c("fixed_q",  "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-#save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims5.RData"))
-load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims5.RData"))
+save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims10.RData"))
+#load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims5.RData"))
 
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
@@ -258,16 +260,9 @@ load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_
 results_1_NFR <- compute_all_nowcasts_tables(out_list_1_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_1_NFR_avg <- average_nowcasts_tables(results_1_NFR)
+# results_1_NFR_avg <- average_nowcasts_tables(results_1_NFR)
+# 
 
-plots_1_NFR <- nowcasts_plot(
-  nowcasts_list = results_1_NFR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
 
 # Average metrics
 metrics_1_NFR_avg <- average_nowcasts_metrics(
@@ -286,6 +281,11 @@ metrics_1_NFR_avg_incomplete <- average_nowcasts_metrics(
 
 metrics_1_NFR_avg_incomplete
 
+
+highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + Low Variability (All Time Window)")
+highlight_metrics(metrics_1_NFR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + Low Variability (Last D Time Unit)")
 #
 # for (t in seq_along(metrics_1_NFR_avg)) {
 #   cat("===== Window", t, "=====\n")
@@ -298,16 +298,9 @@ metrics_1_NFR_avg_incomplete
 results_2_NFR <- compute_all_nowcasts_tables(out_list_2_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_2_NFR_avg <- average_nowcasts_tables(results_2_NFR)
+# results_2_NFR_avg <- average_nowcasts_tables(results_2_NFR)
+# 
 
-plots_2_NFR <- nowcasts_plot(
-  nowcasts_list = results_2_NFR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
 
 # Average metrics
 metrics_2_NFR_avg <- average_nowcasts_metrics(
@@ -326,6 +319,10 @@ metrics_2_NFR_avg_incomplete <- average_nowcasts_metrics(
 
 metrics_2_NFR_avg_incomplete
 
+highlight_metrics(metrics_2_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + Moderate Variability (All Time Window)")
+highlight_metrics(metrics_2_NFR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + Moderate Variability (Last D Time Unit)")
 
 #
 # for (t in seq_along(metrics_2_NFR_avg)) {
@@ -338,16 +335,8 @@ metrics_2_NFR_avg_incomplete
 results_3_NFR <- compute_all_nowcasts_tables(out_list_3_NFR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_3_NFR_avg <- average_nowcasts_tables(results_3_NFR)
+#results_3_NFR_avg <- average_nowcasts_tables(results_3_NFR)
 
-plots_3_NFR <- nowcasts_plot(
-  nowcasts_list = results_3_NFR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
 
 # Average metrics
 metrics_3_NFR_avg <- average_nowcasts_metrics(
@@ -366,6 +355,10 @@ metrics_3_NFR_avg_incomplete <- average_nowcasts_metrics(
 
 metrics_3_NFR_avg_incomplete
 
+highlight_metrics(metrics_3_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + High Variability (All Time Window)")
+highlight_metrics(metrics_3_NFR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Not Fully Reported + High Variability (Last D Time Unit)")
 
 #
 # for (t in seq_along(metrics_3_NFR_avg)) {
@@ -374,6 +367,52 @@ metrics_3_NFR_avg_incomplete
 # }
 ```
 
+
+
+
+
+```{r}
+
+plots_1_NFR <- nowcasts_plot(
+  nowcasts_list = results_1_NFR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+plots_2_NFR <- nowcasts_plot(
+  nowcasts_list = results_2_NFR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+plots_3_NFR <- nowcasts_plot(
+  nowcasts_list = results_3_NFR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NFR_b01_sd001.png"), 
+       plot = plots_1_NFR, 
+       width = 10, height = 12, dpi = 300)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NFR_b01_sd01.png"), 
+       plot = plots_2_NFR, 
+       width = 10, height = 12, dpi = 300)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NFR_b01_sd03.png"), 
+       plot = plots_3_NFR, 
+       width = 10, height = 12, dpi = 300)
+
+```
 
 
 # output
@@ -397,7 +436,7 @@ cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Pol
 
 ```
 
-# output
+
 ```{r}
 results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D, report_unit = "day",
                                  models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),

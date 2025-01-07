@@ -292,7 +292,7 @@ average_nowcasts_metrics <- function(
 
 
 
-highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2) {
+highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2, table_caption = "Metrics comparison") {
   # If no date labels are provided, use default numeric labels
   if (is.null(date_labels)) {
     date_labels <- paste0("Scenario ", 1:4)
@@ -330,7 +330,6 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
   
   # Generate LaTeX table
   latex_table <- "\\begin{table}[htbp]\n\\centering\n"
-  latex_table <- paste0(latex_table, "\\caption{Metrics Comparison}\n")
   latex_table <- paste0(latex_table, "\\begin{tabular}{c|c|c|c|c|c|c|c}\n")
   latex_table <- paste0(latex_table, "\\hline\n")
   latex_table <- paste0(latex_table, "Scenario & RMSE & RMSPE & MAE & MAPE & Interval Width & Coverage Rate & Method \\\\\n")
@@ -367,6 +366,7 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
   }
   
   latex_table <- paste0(latex_table, "\\end{tabular}\n")
+  latex_table <- paste0(latex_table, paste0("\\caption{", table_caption,"}\n"))
   latex_table <- paste0(latex_table, "\\end{table}")
   
   return(cat(latex_table))

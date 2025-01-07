@@ -54,7 +54,7 @@ compiled_models <- list(
 seed <- 123
 set.seed(seed)
 
-num_sims <- 5
+num_sims <- 10
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -66,7 +66,7 @@ n_obs = 60
 # reprot structure
 D <- 10; D_complete <- 20; if_fully_reported <- T
 # model
-method = "ou"; 
+method = "ou_b"; 
 alpha_ou=0.4; mu_ou=0.5; b_init=0.5; 
 # sd changes for each scenario
 sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
@@ -122,7 +122,7 @@ for (i in 1:num_sims) {
     )
   )
 }
-as.numeric(FR_1[[1]]$case_reported[,11]) - as.numeric(FR_1[[1]]$case_true)
+#as.numeric(FR_1[[1]]$case_reported[,11]) - as.numeric(FR_1[[1]]$case_true)
 ```
 
 
@@ -188,68 +188,71 @@ for (i in 1:num_sims) {
 
 ## fit model
 ```{r}
-# out_list_1_FR <- list()
-# for (i in 1:num_sims){
-#   print(paste0("Now is working on ",i,"th simulation."))
-#   out_list_1_FR[[i]] <- 
-#     nowcasting_moving_window(FR_1[[i]]$case_reported, scoreRange = scoreRange, 
-#                                 case_true = FR_1[[i]]$case_true,
-#                                 start_date = as.Date("2024-01-01"),
-#                                 D = D, seeds = seed,
-#                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-#                                 #models_to_run =c("fixed_q",  "ou_b"),
-#                                 compiled_models = compiled_models,
-#                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                                 num_chains = 3, suppress_output = T)
-# }
+out_list_1_FR <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_list_1_FR[[i]] <-
+    nowcasting_moving_window(FR_1[[i]]$case_reported, scoreRange = scoreRange,
+                                case_true = FR_1[[i]]$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
+}
 
-#save(out_list_1_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b01_sd001_sims5.RData"))
-load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd001_sims5.RData"))
-
-# results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
-```
-
-```{r}
-# out_list_2_FR <- list()
-# for (i in 1:num_sims){
-#   print(paste0("Now is working on ",i,"th simulation."))
-#   out_list_2_FR[[i]] <- 
-#     nowcasting_moving_window(FR_2[[i]]$case_reported, scoreRange = scoreRange, 
-#                                 case_true = FR_2[[i]]$case_true,
-#                                 start_date = as.Date("2024-01-01"),
-#                                 D = D, seeds = seed,
-#                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-#                                 #models_to_run =c("fixed_q",  "ou_b"),
-#                                 compiled_models = compiled_models,
-#                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                                 num_chains = 3, suppress_output = T)
-# }
-
-#save(out_list_2_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b01_sd01_sims5.RData"))
-load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd01_sims5.RData"))
-
+#save(out_list_1_FR, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd001_sims10.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd001_sims5.RData"))
 
 # results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
 ```
 
 ```{r}
-# out_list_3_FR <- list()
-# for (i in 1:num_sims){
-#   print(paste0("Now is working on ",i,"th simulation."))
-#   out_list_3_FR[[i]] <- 
-#     nowcasting_moving_window(FR_3[[i]]$case_reported, scoreRange = scoreRange, 
-#                                 case_true = FR_3[[i]]$case_true,
-#                                 start_date = as.Date("2024-01-01"),
-#                                 D = D, seeds = seed,
-#                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-#                                 #models_to_run =c("fixed_q",  "ou_b"),
-#                                 compiled_models = compiled_models,
-#                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                                 num_chains = 3, suppress_output = T)
-# }
+out_list_2_FR <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_list_2_FR[[i]] <-
+    nowcasting_moving_window(FR_2[[i]]$case_reported, scoreRange = scoreRange,
+                                case_true = FR_2[[i]]$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
+}
 
-#save(out_list_3_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b01_sd03_sims5.RData"))
-load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd03_sims5.RData"))
+#save(out_list_2_FR, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd01_sims10.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd01_sims5.RData"))
+
+
+# results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+```
+
+```{r}
+out_list_3_FR <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_list_3_FR[[i]] <-
+    nowcasting_moving_window(FR_3[[i]]$case_reported, scoreRange = scoreRange,
+                                case_true = FR_3[[i]]$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                #models_to_run =c("fixed_q",  "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                             posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
+}
+
+#save(out_list_3_FR, file = file.path(path_proj, "data", "fitted_model", "simulation", "FR_b01_sd03_sims10.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd03_sims5.RData"))
 
 
 # results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
@@ -259,16 +262,8 @@ load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b01_sd03_sims
 results_1_FR <- compute_all_nowcasts_tables(out_list_1_FR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_1_FR_avg <- average_nowcasts_tables(results_1_FR)
+#results_1_FR_avg <- average_nowcasts_tables(results_1_FR)
 
-plots_1_FR <- nowcasts_plot(
-  nowcasts_list = results_1_FR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
 
 # Average metrics
 metrics_1_FR_avg <- average_nowcasts_metrics(
@@ -287,6 +282,12 @@ metrics_1_FR_avg_incomplete <- average_nowcasts_metrics(
 
 metrics_1_FR_avg_incomplete
 
+
+highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + Low Variability (All Time Window)")
+highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
 #
 # for (t in seq_along(metrics_1_FR_avg)) {
 #   cat("===== Window", t, "=====\n")
@@ -299,16 +300,9 @@ metrics_1_FR_avg_incomplete
 results_2_FR <- compute_all_nowcasts_tables(out_list_2_FR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_2_FR_avg <- average_nowcasts_tables(results_2_FR)
+#results_2_FR_avg <- average_nowcasts_tables(results_2_FR)
 
-plots_2_FR <- nowcasts_plot(
-  nowcasts_list = results_2_FR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
+
 
 # Average metrics
 metrics_2_FR_avg <- average_nowcasts_metrics(
@@ -328,6 +322,11 @@ metrics_2_FR_avg_incomplete <- average_nowcasts_metrics(
 metrics_2_FR_avg_incomplete
 
 
+highlight_metrics(metrics_2_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + Moderate Variability (All Time Window)")
+highlight_metrics(metrics_2_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + Moderate Variability (Last D Time Unit)")
+
 #
 # for (t in seq_along(metrics_2_FR_avg)) {
 #   cat("===== Window", t, "=====\n")
@@ -339,16 +338,9 @@ metrics_2_FR_avg_incomplete
 results_3_FR <- compute_all_nowcasts_tables(out_list_3_FR, D, "day", c("fixed_q", "fixed_b", "linear_b", "ou_b"))
 
 # plots
-results_3_FR_avg <- average_nowcasts_tables(results_3_FR)
+#results_3_FR_avg <- average_nowcasts_tables(results_3_FR)
 
-plots_3_FR <- nowcasts_plot(
-  nowcasts_list = results_3_FR_avg,
-  D = D,
-  report_unit = "day",
-  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-  combine_plots = TRUE,
-  title = "Averaged Nowcasts Over All Replicates"
-)
+
 
 # Average metrics
 metrics_3_FR_avg <- average_nowcasts_metrics(
@@ -368,11 +360,57 @@ metrics_3_FR_avg_incomplete <- average_nowcasts_metrics(
 metrics_3_FR_avg_incomplete
 
 
+highlight_metrics(metrics_3_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + High Variability (All Time Window)")
+highlight_metrics(metrics_3_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + High Variability (Last D Time Unit)")
+
 #
 # for (t in seq_along(metrics_3_FR_avg)) {
 #   cat("===== Window", t, "=====\n")
 #   print(metrics_3_FR_avg[[t]])
 # }
+```
+```{r}
+
+plots_1_FR <- nowcasts_plot(
+  nowcasts_list = results_1_FR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+plots_2_FR <- nowcasts_plot(
+  nowcasts_list = results_2_FR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+plots_3_FR <- nowcasts_plot(
+  nowcasts_list = results_3_FR[[1]],
+  D = D,
+  report_unit = "day",
+  models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+  combine_plots = TRUE,
+  title = NULL
+)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b05_sd001.png"), 
+       plot = plots_1_FR, 
+       width = 10, height = 12, dpi = 300)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b05_sd01.png"), 
+       plot = plots_2_FR, 
+       width = 10, height = 12, dpi = 300)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b05_sd03.png"), 
+       plot = plots_3_FR, 
+       width = 10, height = 12, dpi = 300)
 ```
 
 
