@@ -12,6 +12,7 @@ parameters {
   vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
   real b0;// Parameter for delay function q(d)
   real b1;
+  real b2;
   //real b2;
 }
 
@@ -21,7 +22,7 @@ transformed parameters {
   
   for (t in 1:N_obs) {
     //real x = b0 + b1 * n + b2 * n^2;   
-    real x = b0 + b1 * t;
+    real x = b0 + b1 * t + b2 * t^2;
     b_vec[t] = exp(x);
     q_d[t] = 1 - exp(- b_vec[t] * D);
   }
@@ -31,9 +32,9 @@ model {
   // Priors
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
-  b0 ~ uniform(-2, 2);  // Prior for parameter b
-  b1 ~ normal(0, 0.1); 
-  //b2 ~ normal(0, 5);
+  b0 ~ normal(0, 5);  // Prior for parameter b
+  b1 ~ normal(0, 5); 
+  b2 ~ normal(0, 5);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);

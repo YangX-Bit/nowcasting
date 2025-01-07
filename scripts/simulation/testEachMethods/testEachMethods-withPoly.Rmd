@@ -37,7 +37,7 @@ fixed_q <- file.path(path_proj, "source", "models",
 fixed_b <- file.path(path_proj, "source", "models",
                      "2.stan_model_fixed_b_trunc.stan")
 linear_b <- file.path(path_proj, "source", "models", 
-                     "3.stan_model_linear_b_trunc.stan")
+                     "5.stan_model_poly_b_trunc.stan")
 ou_b <-  file.path(path_proj, "source", "models",
                       "4.stan_model_ou_b_trunc.stan")
 
