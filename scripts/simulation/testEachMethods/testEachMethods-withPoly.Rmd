@@ -66,8 +66,8 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
                  rep(10,5))
 beta_lamb = 0.5
 n_obs = 60
-# reprot structure
-D <- 10; D_complete <- 20; if_fully_reported <- T
+# reprot delay
+D <- 10;
 
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
@@ -80,16 +80,12 @@ params_fixed_q_FR <- list(
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = "fixed_q",
-    method_params = list(q = generate_exponential_q(D, lambda = 0.3))
+    method_params = list(q_D = 100, q_lambda = 0.3)
   )
 )
 
@@ -98,22 +94,18 @@ fixed_q_FR <- simulateData(params_fixed_q_FR)
 
 ```{r}
 # fixed_b_FR
-params_fixed_b_FR <- list(
+params_fixed_b_FR <-  list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = "fixed_b",
-    method_params = list(b = 0.4)
+    method_params = list(b = 0.4, phi = 0.2)
   )
 )
 
@@ -128,16 +120,12 @@ params_linear_b_FR <- list(
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = "linear_b",
-    method_params = list(beta0 = -2, beta1 = 0.05)
+    method_params = list(beta0 = -2, beta1 = 0.05, phi_init = 0.2, phi_sigma = 0.05)
   )
 )
 
@@ -152,16 +140,12 @@ params_ou_b_FR <- list(
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = "ou_b",
-    method_params = list(alpha = 0.4, mu = 0.4, b_init = 0.4, sigma_ou = 0.1)
+    method_params = list(alpha = 0.8, mu = 0.1, b_init = 0.1, b_sigma = 0.1 , phi_init = 0.2, phi_sigma = 0.05)
   )
 )
 
