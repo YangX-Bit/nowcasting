@@ -25,20 +25,19 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
+
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
 ```
 
 ```{r}
 #models
 fixed_q <- file.path(path_proj, "source", "models",
-                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+                      "1.stan_model_fixed_q_trunc.stan")
 fixed_b <- file.path(path_proj, "source", "models",
-                     "trunc", "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", "trunc",
+                      "2.stan_model_fixed_b_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", 
                      "3.stan_model_linear_b_trunc.stan")
-# ou_b <- file.path(path_proj, "source", "models", "trunc",
-#                      "4.stan_model_ou_b_trunc.stan")
-
-ou_b <-  file.path(path_proj, "source", "models", "trunc",
+ou_b <-  file.path(path_proj, "source", "models", 
                       "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
@@ -68,7 +67,7 @@ n_obs = 60
 # reprot structure
 D <- 10; D_complete <- 20; if_fully_reported <- T
 # model
-method = "ou"; 
+method = "ou_b"; 
 alpha_ou=0.4; mu_ou=0.4; b_init=0.4; 
 # sd changes for each scenario
 sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
@@ -222,11 +221,12 @@ print(exp_b_plot_3)
 out_1_FR <- nowcasting_moving_window(FR_1$case_reported, scoreRange = scoreRange, 
                                 case_true = FR_1$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
+                                D = D, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_1_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd001.RData"))
@@ -247,7 +247,8 @@ out_2_FR <- nowcasting_moving_window(FR_2$case_reported, scoreRange = scoreRange
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_2_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd01.RData"))
@@ -268,7 +269,8 @@ out_3_FR <- nowcasting_moving_window(FR_3$case_reported, scoreRange = scoreRange
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_3_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd03.RData"))
@@ -355,9 +357,9 @@ results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd001.png"), 
-       plot = results_1_FR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd001.png"), 
+#        plot = results_1_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_1 <- list();count_1 = 1
 for (i in 1:length(scoreRange)) {
@@ -376,9 +378,9 @@ results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd01.png"), 
-       plot = results_2_FR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd01.png"), 
+#        plot = results_2_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_2 <- list();count_2 = 1
 for (i in 1:length(scoreRange)) {
@@ -396,9 +398,9 @@ results_3_FR_plots <- nowcasts_plot(results_3_FR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd03.png"), 
-       plot = results_3_FR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd03.png"), 
+#        plot = results_3_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_3 <- list();count_3 = 1
 for (i in 1:length(scoreRange)) {

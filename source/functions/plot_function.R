@@ -82,23 +82,23 @@ simulate_plot_q <- function(b_inits,
 
 
 
-# check the q shape and output plots of fit
+#check the q shape and output plots of fit
 # fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T) {
 #   if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
-#   
+# 
 #   # Normalize matrix columns
 #   matrix_data <- normalize_matrix_columns(matrix_data)
-#   
+# 
 #   # get date for the row
 #   row_names <- rownames(matrix_data)
 #   if (is.null(row_names)) {
 #     row_names <- as.character(1:nrow(matrix_data))
 #   }
-#   
+# 
 #   n_rows <- nrow(matrix_data); D <- ncol(matrix_data) - 1
 #   coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)),
 #                            delta = as.numeric(rep(0, n_rows)))
-#   
+# 
 #   for (i in 1:n_rows) {
 #     data_fit <- data.frame(
 #       x = c(0:D),
@@ -112,7 +112,7 @@ simulate_plot_q <- function(b_inits,
 #       warning(paste("Fitting failed for row", i, ":", e$message))
 #     })
 #   }
-#   
+# 
 #   # Prepare data for ggplot
 #   x_vals <- c(0:D)
 #   plot_data <- data.frame()
@@ -122,27 +122,27 @@ simulate_plot_q <- function(b_inits,
 #       x = x_vals,
 #       y = as.numeric(matrix_data[i, ]),
 #       fit = y_vals,
-#       Row = factor(rep(row_names[i], length(x_vals))) 
+#       Row = factor(rep(row_names[i], length(x_vals)))
 #     )
 #     plot_data <- rbind(plot_data, temp_data)
 #   }
-#   
+# 
 #   # Output multiple pages
 #   plots <- list()
 #   for (page in pages) {
 #     p <- ggplot(plot_data, aes(x = x)) +
 #       geom_line(aes(y = y), color = "black")
-#     
+# 
 #     # Conditionally add the fit line based on if_fit parameter
 #     if (if_fit) {
 #       p <- p + geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1)
 #     }
-#     
-#     p <- p + 
+# 
+#     p <- p +
 #       facet_wrap_paginate(~ Row, ncol = ncol, nrow = nrow, page = page) +
 #       labs(title = paste("Fitted Plots (Page", page, ")"), x = NULL, y = NULL) +
 #       theme_minimal()
-#     
+# 
 #     plots[[page]] <- p
 #   }
 #   list_out <- list(plots = plots,
@@ -196,23 +196,23 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
     )
     plot_data <- rbind(plot_data, temp_data)
   }
-  
+
   # Output multiple pages
   plots <- list()
   for (page in pages) {
     p <- ggplot(plot_data, aes(x = x)) +
       geom_line(aes(y = y), color = "black")
-    
+
     # Conditionally add the fit line based on if_fit parameter
     if (if_fit) {
       p <- p + geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1)
     }
-    
-    p <- p + 
+
+    p <- p +
       facet_wrap_paginate(~ Row, ncol = ncol, nrow = nrow, page = page) +
       labs(title = paste("Fitted Plots (Page", page, ")"), x = NULL, y = NULL) +
       theme_minimal()
-    
+
     plots[[page]] <- p
   }
   list_out <- list(plots = plots,

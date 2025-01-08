@@ -203,7 +203,7 @@ for (i in 1:num_sims){
                              posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims10.RData"))
+#save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims10.RData"))
 #load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
@@ -226,7 +226,7 @@ for (i in 1:num_sims){
                              posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-save(out_list_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims10.RData"))
+#save(out_list_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims10.RData"))
 #load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd01_sims5.RData"))
 
 # results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
@@ -249,7 +249,7 @@ for (i in 1:num_sims){
                              posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "10sims-Jan6"))
 }
 
-save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims10.RData"))
+#save(out_list_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims10.RData"))
 #load(file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd03_sims5.RData"))
 
 

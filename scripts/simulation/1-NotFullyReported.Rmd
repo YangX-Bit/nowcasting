@@ -25,20 +25,19 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
+
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
 ```
 
 ```{r}
 #models
 fixed_q <- file.path(path_proj, "source", "models",
-                     "trunc", "1.stan_model_fixed_q_trunc.stan")
+                      "1.stan_model_fixed_q_trunc.stan")
 fixed_b <- file.path(path_proj, "source", "models",
-                     "trunc", "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", "trunc",
+                      "2.stan_model_fixed_b_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", 
                      "3.stan_model_linear_b_trunc.stan")
-# ou_b <- file.path(path_proj, "source", "models", "trunc",
-#                      "4.stan_model_ou_b_trunc.stan")
-
-ou_b <-  file.path(path_proj, "source", "models", "trunc",
+ou_b <-  file.path(path_proj, "source", "models", 
                       "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
@@ -68,7 +67,7 @@ n_obs = 60
 # reprot structure
 D <- 10; D_complete <- 20; if_fully_reported <- F
 # model
-method = "ou"; 
+method = "ou_b"; 
 alpha_ou=0.4; mu_ou=0.1; b_init=0.1; 
 # sd changes for each scenario
 sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
@@ -166,7 +165,7 @@ print(exp_plot_1)
 
 
 exp_b_data_1<- data.frame( date = as.Date(rownames(NFR_1$case_reported)),
-                          b = exp_plot_1$coefficients)
+                          b = exp_plot_1$coefficients$b)
 exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -185,7 +184,7 @@ print(exp_plot_2)
 
 
 exp_b_data_2<- data.frame( date = as.Date(rownames(NFR_2$case_reported)),
-                          b = exp_plot_2$coefficients)
+                          b = exp_plot_2$coefficients$b)
 exp_b_data_2
 exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -222,11 +221,12 @@ print(exp_b_plot_3)
 out_1_NFR <- nowcasting_moving_window(NFR_1$case_reported, scoreRange = scoreRange, 
                                 case_true = NFR_1$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
+                                D = D, seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd001.RData"))
@@ -246,7 +246,8 @@ out_2_NFR <- nowcasting_moving_window(NFR_2$case_reported, scoreRange = scoreRan
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_2_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd01.RData"))
@@ -267,7 +268,8 @@ out_3_NFR <- nowcasting_moving_window(NFR_3$case_reported, scoreRange = scoreRan
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
 
 
 #save(out_3_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "NotFR_b01_sd03.RData"))
@@ -350,9 +352,9 @@ results_1_NFR_plots <- nowcasts_plot(results_1_NFR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd001.png"), 
-       plot = results_1_NFR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd001.png"), 
+#        plot = results_1_NFR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_1 <- list();count_1 = 1
 for (i in 1:length(scoreRange)) {
@@ -371,9 +373,9 @@ results_2_NFR_plots <- nowcasts_plot(results_2_NFR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd01.png"), 
-       plot = results_2_NFR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd01.png"), 
+#        plot = results_2_NFR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_2 <- list();count_2 = 1
 for (i in 1:length(scoreRange)) {
@@ -391,9 +393,9 @@ results_3_NFR_plots <- nowcasts_plot(results_3_NFR, D = D, report_unit = "day",
                                  combine_plots = T, ncol = 2
                                  )
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd03.png"), 
-       plot = results_3_NFR_plots, 
-       width = 10, height = 12, dpi = 300)
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "NotFR_b01_sd03.png"), 
+#        plot = results_3_NFR_plots, 
+#        width = 10, height = 12, dpi = 300)
 # table
 fully_tables_3 <- list();count_3 = 1
 for (i in 1:length(scoreRange)) {

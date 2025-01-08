@@ -32,13 +32,13 @@ path_to_draws_file = file.path("~", "Desktop", "draws")
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models",
+fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
                       "1.stan_model_fixed_q_trunc.stan")
-fixed_b <- file.path(path_proj, "source", "models",
+fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
                      "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", 
+linear_b <- file.path(path_proj, "source", "models", "withIntercept",
                      "3.stan_model_linear_b_trunc.stan")
-ou_b <-  file.path(path_proj, "source", "models",
+ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
                       "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
@@ -179,7 +179,9 @@ out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported, scoreRange 
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          #posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+                          posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEachMethods")
+                          )
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -205,7 +207,9 @@ out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported, scoreRange 
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          #posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+                          posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEachMethods")
+                          )
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -232,7 +236,9 @@ out_linear_b_FR <-
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          #posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+                          posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEachMethods")
+                          )
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -259,7 +265,9 @@ out_ou_b_FR <-
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          #posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+                          posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEachMethods")
+                          )
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
