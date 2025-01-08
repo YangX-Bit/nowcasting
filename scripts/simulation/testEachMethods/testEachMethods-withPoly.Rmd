@@ -26,19 +26,20 @@ source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
-path_to_draws_file = file.path("~", "Desktop", "draws")
-
+# mac
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
 ```
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models",
+fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
                       "1.stan_model_fixed_q_trunc.stan")
-fixed_b <- file.path(path_proj, "source", "models",
+fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
                      "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", 
-                     "5.stan_model_poly_b_trunc.stan")
-ou_b <-  file.path(path_proj, "source", "models",
+linear_b <- file.path(path_proj, "source", "models", "withIntercept",
+                     "3.stan_model_linear_b_trunc.stan")
+ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
                       "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
@@ -152,10 +153,31 @@ params_ou_b_FR <- list(
 ou_b_FR <- simulateData(params_ou_b_FR)
 ```
 
+## expplot
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(ou_b_FR$case_reported_cumulated)/16)
+exp_plot_ou <- fit_exp_plot(ou_b_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_ou)
+
+exp_plot_ou$coefficients
+exp_b_data_ou<- data.frame( date = as.Date(rownames(ou_b_FR$case_reported_cumulated)),
+                          b = exp_plot_ou$coefficients$b)
+
+exp_b_plot_ou <- ggplot(exp_b_data_ou, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_ou)
+```
+
 
 ## fit model
 ```{r}
-out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported, scoreRange = scoreRange,
+out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = fixed_q_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -163,7 +185,7 @@ out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported, scoreRange 
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          posterior_draws_path = posterior_draws_path)
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -177,11 +199,16 @@ plots_fixed_q_FR <- nowcasts_plot(results_fixed_q_FR, D = D, report_unit = "day"
 for (i in 1:length(results_fixed_q_FR)) {
   print(calculate_metrics(results_fixed_q_FR[[i]]))
 }
+
+for (i in 1:length(results_fixed_q_FR)) {
+  print(calculate_metrics(data.table::last(results_fixed_q_FR[[i]],D)))
+}
+
 plots_fixed_q_FR
 ```   
 
 ```{r}
-out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported, scoreRange = scoreRange,
+out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = fixed_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -189,7 +216,7 @@ out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported, scoreRange 
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          posterior_draws_path = posterior_draws_path)
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -203,12 +230,16 @@ plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day"
 for (i in 1:length(results_fixed_b_FR)) {
   print(calculate_metrics(results_fixed_b_FR[[i]]))
 }
+
+for (i in 1:length(results_fixed_b_FR)) {
+  print(calculate_metrics(data.table::last(results_fixed_b_FR[[i]],D)))
+}
 print(plots_fixed_b_FR)
 ```   
 
 ```{r}
 out_linear_b_FR <-
-  nowcasting_moving_window(linear_b_FR$case_reported, scoreRange = scoreRange,
+  nowcasting_moving_window(linear_b_FR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = linear_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -216,7 +247,7 @@ out_linear_b_FR <-
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          posterior_draws_path = posterior_draws_path)
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -230,12 +261,16 @@ plots_linear_b_FR <- nowcasts_plot(results_linear_b_FR, D = D, report_unit = "da
 for (i in 1:length(results_linear_b_FR)) {
   print(calculate_metrics(results_linear_b_FR[[i]]))
 }
+
+for (i in 1:length(results_linear_b_FR)) {
+  print(calculate_metrics(data.table::last(results_linear_b_FR[[i]],D)))
+}
 print(plots_linear_b_FR)
 ```   
 
 ```{r}
 out_ou_b_FR <-
-  nowcasting_moving_window(ou_b_FR$case_reported, scoreRange = scoreRange,
+  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = ou_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -243,7 +278,7 @@ out_ou_b_FR <-
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T, 
-                          posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods"))
+                          posterior_draws_path = posterior_draws_path)
 
 
 #save(out_list_1_NFR, file = file.path(path_proj, "data", "fitted_model", "simulation", "NotFR_b01_sd001_sims5.RData"))
@@ -256,6 +291,10 @@ plots_ou_b_FR <- nowcasts_plot(results_ou_b_FR, D = D, report_unit = "day", mode
 
 for (i in 1:length(results_ou_b_FR)) {
   print(calculate_metrics(results_ou_b_FR[[i]]))
+}
+
+for (i in 1:length(results_ou_b_FR)) {
+  print(calculate_metrics(data.table::last(results_ou_b_FR[[i]],D)))
 }
 print(plots_ou_b_FR)
 ```   

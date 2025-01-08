@@ -83,74 +83,6 @@ simulate_plot_q <- function(b_inits,
 
 
 #check the q shape and output plots of fit
-# fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T) {
-#   if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
-# 
-#   # Normalize matrix columns
-#   matrix_data <- normalize_matrix_columns(matrix_data)
-# 
-#   # get date for the row
-#   row_names <- rownames(matrix_data)
-#   if (is.null(row_names)) {
-#     row_names <- as.character(1:nrow(matrix_data))
-#   }
-# 
-#   n_rows <- nrow(matrix_data); D <- ncol(matrix_data) - 1
-#   coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)),
-#                            delta = as.numeric(rep(0, n_rows)))
-# 
-#   for (i in 1:n_rows) {
-#     data_fit <- data.frame(
-#       x = c(0:D),
-#       y = as.numeric(matrix_data[i, ])
-#     )
-#     tryCatch({
-#       model_fit <- nls(y ~ (1 - exp(-b * (x + delta))), data = data_fit, start = list(b = 0.2, delta = 0.2))
-#       coef_saved[i, 1] <- coef(model_fit)["b"]
-#       coef_saved[i, 2] <- coef(model_fit)["delta"]
-#     }, error = function(e) {
-#       warning(paste("Fitting failed for row", i, ":", e$message))
-#     })
-#   }
-# 
-#   # Prepare data for ggplot
-#   x_vals <- c(0:D)
-#   plot_data <- data.frame()
-#   for (i in 1:n_rows) {
-#     y_vals <- (1 - exp(-coef_saved$b[i] * (x_vals + coef_saved$delta[i])))
-#     temp_data <- data.frame(
-#       x = x_vals,
-#       y = as.numeric(matrix_data[i, ]),
-#       fit = y_vals,
-#       Row = factor(rep(row_names[i], length(x_vals)))
-#     )
-#     plot_data <- rbind(plot_data, temp_data)
-#   }
-# 
-#   # Output multiple pages
-#   plots <- list()
-#   for (page in pages) {
-#     p <- ggplot(plot_data, aes(x = x)) +
-#       geom_line(aes(y = y), color = "black")
-# 
-#     # Conditionally add the fit line based on if_fit parameter
-#     if (if_fit) {
-#       p <- p + geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1)
-#     }
-# 
-#     p <- p +
-#       facet_wrap_paginate(~ Row, ncol = ncol, nrow = nrow, page = page) +
-#       labs(title = paste("Fitted Plots (Page", page, ")"), x = NULL, y = NULL) +
-#       theme_minimal()
-# 
-#     plots[[page]] <- p
-#   }
-#   list_out <- list(plots = plots,
-#                    coefficients = coef_saved)
-#   return(list_out)
-# }
-
-
 fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T) {
   if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
 
@@ -164,8 +96,8 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
   }
 
   n_rows <- nrow(matrix_data); D <- ncol(matrix_data) - 1
-  #coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)), delta = as.numeric(rep(0, n_rows)))
-  coef_saved <- as.numeric(rep(0, n_rows))
+  coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)),
+                           phi = as.numeric(rep(0, n_rows)))
 
   for (i in 1:n_rows) {
     data_fit <- data.frame(
@@ -173,10 +105,9 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
       y = as.numeric(matrix_data[i, ])
     )
     tryCatch({
-      #model_fit <- nls(y ~ (1 - exp(-b * (x + delta))), data = data_fit, start = list(b = 0.5, delta = 0.2))
-      model_fit <- nls(y ~ (1 - exp(-b * (x))), data = data_fit, start = list(b = 0.5))
-      coef_saved[i] <- as.numeric(coef(model_fit)["b"])
-      #coef_saved[i, 2] <- coef(model_fit)["delta"]
+      model_fit <- nls(y ~ (1 - (1 - phi)*exp(-b * x)), data = data_fit, start = list(b = 0.2, phi = 0.2))
+      coef_saved[i, 1] <- coef(model_fit)["b"]
+      coef_saved[i, 2] <- coef(model_fit)["phi"]
     }, error = function(e) {
       warning(paste("Fitting failed for row", i, ":", e$message))
     })
@@ -186,8 +117,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
   x_vals <- c(0:D)
   plot_data <- data.frame()
   for (i in 1:n_rows) {
-    #y_vals <- (1 - exp(-coef_saved$b[i] * (x_vals + coef_saved$delta[i])))
-    y_vals <- (1 - exp(-coef_saved[i] * (x_vals)))
+    y_vals <- (1 - (1 - coef_saved$phi[i]) * exp(-coef_saved$b[i] * x_vals))
     temp_data <- data.frame(
       x = x_vals,
       y = as.numeric(matrix_data[i, ]),
@@ -219,6 +149,76 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
                    coefficients = coef_saved)
   return(list_out)
 }
+
+
+# fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T) {
+#   if (!is.matrix(matrix_data)) stop("Input must be a matrix.")
+# 
+#   # Normalize matrix columns
+#   matrix_data <- normalize_matrix_columns(matrix_data)
+# 
+#   # get date for the row
+#   row_names <- rownames(matrix_data)
+#   if (is.null(row_names)) {
+#     row_names <- as.character(1:nrow(matrix_data))
+#   }
+# 
+#   n_rows <- nrow(matrix_data); D <- ncol(matrix_data) - 1
+#   #coef_saved <- data.frame(b = as.numeric(rep(0, n_rows)), delta = as.numeric(rep(0, n_rows)))
+#   coef_saved <- as.numeric(rep(0, n_rows))
+# 
+#   for (i in 1:n_rows) {
+#     data_fit <- data.frame(
+#       x = c(0:D),
+#       y = as.numeric(matrix_data[i, ])
+#     )
+#     tryCatch({
+#       #model_fit <- nls(y ~ (1 - exp(-b * (x + delta))), data = data_fit, start = list(b = 0.5, delta = 0.2))
+#       model_fit <- nls(y ~ (1 - exp(-b * (x))), data = data_fit, start = list(b = 0.5))
+#       coef_saved[i] <- as.numeric(coef(model_fit)["b"])
+#       #coef_saved[i, 2] <- coef(model_fit)["delta"]
+#     }, error = function(e) {
+#       warning(paste("Fitting failed for row", i, ":", e$message))
+#     })
+#   }
+# 
+#   # Prepare data for ggplot
+#   x_vals <- c(0:D)
+#   plot_data <- data.frame()
+#   for (i in 1:n_rows) {
+#     #y_vals <- (1 - exp(-coef_saved$b[i] * (x_vals + coef_saved$delta[i])))
+#     y_vals <- (1 - exp(-coef_saved[i] * (x_vals)))
+#     temp_data <- data.frame(
+#       x = x_vals,
+#       y = as.numeric(matrix_data[i, ]),
+#       fit = y_vals,
+#       Row = factor(rep(row_names[i], length(x_vals)))
+#     )
+#     plot_data <- rbind(plot_data, temp_data)
+#   }
+# 
+#   # Output multiple pages
+#   plots <- list()
+#   for (page in pages) {
+#     p <- ggplot(plot_data, aes(x = x)) +
+#       geom_line(aes(y = y), color = "black")
+# 
+#     # Conditionally add the fit line based on if_fit parameter
+#     if (if_fit) {
+#       p <- p + geom_line(aes(y = fit), color = "red", linetype = "dashed", size = 1)
+#     }
+# 
+#     p <- p +
+#       facet_wrap_paginate(~ Row, ncol = ncol, nrow = nrow, page = page) +
+#       labs(title = paste("Fitted Plots (Page", page, ")"), x = NULL, y = NULL) +
+#       theme_minimal()
+# 
+#     plots[[page]] <- p
+#   }
+#   list_out <- list(plots = plots,
+#                    coefficients = coef_saved)
+#   return(list_out)
+# }
 
 nowcasts_plot <- function(nowcasts_list,
                           D = NULL,

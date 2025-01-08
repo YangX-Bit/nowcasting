@@ -14,11 +14,11 @@ parameters {
   // Ornstein-Uhlenbeck process parameters
   real<lower=0> alpha;                    // Mean-reversion rate
   real mu;                                 // Long-term mean
-  real<lower=0> sigma_ou;                 // Diffusion coefficient
+  real<lower=0> b_sigma;                 // Diffusion coefficient
 
   vector<lower=0.05, upper=1>[N_obs] b_t;                  // Logarithm of b_t parameter for stability
-  //vector<lower=0>[N_obs] phi;
-  real<lower=0> phi;
+  //real<lower=0, upper=1> phi;
+  vector<lower=0, upper=1>[N_obs] phi;
 }
 
 transformed parameters {
@@ -33,7 +33,8 @@ transformed parameters {
   // Precompute all q_d values
   for (n in 1:N_obs){
     for (d in 1:D){
-      q_d_matrix[n, d] = phi + exp(- b_t[n] * d);
+      q_d_matrix[n, d] = 1 - (1 - phi[n]) * exp(- b_t[n] * d);
+      //q_d_matrix[n, d] = 1 - (1 - phi) * exp(- b_t[n] * d);
     }
   }
 }
@@ -45,16 +46,17 @@ model {
 
   alpha ~ normal(0.5, 0.2);       // Prior for alpha
   mu    ~ normal(0.5, 0.2);       // Prior for mu
-  sigma_ou ~ normal(0.1, 0.05);   // Prior for sigma_ou
-  phi ~ uniform(0,0.5);
+  b_sigma ~ normal(0.1, 0.05);   // Prior for sigma_ou
 
   // Gamma prior for Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
-
+  
+  phi[1] ~ uniform(0,0.5);
   // Ornstein-Uhlenbeck process for b_t
-  b_t[1] ~ normal(mu, sigma_ou);
+  b_t[1] ~ normal(mu, b_sigma);
   for (t in 2:N_obs){
-    b_t[t] ~ normal(b_t[t-1] + alpha * (mu - b_t[t-1]), sigma_ou);
+    phi[t] ~ normal(phi[t-1], 0.05);
+    b_t[t] ~ normal(b_t[t-1] + alpha * (mu - b_t[t-1]), b_sigma);
   }
 
   // Likelihood: Vectorized

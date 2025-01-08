@@ -31,13 +31,13 @@ posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", 
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models",
+fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
                       "1.stan_model_fixed_q_trunc.stan")
-fixed_b <- file.path(path_proj, "source", "models",
-                      "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", 
+fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
+                     "2.stan_model_fixed_b_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", "withIntercept",
                      "3.stan_model_linear_b_trunc.stan")
-ou_b <-  file.path(path_proj, "source", "models", 
+ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
                       "4.stan_model_ou_b_trunc.stan")
 
 compiled_models <- list(
@@ -65,40 +65,39 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
 beta_lamb = 0.5
 n_obs = 60
 # reprot structure
-D <- 10; D_complete <- 20; if_fully_reported <- T
+D <- 15; 
 # model
 method = "ou_b"; 
-alpha_ou=0.4; mu_ou=0.4; b_init=0.4; 
+b_alpha=0.4; b_mu=0.5; b_init=0.5; 
 # sd changes for each scenario
-sigma_ou_1 = 0.01; sigma_ou_2 = 0.1; sigma_ou_3 = 0.3
+b_sigma_1 = 0.01; b_sigma_2 = 0.1; b_sigma_3 = 0.3
+phi_init = 0.2; phi_sigma=0.05
 
-# input list
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+```
+
+```{r}
 params_1 <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = method,
-    method_params = list(alpha = alpha_ou, mu = mu_ou, 
-                         b_init = b_init, sigma_ou = sigma_ou_1)
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
   )
 )
-# date that we run
-#scoreRange <- seq(as.Date("2024-01-15"),as.Date("2024-02-29"),by="14 day")
-scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+
+
 # generate
 FR_1 <- simulateData(params_1)
 
-#FR_1$case_true - FR_1$case_reported[,11]
+FR_1$case_true - FR_1$case_reported_cumulated[,16]
 ```
 
 
@@ -110,21 +109,21 @@ params_2 <- list(
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = method,
-    method_params = list(alpha = alpha_ou, mu = mu_ou, 
-                         b_init = b_init, sigma_ou = sigma_ou_2)
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
   )
 )
 
-FR_2 <- simulateData(params_2)
+
+# generate
+FR_2 <- simulateData(params_1)
+
+FR_2$case_true - FR_2$case_reported_cumulated[,16]
 ```
 
 
@@ -136,36 +135,33 @@ params_3 <- list(
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
+    D = D,
     seed       = seed
-  ),
-  reporting = list(
-    D           = D,     
-    D_complete        = D_complete,    
-    if_fully_reported = if_fully_reported
   ),
   q_model = list(
     method        = method,
-    method_params = list(alpha = alpha_ou, mu = mu_ou, 
-                         b_init = b_init, sigma_ou = sigma_ou_3)
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
   )
 )
 
-FR_3 <- simulateData(params_3)
-# sum(abs(FR_3$b_t - FR_2$b_t))
-# 
-# sum(abs(FR_3$b_t - FR_1$b_t))
+
+# generate
+FR_3 <- simulateData(params_1)
+
+FR_3$case_true - FR_3$case_reported_cumulated[,16]
 ```
 
 
 ```{r}
 # exploritary analysis
-page_num <- ceiling(nrow(FR_1$case_reported)/16)
-exp_plot_1 <- fit_exp_plot(FR_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+page_num <- ceiling(nrow(FR_1$case_reported_cumulated)/16)
+exp_plot_1 <- fit_exp_plot(FR_1$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_1)
 
 
-exp_b_data_1<- data.frame( date = as.Date(rownames(FR_1$case_reported)),
-                          b = exp_plot_1$coefficients)
+exp_b_data_1<- data.frame( date = as.Date(rownames(FR_1$case_reported_cumulated)),
+                          b = exp_plot_1$coefficients$b)
 exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -179,12 +175,12 @@ print(exp_b_plot_1)
 
 ```{r}
 # exploritary analysis
-exp_plot_2 <- fit_exp_plot(FR_2$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_2 <- fit_exp_plot(FR_2$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_2)
 
 
-exp_b_data_2<- data.frame( date = as.Date(rownames(FR_2$case_reported)),
-                          b = exp_plot_2$coefficients)
+exp_b_data_2<- data.frame( date = as.Date(rownames(FR_2$case_reported_cumulated)),
+                          b = exp_plot_2$coefficients$b)
 exp_b_data_2
 exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -198,12 +194,12 @@ print(exp_b_plot_2)
 
 ```{r}
 # exploritary analysis
-exp_plot_3 <- fit_exp_plot(FR_3$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_3 <- fit_exp_plot(FR_3$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_3)
 
 
-exp_b_data_3<- data.frame( date = as.Date(rownames(FR_3$case_reported)),
-                          b = exp_plot_3$coefficients)
+exp_b_data_3<- data.frame( date = as.Date(rownames(FR_3$case_reported_cumulated)),
+                          b = exp_plot_3$coefficients$b)
 exp_b_data_3
 exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -218,7 +214,7 @@ print(exp_b_plot_3)
 
 ## fit model
 ```{r}
-out_1_FR <- nowcasting_moving_window(FR_1$case_reported, scoreRange = scoreRange, 
+out_1_FR <- nowcasting_moving_window(FR_1$case_reported_cumulated, scoreRange = scoreRange, 
                                 case_true = FR_1$case_true,
                                 start_date = as.Date("2024-01-01"),
                                 D = D, seeds = seed,
@@ -240,10 +236,10 @@ results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", mo
 ```
 
 ```{r}
-out_2_FR <- nowcasting_moving_window(FR_2$case_reported, scoreRange = scoreRange, 
+out_2_FR <- nowcasting_moving_window(FR_2$case_reported_cumulated, scoreRange = scoreRange, 
                                 case_true = FR_2$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
+                                D = D,  seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
@@ -262,10 +258,10 @@ results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day", mo
 
 
 ```{r}
-out_3_FR <- nowcasting_moving_window(FR_3$case_reported, scoreRange = scoreRange, 
+out_3_FR <- nowcasting_moving_window(FR_3$case_reported_cumulated, scoreRange = scoreRange, 
                                 case_true = FR_3$case_true,
                                 start_date = as.Date("2024-01-01"),
-                                D = D, sigma_b = 0.1, seeds = seed,
+                                D = D,  seeds = seed,
                                 models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                 compiled_models = compiled_models,
                                 iter_sampling = 2000, iter_warmup = 1000, refresh = 0,

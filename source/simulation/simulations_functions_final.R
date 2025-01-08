@@ -161,6 +161,8 @@ runSimulation <- function(
     lambda_t   = round(lambda_t),
     # b(t) parameter
     b_t        = round(simsQ_out$b_t, 4),
+    # intercept
+    phi = round(simsQ_out$phi, 4),
     # q(d) reporting proportion
     qd         = round(qd_out, 4),
     # Date sequence
