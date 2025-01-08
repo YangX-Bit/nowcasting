@@ -163,9 +163,9 @@ page_num <- ceiling(nrow(NFR_1$case_reported)/16)
 exp_plot_1 <- fit_exp_plot(NFR_1$case_reported,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
 print(exp_plot_1)
 
-
+exp_plot_1$coefficients
 exp_b_data_1<- data.frame( date = as.Date(rownames(NFR_1$case_reported)),
-                          b = exp_plot_1$coefficients$b)
+                          b = exp_plot_1$coefficients)
 exp_b_data_1
 exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       

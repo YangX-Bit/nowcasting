@@ -132,7 +132,7 @@ runSimulation <- function(
   case_true    <- integer(n_obs)        # True number of cases
   case_reported<- matrix(0, nrow = n_obs, ncol = D_used + 1)  # Reported cases
   rownames(case_reported) <- as.character(date_seq)
- tt=1
+
   # Simulation process
   for (tt in seq_len(n_obs)){
     
