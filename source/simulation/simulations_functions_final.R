@@ -139,7 +139,7 @@ runSimulation <- function(
   qd_out <- if(is.vector(simsQ_out$qd)){
     simsQ_out$qd[c(1:(D+1))]
   } else{
-    simsQ_out$qd[, c(1:(D+1))]
+    simsQ_out$qd[, c(1:(D-+1))]
   }
                   
   
