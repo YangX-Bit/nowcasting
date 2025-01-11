@@ -1,0 +1,213 @@
+---
+title: "MovingWindowSims"
+author: "Yang Xiao"
+date: "2024-11-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+library(rstan)
+# library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(aweek)
+library(lubridate)
+
+#remotes::install_github("stan-dev/cmdstanr")
+library(cmdstanr)
+# cmdstanr::check_cmdstan_toolchain(fix = TRUE)
+# install_cmdstan(cores = 4, overwrite = TRUE)
+# set_cmdstan_path(path = "C:/Users/Administrator/.cmdstan/cmdstan-2.35.0")
+# cmdstan_version()
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+# source from other paper
+source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
+# data import
+SARI <- as.data.frame(read.csv(file.path(path_proj, "data", "raw", "clean_data_srag_epiweek_delay_table_PR.csv"),))
+
+# set week
+set_week_start("Sunday")
+SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
+
+
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
+```
+
+```{r}
+#models
+
+withoutInter <- file.path(path_proj, "source", "models", 
+                      "4.stan_model_ou_b_trunc.stan")
+fixedInter <- file.path(path_proj, "source", "models", "withInterceptFixed",
+                     "4.stan_model_ou_b_trunc.stan")
+ouInter <- file.path(path_proj, "source", "models", "withIntercept",
+                     "4.stan_model_ou_b_trunc.stan")
+normInter <-  file.path(path_proj, "source", "models", "withIntercept",
+                      "5.stan_model_ou_b_normalPhi_trunc.stan")
+
+compiled_models <- list(
+  withoutInter = cmdstan_model(withoutInter),
+  fixedInter = cmdstan_model(fixedInter),
+  ouInter = cmdstan_model(ouInter),
+  normInter = cmdstan_model(normInter)
+)
+```
+
+```{r, warning=FALSE}
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 26
+N_obs <- 200
+
+# try-on in region 41002
+data_41002 <- SARI %>% filter(regionalsaude == 41002) %>%
+  select(-c("epiweek","epiyear","regionalsaude")) %>%
+  relocate(Notifications, .after = last_col())
+rownames(data_41002) <- data_41002$date
+
+#transfer to cumu matrix
+data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
+data_41002_input <- as.matrix(data_41002[,c(1:27)])
+
+# now <- as.Date("2024-02-01")
+scoreRange <- seq(as.Date("2009-07-05"),as.Date("2010-07-05"),by="56 day")
+
+# input the true case vector
+case_true <- as.matrix(data_41002[, c("Notifications")])
+rownames(case_true) <- as.character(data_41002$date)
+```
+
+```{r}
+data41002_exp_plot <- data_41002 %>% 
+  filter(date >= min(scoreRange) & date <= max(scoreRange)) %>%
+  select(-Notifications_within_26w, -Notifications, -date) %>%
+  as.matrix()
+
+page_num <- ceiling(nrow(data41002_exp_plot)/16)
+
+exp_plot <- fit_exp_plot(data41002_exp_plot,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+
+exp_plot
+```
+
+```{r}
+exp_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
+                        b = exp_plot$coefficients$b,
+                        phi = exp_plot$coefficients$phi
+                        )
+
+exp_b_plot <- ggplot(exp_data, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+exp_phi_plot <- ggplot(exp_data, aes(x = date, y = phi)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter phi")
+
+exp_b_plot
+exp_phi_plot
+```
+
+```{r}
+shapiro.test(exp_data$b)
+
+library(forecast)
+
+fit_ar1_SARI <- Arima(exp_data$b, order = c(1, 0, 0))
+print(fit_ar1_SARI)
+
+fit_ar1_SARI$coef["ar1"]
+
+print(Box.test(fit_ar1_SARI$residuals, lag = 10, type = "Ljung-Box"))
+
+
+acf(fit_ar1_SARI$residuals, main = "ACF of residuals")
+pacf(fit_ar1_SARI$residuals, main = "PACF of residuals")
+
+auto.arima(fit_ar1_SARI$b)
+```
+
+```{r}
+shapiro.test(exp_data$phi)
+
+library(forecast)
+
+fit_ar1_SARI <- Arima(exp_data$phi, order = c(1, 0, 0))
+print(fit_ar1_SARI)
+
+fit_ar1_SARI$coef["ar1"]
+
+print(Box.test(fit_ar1_SARI$residuals, lag = 10, type = "Ljung-Box"))
+
+
+acf(fit_ar1_SARI$residuals, main = "ACF of residuals")
+pacf(fit_ar1_SARI$residuals, main = "PACF of residuals")
+
+auto.arima(exp_data$phi)
+```
+
+
+```{r}
+scoreRange_SARI <- seq(as.Date("2009-08-01"),as.Date("2009-12-27"),by="28 day")
+
+out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
+                                case_true = case_true,
+                                start_date = as.Date("2009-06-15"),
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = D, seeds = 111,
+                                methods = c("withoutInter", "fixedInter", "ouInter", "normInter"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
+
+save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven_compareOU).RData"))
+
+results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "day", 
+                          methods = c("withoutInter", "fixedInter", "ouInter", "normInter"))
+
+results_SARI_plots <- nowcasts_plot(results_SARI, D = D, report_unit = "week", methods = c("withoutInter", "fixedInter", "ouInter", "normInter"))
+```
+
+```{r}
+results_SARI_plots
+```
+
+
+```{r}
+for(i in 1:length(results_SARI)){
+  print(calculate_metrics(results_SARI[[i]], methods = c("withoutInter", "fixedInter", "ouInter", "normInter")))
+}
+```
+
+
+
+```{r}
+for(i in 1:length(results_SARI)){
+  print(calculate_metrics(data.table::last(results_SARI[[i]],D),
+                          methods = c("withoutInter", "fixedInter", "ouInter", "normInter")))
+}
+
+```

@@ -19,7 +19,7 @@ model {
   alpha_lambda ~ uniform(0, 10);
   beta_lambda ~ uniform(0, 10);
   b ~ uniform(0, 2);
-  phi ~ uniform(0,0.5);
+  phi ~ uniform(0, 1);
   
   // Gamma prior on Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);

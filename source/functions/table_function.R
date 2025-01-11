@@ -1,7 +1,7 @@
 nowcasts_table <- function(results_list, 
                            D = NULL,
                            report_unit = "week",
-                           models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                           methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                            replicate_id = NA_integer_) {
   # Basic checks
   if (is.null(D)) stop("Parameter 'D' must be provided.")
@@ -45,7 +45,7 @@ nowcasts_table <- function(results_list,
     }
     
     # Dynamically add model results
-    for (model_name in models_to_run) {
+    for (model_name in methods) {
       # model_name might be "fixed_q", "fixed_b", ...
       samples <- results_list[[model_name]][[i]]$draws(variables = "N_t", format = "draws_matrix")
       nowcasts_df[[paste0("mean_", model_name)]]  <- apply(samples, 2, mean)
@@ -129,7 +129,7 @@ calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "linear_b", 
 #            has the data needed for nowcasts_table()
 # D:         max delay
 # report_unit: "day" or "week"
-# models_to_run: c("fixed_q","fixed_b","linear_b","ou_b"), etc.
+# methods: c("fixed_q","fixed_b","linear_b","ou_b"), etc.
 # replicate_ids: a vector of replicate IDs, e.g. 1:num_sims
 #
 # Return: a list of length num_sims, 
@@ -142,7 +142,7 @@ compute_all_nowcasts_tables <- function(
     out_list,
     D,
     report_unit = "day",
-    models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+    methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
     replicate_ids = 1:length(out_list)
 ){
   num_sims <- length(out_list)
@@ -154,7 +154,7 @@ compute_all_nowcasts_tables <- function(
       results_list  = out_list[[i]],  # this replicate's data
       D             = D,
       report_unit   = report_unit,
-      models_to_run = models_to_run,
+      methods = methods,
       replicate_id  = replicate_ids[i]   # store replicate ID
     )
   }

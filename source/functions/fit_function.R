@@ -36,7 +36,7 @@ slice_data <- function(data, scoreRange,
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, seeds = 123,
-                                     models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                     methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
                                      num_chains = 3, suppress_output = TRUE,
@@ -46,8 +46,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
     stop("You must input true cases.")
   }
   
-  if (is.null(compiled_models) || !all(models_to_run %in% names(compiled_models))) {
-    stop("You must provide compiled models matching 'models_to_run'.")
+  if (is.null(compiled_models) || !all(methods %in% names(compiled_models))) {
+    stop("You must provide compiled models matching 'methods'.")
   }
   
   # get the date
@@ -94,7 +94,7 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
 
     # return(stan_data_trunc)
     # Fit models based on what is selected 
-    for (model_name in models_to_run) {
+    for (model_name in methods) {
       compiled_model <- compiled_models[[model_name]]
       if (is.null(compiled_model)) {
         stop(paste("Model path for", model_name, "is not specified in model_paths."))

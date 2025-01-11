@@ -172,94 +172,171 @@ runSimulation <- function(
   ))
 }
 
-generateQ <- function(method, method_params, n_obs, D, max_delay = 100){
-  # input the method we use use, and relavant parameters
-  # set number of observations, Delay D
+generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
+  #----------------------------------------------------------------
+  # method:         "fixed_q", "fixed_b", "rw_b", "ou_b"
+  # method_params:  a list of parameters required by each method
+  # n_obs:          number of observations (time points)
+  # D:              maximum delay used in certain methods
+  # max_delay:      size for qd columns (default 100)
+  #
+  # Returns a list:
+  #   $qd    : either a matrix (n_obs x (max_delay+1)) or a vector
+  #   $b_t   : vector (length n_obs) of b(t)
+  #   $phi   : vector (length n_obs) of phi(t)
+  #----------------------------------------------------------------
   
-  # max_delay indicates in practice, the max delay that we consider
-  # since bt we set is from (0.05,1), max_col to be 100 is enough
+  # Output containers
+  b_t_out  <- NULL
+  qd_out   <- NULL
+  phi_out  <- NULL
   
-  # output
-  b_t_out <- NULL
-  qd_out  <- NULL
-  phi_out <- NULL
-  
-  if (method == "fixed_q"){
+  #----------------------------------------------------------------
+  # 1) fixed_q: A simple method that returns an exponential distribution q
+  #----------------------------------------------------------------
+  if (method == "fixed_q") {
+    # Expecting something like:
+    # method_params$q_D (delay) and method_params$q_lambda (rate)
     if (!all(c("q_D", "q_lambda") %in% names(method_params))) {
-      stop("method=constant requires b in method_params!")
+      stop("method=fixed_q requires 'q_D' and 'q_lambda' in method_params!")
     }
-    q_D   <- method_params$q_D
+    q_D      <- method_params$q_D
     q_lambda <- method_params$q_lambda
     
-    qd_out <- generate_exponential_q(D = q_D, lambda = q_lambda)
+    # Generate a per-day exponential distribution, summing to 1
+    qd_out <- generate_exponential_q(D = q_D, lambda = q_lambda)  # your own function
+    # Return placeholders for b, phi
     b_t_out <- NA_integer_
     phi_out <- NA_integer_
     
-  } else if (method == "fixed_b"){
+    #----------------------------------------------------------------
+    # 2) fixed_b: phi and b are constants
+    #----------------------------------------------------------------
+  } else if (method == "fixed_b") {
+    # Expecting method_params$b, method_params$phi
     if (!all(c("b", "phi") %in% names(method_params))) {
-      stop("method=constant requires b in method_params!")
+      stop("method=fixed_b requires 'b' and 'phi' in method_params!")
     }
-    b    <- method_params$b
+    b   <- method_params$b
     phi <- method_params$phi
     
-    qd_out <- 1 - (1 - phi)*exp(-b * c(0:max_delay))
-    b_t_out <- b
-    phi_out <- phi
+    # A single vector of size (max_delay+1): q[d] = 1 - (1-phi)*exp(-b * d)
+    qd_out <- 1 - (1 - phi) * exp(-b * (0:max_delay))
     
-  } else if (method == "linear_b"){
-    if (!all(c("beta0","beta1","phi_init","phi_sigma") %in% names(method_params))) {
-      stop("method=time_varying requires beta0 and beta1!")
+    # b, phi are scalars
+    b_t_out  <- b
+    phi_out  <- phi
+    
+    #----------------------------------------------------------------
+    # 3) rw_b: second-order random walk for both b(t) and phi(t)
+    #----------------------------------------------------------------
+  } else if (method == "rw_b") {
+    # Expecting e.g. method_params$b_init, b_sigma, phi_init, phi_sigma
+    # We'll do a second-order RW:
+    #   x[2] = x[1] + rnorm(0, sigma)
+    #   for i >= 3: x[i] = 2*x[i-1] - x[i-2] + rnorm(0, sigma)
+    # Then clamp to valid ranges (b in [0.05,1], phi in [0,1])
+    if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma") %in% names(method_params))) {
+      stop("method=rw_b requires b_init, b_sigma, phi_init, phi_sigma!")
     }
-    beta0 <- method_params$beta0
-    beta1 <- method_params$beta1
+    b_init    <- method_params$b_init
+    b_sigma   <- method_params$b_sigma
+    phi_init  <- method_params$phi_init
     phi_sigma <- method_params$phi_sigma
     
-    b_t_out <- exp(beta0 + beta1*(1:n_obs))
-    qd_out  <- matrix(NA, nrow=n_obs, ncol=max_delay+1)
-    phi_out <- numeric(n_obs); 
-    phi_out[1] <- method_params$phi_init
+    # Initialize storage
+    b_t_out  <- numeric(n_obs)
+    phi_out  <- numeric(n_obs)
+    qd_out   <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
     
-    qd_out[1, ] <- 1 - (1 - phi_out[1]) * exp(-b_t_out[1] * (0:max_delay))
-    for (i in c(2:n_obs)){
-      phi_out[i] <- max(0, min(rnorm(1, phi_out[i-1], phi_sigma) ) )
-      qd_out[i,] <- 1 - (1 - phi_out[i]) * exp(-b_t_out[i] * (0:max_delay))
-    }
-  } else if (method == "ou_b"){
-    # OU (Ornstein-Uhlenbeck)
-    #  alpha, mu, b_init, b_sigma, phi_init, phi_sigma
-    if (!all(c("alpha","mu","b_init","b_sigma",
-               "phi_init","phi_sigma") %in% names(method_params))) {
-      stop("method=ou requires alpha, mu, b_init, sigma_ou!")
-    }
-    alpha   <- method_params$alpha
-    mu      <- method_params$mu
-    phi_sigma <- method_params$phi_sigma
-    b_sigma <- method_params$b_sigma
+    # Start values
+    b_t_out[1]   <- b_init
+    phi_out[1]   <- phi_init
+    # If n_obs > 1, we need a second value to proceed with second-order RW
     
-    b_t_out <- numeric(n_obs); phi_out <- numeric(n_obs)
-    b_t_out[1] <- method_params$b_init; phi_out[1] <- method_params$phi_init
+    b_t_out[2]   <- b_t_out[1]   + rnorm(1, 0, b_sigma)
+    phi_out[2]   <- phi_out[1]   + rnorm(1, 0, phi_sigma)
+    # clamp
+    b_t_out[2]   <- max(min(b_t_out[2], 1), 0.05)
+    phi_out[2]   <- max(min(phi_out[2], 1), 0)
     
-    # Iterate to generate log_b_t using the OU process
-    for (i in 2:n_obs){
-      drift <- alpha * (mu - b_t_out[i - 1])
-      b_proposal <- b_t_out[i - 1] + drift + rnorm(1, 0, b_sigma)
-      phi_proposal <- rnorm(1, phi_out[i - 1], phi_sigma)
+    
+    # Now fill from i=3..n_obs for second-order RW
+    for (i in 3:n_obs) {
+      # second-order update
+      b_prop   <- 2*b_t_out[i-1]   - b_t_out[i-2]   + rnorm(1, 0, b_sigma)
+      phi_prop <- 2*phi_out[i-1]  - phi_out[i-2]   + rnorm(1, 0, phi_sigma)
       
-      b_t_out[i] <- max(min(b_proposal, 1), 0.05)
-      phi_out[i] <- max(min(phi_proposal, 1), 0)
+      # clamp
+      b_t_out[i]   <- max(min(b_prop, 1), 0.05)
+      phi_out[i]   <- max(min(phi_prop, 1), 0)
     }
     
-    qd_out <- matrix(NA, nrow=n_obs, ncol=max_delay+1)
-    for (i in seq_len(n_obs)){
-      qd_out[i,] <- 1 - (1 - phi_out[i]) * exp(-b_t_out[i] * (0:max_delay))
+    # Generate qd_out for each time i
+    for (i in seq_len(n_obs)) {
+      b_i     <- b_t_out[i]
+      phi_i   <- phi_out[i]
+      qd_out[i, ] <- 1 - (1 - phi_i)*exp(-b_i * (0:max_delay))
+    }
+    
+    #----------------------------------------------------------------
+    # 4) ou_b: Ornstein-Uhlenbeck process for both b(t) and phi(t)
+    #----------------------------------------------------------------
+  } else if (method == "ou_b") {
+    # Expecting e.g. method_params$alpha_b, method_params$mu_b,
+    #                method_params$b_init, method_params$b_sigma,
+    #                method_params$alpha_phi, method_params$mu_phi,
+    #                method_params$phi_init, method_params$phi_sigma
+    #
+    if (!all(c("b_alpha","b_mu","b_init","b_sigma",
+               "phi_alpha","phi_mu","phi_init","phi_sigma") %in% names(method_params))) {
+      stop("method=ou_b requires alpha, mu, b_init, b_sigma, phi_init, phi_sigma!")
+    }
+    b_alpha     <- method_params$b_alpha
+    b_mu        <- method_params$b_mu
+    phi_alpha     <- method_params$phi_alpha
+    phi_mu        <- method_params$phi_mu
+    b_init    <- method_params$b_init
+    b_sigma   <- method_params$b_sigma
+    phi_init  <- method_params$phi_init
+    phi_sigma <- method_params$phi_sigma
+    
+    b_t_out  <- numeric(n_obs)
+    phi_out  <- numeric(n_obs)
+    b_t_out[1]  <- b_init
+    phi_out[1]  <- phi_init
+    
+    # OU update for each i=2..n_obs
+    # b[t]   = b[t-1]   + alpha*(mu - b[t-1])   + rnorm(0,b_sigma)
+    # phi[t] = phi[t-1] + alpha*(mu - phi[t-1]) + rnorm(0,phi_sigma)
+    for (i in 2:n_obs) {
+      # b
+      drift_b   <- b_alpha * (b_mu - b_t_out[i-1])
+      b_prop    <- b_t_out[i-1] + drift_b + rnorm(1, 0, b_sigma)
+      # phi
+      drift_phi <- phi_alpha * (phi_mu - phi_out[i-1])
+      phi_prop  <- phi_out[i-1] + drift_phi + rnorm(1, 0, phi_sigma)
+      
+      # clamp
+      b_t_out[i]   <- max(min(b_prop, 1), 0.05)
+      phi_out[i]   <- max(min(phi_prop, 1), 0)
+    }
+    
+    # Generate qd_out
+    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
+    for (i in seq_len(n_obs)) {
+      b_i   <- b_t_out[i]
+      phi_i <- phi_out[i]
+      qd_out[i, ] <- 1 - (1 - phi_i)*exp(-b_i * (0:max_delay))
     }
     
   } else {
-    stop("method must be one of fixed_q, fixed_b, linear_b, ou_b!")
+    stop("method must be one of: 'fixed_q', 'fixed_b', 'rw_b', 'ou_b'!")
   }
   
-  return(list(qd=qd_out, b_t=b_t_out, phi = phi_out))
+  return(list(qd = qd_out, b_t = b_t_out, phi = phi_out))
 }
+
 
 ## generate exponential decay q. A quick easy way
 generate_exponential_q <- function(D, lambda = 0.3) {
