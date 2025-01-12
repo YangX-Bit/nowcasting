@@ -73,6 +73,9 @@ n_obs = 60
 # reprot delay
 D <- 15;
 
+# Time period for checking
+D_check <- 5
+
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
 
@@ -246,19 +249,19 @@ print(exp_b_plot_ou)
 
 ## fit model
 ```{r}
-out_fixed_q_NFR <- nowcasting_moving_window(fixed_q_NFR$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = fixed_q_NFR$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
-
-
-save(out_fixed_q_NFR, file = file.path(data_save_path, "NFR_fixed_q.RData"))
-#load( file.path(data_save_path, "NFR_fixed_q.RData"))
+# out_fixed_q_NFR <- nowcasting_moving_window(fixed_q_NFR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = fixed_q_NFR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = posterior_draws_path)
+# 
+# 
+# save(out_fixed_q_NFR, file = file.path(data_save_path, "NFR_fixed_q.RData"))
+load( file.path(data_save_path, "NFR_fixed_q.RData"))
 
 results_fixed_q_NFR <- nowcasts_table(out_fixed_q_NFR, D = D, report_unit = "day", 
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b")
@@ -274,7 +277,7 @@ for (i in 1:length(results_fixed_q_NFR)) {
 }
 
 for (i in 1:length(results_fixed_q_NFR)) {
-  print(calculate_metrics(data.table::last(results_fixed_q_NFR[[i]],D),
+  print(calculate_metrics(data.table::last(results_fixed_q_NFR[[i]],D_check),
                           methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
 }
 
@@ -282,20 +285,20 @@ plots_fixed_q_NFR
 ```   
 
 ```{r}
-out_fixed_b_NFR <- nowcasting_moving_window(fixed_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = fixed_b_NFR$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
+# out_fixed_b_NFR <- nowcasting_moving_window(fixed_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = fixed_b_NFR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = posterior_draws_path)
+#
+# save(out_fixed_b_NFR, file = file.path(data_save_path, "NFR_fixed_b.RData"))
+load( file.path(data_save_path, "NFR_fixed_b.RData"))
 
-save(out_fixed_b_NFR, file = file.path(data_save_path, "NFR_fixed_b.RData"))
-#load( file.path(data_save_path, "NFR_fixed_b.RData"))
-
-results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR, D = D, report_unit = "day", 
+results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR, D = D, report_unit = "day",
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
 
 plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
@@ -306,26 +309,26 @@ for (i in 1:length(results_fixed_b_NFR)) {
 }
 
 for (i in 1:length(results_fixed_b_NFR)) {
-  print(calculate_metrics(data.table::last(results_fixed_b_NFR[[i]],D),
+  print(calculate_metrics(data.table::last(results_fixed_b_NFR[[i]],D_check),
                           methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
 }
 print(plots_fixed_b_NFR)
 ```   
 
 ```{r}
-out_rw_b_NFR <-
-  nowcasting_moving_window(rw_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = rw_b_NFR$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
-
-save(out_rw_b_NFR, file = file.path(data_save_path, "NFR_rw_b.RData"))
-#load( file.path(data_save_path, "NFR_rw_b.RData"))
+# out_rw_b_NFR <-
+#   nowcasting_moving_window(rw_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = rw_b_NFR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = posterior_draws_path)
+# 
+# save(out_rw_b_NFR, file = file.path(data_save_path, "NFR_rw_b.RData"))
+load( file.path(data_save_path, "NFR_rw_b.RData"))
 
 results_rw_b_NFR <- nowcasts_table(out_rw_b_NFR, D = D, report_unit = "day", 
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
@@ -338,29 +341,29 @@ for (i in 1:length(results_rw_b_NFR)) {
 }
 
 for (i in 1:length(results_rw_b_NFR)) {
-  print(calculate_metrics(data.table::last(results_rw_b_NFR[[i]],D),
+  print(calculate_metrics(data.table::last(results_rw_b_NFR[[i]],D_check),
                           methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
 }
 print(plots_rw_b_NFR)
 ```   
 
 ```{r}
-out_ou_b_NFR <-
-  nowcasting_moving_window(ou_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = ou_b_NFR$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
+# out_ou_b_NFR <-
+#   nowcasting_moving_window(ou_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = ou_b_NFR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = posterior_draws_path)
+#
+#
+# save(out_ou_b_NFR, file = file.path(data_save_path, "NFR_ou_b.RData"))
+load(file.path(data_save_path, "NFR_ou_b.RData"))
 
-
-save(out_ou_b_NFR, file = file.path(data_save_path, "NFR_ou_b.RData"))
-# load(file.path(data_save_path, "NFR_ou_b.RData"))
-
-results_ou_b_NFR <- nowcasts_table(out_ou_b_NFR, D = D, report_unit = "day", 
+results_ou_b_NFR <- nowcasts_table(out_ou_b_NFR, D = D, report_unit = "day",
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
 
 plots_ou_b_NFR <- nowcasts_plot(results_ou_b_NFR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
@@ -371,7 +374,7 @@ for (i in 1:length(results_ou_b_NFR)) {
 }
 
 for (i in 1:length(results_ou_b_NFR)) {
-  print(calculate_metrics(data.table::last(results_ou_b_NFR[[i]],D),
+  print(calculate_metrics(data.table::last(results_ou_b_NFR[[i]],D_check),
                           methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
 }
 print(plots_ou_b_NFR)

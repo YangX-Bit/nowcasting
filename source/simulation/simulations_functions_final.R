@@ -187,7 +187,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
   #----------------------------------------------------------------
   
   # Output containers
-  b_t_out  <- NULL
+  b_out  <- NULL
   qd_out   <- NULL
   phi_out  <- NULL
   
@@ -206,7 +206,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     # Generate a per-day exponential distribution, summing to 1
     qd_out <- generate_exponential_q(D = q_D, lambda = q_lambda)  # your own function
     # Return placeholders for b, phi
-    b_t_out <- NA_integer_
+    b_out <- NA_integer_
     phi_out <- NA_integer_
     
     #----------------------------------------------------------------
@@ -224,117 +224,118 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     qd_out <- 1 - (1 - phi) * exp(-b * (0:max_delay))
     
     # b, phi are scalars
-    b_t_out  <- b
+    b_out  <- b
     phi_out  <- phi
     
     #----------------------------------------------------------------
     # 3) rw_b: second-order random walk for both b(t) and phi(t)
     #----------------------------------------------------------------
   } else if (method == "rw_b") {
-    # Expecting e.g. method_params$b_init, b_sigma, phi_init, phi_sigma
-    # We'll do a second-order RW:
-    #   x[2] = x[1] + rnorm(0, sigma)
-    #   for i >= 3: x[i] = 2*x[i-1] - x[i-2] + rnorm(0, sigma)
-    # Then clamp to valid ranges (b in [0.05,1], phi in [0,1])
     if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma") %in% names(method_params))) {
       stop("method=rw_b requires b_init, b_sigma, phi_init, phi_sigma!")
     }
+    
+    # Extract parameters
     b_init    <- method_params$b_init
     b_sigma   <- method_params$b_sigma
     phi_init  <- method_params$phi_init
     phi_sigma <- method_params$phi_sigma
+    
+    # Logistic transform with constraints
+    # b is constrained to [0.05, 1]
+    # phi is constrained to [0, 1]
+    b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
+    b_star_sigma <- b_sigma / (b_init * (1 - b_init)) # Scale adjustment for logistic
+    phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
+    phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
     
     # Initialize storage
-    b_t_out  <- numeric(n_obs)
-    phi_out  <- numeric(n_obs)
-    qd_out   <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
+    b_out <- phi_out <- numeric(n_obs)
+    b_star <- phi_star <- numeric(n_obs)
+    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
     
     # Start values
-    b_t_out[1]   <- b_init
-    phi_out[1]   <- phi_init
-    # If n_obs > 1, we need a second value to proceed with second-order RW
+    b_star[1] <- b_star_init
+    phi_star[1] <- phi_star_init
     
-    b_t_out[2]   <- b_t_out[1]   + rnorm(1, 0, b_sigma)
-    phi_out[2]   <- phi_out[1]   + rnorm(1, 0, phi_sigma)
-    # clamp
-    b_t_out[2]   <- max(min(b_t_out[2], 1), 0.05)
-    phi_out[2]   <- max(min(phi_out[2], 1), 0)
+    # Second value for RW
+    b_star[2] <- b_star[1] + rnorm(1, 0, b_star_sigma)
+    phi_star[2] <- phi_star[1] + rnorm(1, 0, phi_star_sigma)
     
-    
-    # Now fill from i=3..n_obs for second-order RW
+    # Fill remaining values (second-order RW)
     for (i in 3:n_obs) {
-      # second-order update
-      b_prop   <- 2*b_t_out[i-1]   - b_t_out[i-2]   + rnorm(1, 0, b_sigma)
-      phi_prop <- 2*phi_out[i-1]  - phi_out[i-2]   + rnorm(1, 0, phi_sigma)
-      
-      # clamp
-      b_t_out[i]   <- max(min(b_prop, 1), 0.05)
-      phi_out[i]   <- max(min(phi_prop, 1), 0)
+      b_star[i] <- 2 * b_star[i-1] - b_star[i-2] + rnorm(1, 0, b_star_sigma)
+      phi_star[i] <- 2 * phi_star[i-1] - phi_star[i-2] + rnorm(1, 0, phi_star_sigma)
     }
     
-    # Generate qd_out for each time i
+    # Transform back to original scale (automatically constrained)
+    b_out <- logistic_transform(b_star, 0.05, 1)
+    phi_out <- logistic_transform(phi_star, 0, 1)
+    
     for (i in seq_len(n_obs)) {
-      b_i     <- b_t_out[i]
-      phi_i   <- phi_out[i]
-      qd_out[i, ] <- 1 - (1 - phi_i)*exp(-b_i * (0:max_delay))
-    }
-    
-    #----------------------------------------------------------------
-    # 4) ou_b: Ornstein-Uhlenbeck process for both b(t) and phi(t)
-    #----------------------------------------------------------------
-  } else if (method == "ou_b") {
-    # Expecting e.g. method_params$alpha_b, method_params$mu_b,
-    #                method_params$b_init, method_params$b_sigma,
-    #                method_params$alpha_phi, method_params$mu_phi,
-    #                method_params$phi_init, method_params$phi_sigma
-    #
-    if (!all(c("b_alpha","b_mu","b_init","b_sigma",
-               "phi_alpha","phi_mu","phi_init","phi_sigma") %in% names(method_params))) {
-      stop("method=ou_b requires alpha, mu, b_init, b_sigma, phi_init, phi_sigma!")
-    }
-    b_alpha     <- method_params$b_alpha
-    b_mu        <- method_params$b_mu
-    phi_alpha     <- method_params$phi_alpha
-    phi_mu        <- method_params$phi_mu
-    b_init    <- method_params$b_init
-    b_sigma   <- method_params$b_sigma
-    phi_init  <- method_params$phi_init
-    phi_sigma <- method_params$phi_sigma
-    
-    b_t_out  <- numeric(n_obs)
-    phi_out  <- numeric(n_obs)
-    b_t_out[1]  <- b_init
-    phi_out[1]  <- phi_init
-    
-    # OU update for each i=2..n_obs
-    # b[t]   = b[t-1]   + alpha*(mu - b[t-1])   + rnorm(0,b_sigma)
-    # phi[t] = phi[t-1] + alpha*(mu - phi[t-1]) + rnorm(0,phi_sigma)
-    for (i in 2:n_obs) {
-      # b
-      drift_b   <- b_alpha * (b_mu - b_t_out[i-1])
-      b_prop    <- b_t_out[i-1] + drift_b + rnorm(1, 0, b_sigma)
-      # phi
-      drift_phi <- phi_alpha * (phi_mu - phi_out[i-1])
-      phi_prop  <- phi_out[i-1] + drift_phi + rnorm(1, 0, phi_sigma)
-      
-      # clamp
-      b_t_out[i]   <- max(min(b_prop, 1), 0.05)
-      phi_out[i]   <- max(min(phi_prop, 1), 0)
-    }
-    
-    # Generate qd_out
-    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
-    for (i in seq_len(n_obs)) {
-      b_i   <- b_t_out[i]
+      b_i <- b_out[i]
       phi_i <- phi_out[i]
-      qd_out[i, ] <- 1 - (1 - phi_i)*exp(-b_i * (0:max_delay))
+      qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
     }
     
+  } else if (method == "ou_b") {
+    if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma",
+               "alpha_b", "mu_b", "alpha_phi", "mu_phi") %in% names(method_params))) {
+      stop("method=ou_b requires b_init, b_sigma, phi_init, phi_sigma, alpha_b, mu_b, alpha_phi, mu_phi!")
+    }
+    
+    # Extract parameters
+    b_init <- method_params$b_init
+    b_sigma <- method_params$b_sigma
+    phi_init <- method_params$phi_init
+    phi_sigma <- method_params$phi_sigma
+    alpha_b <- method_params$alpha_b
+    mu_b <- method_params$mu_b
+    alpha_phi <- method_params$alpha_phi
+    mu_phi <- method_params$mu_phi
+    
+    # Logistic transform
+    b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
+    b_star_sigma <- b_sigma / (b_init * (1 - b_init))
+    phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
+    phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
+    
+    # Transform OU targets to logistic scale
+    mu_b_star <- inverse_logistic_transform(mu_b, 0.05, 1)
+    mu_phi_star <- inverse_logistic_transform(mu_phi, 0, 1)
+    
+    # Initialize arrays
+    b_star <- phi_star <- numeric(n_obs)
+    b_out <- phi_out <- numeric(n_obs)
+    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
+    
+    # Set initial values
+    b_star[1] <- b_star_init
+    phi_star[1] <- phi_star_init
+    
+    # OU updates in logistic-transformed space
+    for (i in 2:n_obs) {
+      drift_b_star <- alpha_b * (mu_b_star - b_star[i-1])
+      b_star[i] <- b_star[i-1] + drift_b_star + rnorm(1, 0, b_star_sigma)
+      
+      drift_phi_star <- alpha_phi * (mu_phi_star - phi_star[i-1])
+      phi_star[i] <- phi_star[i-1] + drift_phi_star + rnorm(1, 0, phi_star_sigma)
+    }
+    
+    # Transform back to original scale (automatically constrained)
+    b_out <- logistic_transform(b_star, 0.05, 1)
+    phi_out <- logistic_transform(phi_star, 0, 1)
+    
+    for (i in seq_len(n_obs)) {
+      b_i <- b_out[i]
+      phi_i <- phi_out[i]
+      qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
+    }
   } else {
     stop("method must be one of: 'fixed_q', 'fixed_b', 'rw_b', 'ou_b'!")
   }
   
-  return(list(qd = qd_out, b_t = b_t_out, phi = phi_out))
+  return(list(qd = qd_out, b_t = b_out, phi = phi_out))
 }
 
 
@@ -344,6 +345,17 @@ generate_exponential_q <- function(D, lambda = 0.3) {
   q <- q / sum(q)  # Normalize to sum to 1
   q_out <- cumsum(q)
   return(q_out)
+}
+
+# Helper functions for transformations
+logistic_transform <- function(x, lower, upper) {
+  # Transform from real line to (lower, upper) interval
+  lower + (upper - lower) * exp(x) / (1 + exp(x))
+}
+
+inverse_logistic_transform <- function(y, lower, upper) {
+  # Transform from (lower, upper) to real line
+  log((y - lower) / (upper - y))
 }
 
 

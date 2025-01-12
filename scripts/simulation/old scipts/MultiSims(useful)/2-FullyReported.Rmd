@@ -1,0 +1,409 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# source(file.path(path_source, "simulation", "simulations_functions.R"))
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
+```
+
+```{r}
+#models
+fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
+                      "1.stan_model_fixed_q_trunc.stan")
+fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
+                     "2.stan_model_fixed_b_trunc.stan")
+linear_b <- file.path(path_proj, "source", "models", "withIntercept",
+                     "3.stan_model_linear_b_trunc.stan")
+ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
+                      "4.stan_model_ou_b_trunc.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  linear_b = cmdstan_model(linear_b),
+  ou_b = cmdstan_model(ou_b)
+)
+```
+
+
+## simulate data
+
+### settings and data
+```{r}
+###### setting #####
+seed <- 123
+set.seed(seed)
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+beta_lamb = 0.5
+n_obs = 60
+# reprot structure
+D <- 15; 
+# model
+method = "ou_b"; 
+b_alpha=0.4; b_mu=0.5; b_init=0.5; 
+# sd changes for each scenario
+b_sigma_1 = 0.01; b_sigma_2 = 0.1; b_sigma_3 = 0.3
+phi_init = 0.2; phi_sigma=0.05
+
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+```
+
+```{r}
+params_1 <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    n_obs       = n_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = seed
+  ),
+  q_model = list(
+    method        = method,
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
+  )
+)
+
+
+# generate
+FR_1 <- simulateData(params_1)
+
+FR_1$case_true - FR_1$case_reported_cumulated[,16]
+```
+
+
+```{r}
+# input list
+params_2 <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    n_obs       = n_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = seed
+  ),
+  q_model = list(
+    method        = method,
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
+  )
+)
+
+
+# generate
+FR_2 <- simulateData(params_1)
+
+FR_2$case_true - FR_2$case_reported_cumulated[,16]
+```
+
+
+```{r}
+# input list
+params_3 <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    n_obs       = n_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = seed
+  ),
+  q_model = list(
+    method        = method,
+    method_params = list(alpha = b_alpha, mu = b_mu, b_init = b_init, b_sigma = b_sigma_1 , 
+                         phi_init = phi_init, phi_sigma = phi_sigma)
+  )
+)
+
+
+# generate
+FR_3 <- simulateData(params_1)
+
+FR_3$case_true - FR_3$case_reported_cumulated[,16]
+```
+
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(FR_1$case_reported_cumulated)/16)
+exp_plot_1 <- fit_exp_plot(FR_1$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_1)
+
+
+exp_b_data_1<- data.frame( date = as.Date(rownames(FR_1$case_reported_cumulated)),
+                          b = exp_plot_1$coefficients$b)
+exp_b_data_1
+exp_b_plot_1 <- ggplot(exp_b_data_1, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_1)
+```
+
+```{r}
+# exploritary analysis
+exp_plot_2 <- fit_exp_plot(FR_2$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_2)
+
+
+exp_b_data_2<- data.frame( date = as.Date(rownames(FR_2$case_reported_cumulated)),
+                          b = exp_plot_2$coefficients$b)
+exp_b_data_2
+exp_b_plot_2 <- ggplot(exp_b_data_2, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_2)
+```
+
+```{r}
+# exploritary analysis
+exp_plot_3 <- fit_exp_plot(FR_3$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_3)
+
+
+exp_b_data_3<- data.frame( date = as.Date(rownames(FR_3$case_reported_cumulated)),
+                          b = exp_plot_3$coefficients$b)
+exp_b_data_3
+exp_b_plot_3 <- ggplot(exp_b_data_3, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_3)
+```
+
+
+## fit model
+```{r}
+out_1_FR <- nowcasting_moving_window(FR_1$case_reported_cumulated, scoreRange = scoreRange, 
+                                case_true = FR_1$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D, seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
+
+
+#save(out_1_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd001.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b04_sd001.RData"))
+
+results_1_FR <- nowcasts_table(out_1_FR, D = D, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+
+```
+
+```{r}
+out_2_FR <- nowcasting_moving_window(FR_2$case_reported_cumulated, scoreRange = scoreRange, 
+                                case_true = FR_2$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D,  seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
+
+
+#save(out_2_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd01.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b04_sd01.RData"))
+
+results_2_FR <- nowcasts_table(out_2_FR, D = D, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+``` 
+
+
+```{r}
+out_3_FR <- nowcasting_moving_window(FR_3$case_reported_cumulated, scoreRange = scoreRange, 
+                                case_true = FR_3$case_true,
+                                start_date = as.Date("2024-01-01"),
+                                D = D,  seeds = seed,
+                                models_to_run =c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                compiled_models = compiled_models,
+                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path)
+
+
+#save(out_3_FR, file = file.path(path_proj, "data", "fitted_model", "simulation_ou", "FR_b04_sd03.RData"))
+#load(file.path(path_proj,"data", "fitted_model", "simulation", "FR_b04_sd03.RData"))
+
+results_3_FR <- nowcasts_table(out_3_FR, D = D, report_unit = "day", 
+                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+
+results_3_FR_plots <- nowcasts_plot(results_3_FR, D = D, report_unit = "day", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+
+```
+
+
+
+
+
+## check results
+```{r}
+results_1_FR_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(results_1_FR)){
+  print(calculate_metrics(results_1_FR[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(results_1_FR)){
+  print(calculate_metrics(data.table::last(results_1_FR[[i]], D)))
+}
+```
+
+
+# sigma_rw = 0.1
+
+```{r}
+results_2_FR_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(results_2_FR)){
+  print(calculate_metrics(results_2_FR[[i]]))
+}
+
+
+```
+
+```{r}
+# Within D
+for(i in 1:length(results_2_FR)){
+  print(calculate_metrics(data.table::last(results_2_FR[[i]], D)))
+}
+```
+
+
+# sigma_rw = 0.3
+```{r}
+results_3_FR_plots
+```
+
+```{r}
+# all cases
+for(i in 1:length(results_3_FR)){
+  print(calculate_metrics(results_3_FR[[i]]))
+}
+```
+
+```{r}
+# Within D
+for(i in 1:length(results_3_FR)){
+  print(calculate_metrics(data.table::last(results_3_FR[[i]], D)))
+}
+```
+
+
+# output
+```{r}
+results_1_FR_plots <- nowcasts_plot(results_1_FR, D = D, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd001.png"), 
+#        plot = results_1_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
+# table
+fully_tables_1 <- list();count_1 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_1[[count_1]] <- calculate_metrics(results_1_FR[[i]])
+  count_1 = count_1 + 1
+}
+cat(highlight_metrics(fully_tables_1, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+# output
+```{r}
+results_2_FR_plots <- nowcasts_plot(results_2_FR, D = D, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd01.png"), 
+#        plot = results_2_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
+# table
+fully_tables_2 <- list();count_2 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_2[[count_2]] <- calculate_metrics(results_2_FR[[i]])
+  count_2 = count_2 + 1
+}
+cat(highlight_metrics(fully_tables_2, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
+
+```{r}
+results_3_FR_plots <- nowcasts_plot(results_3_FR, D = D, report_unit = "day",
+                                 models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"),
+                                 combine_plots = T, ncol = 2
+                                 )
+
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "FR_b04_sd03.png"), 
+#        plot = results_3_FR_plots, 
+#        width = 10, height = 12, dpi = 300)
+# table
+fully_tables_3 <- list();count_3 = 1
+for (i in 1:length(scoreRange)) {
+  fully_tables_3[[count_3]] <- calculate_metrics(results_3_FR[[i]])
+  count_3 = count_3 + 1
+}
+cat(highlight_metrics(fully_tables_3, method_names =c("Fixed q", "Fixed b", "Polynomial b" , "Random Walk b"),
+                  date_labels = as.character(scoreRange)))
+
+```
