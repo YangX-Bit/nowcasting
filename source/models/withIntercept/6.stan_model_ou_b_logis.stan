@@ -60,7 +60,7 @@ model {
   sigma_b_star ~ normal(0.1, 0.05);
   
   alpha_phi ~ normal(0.5, 0.2);
-  mu_phi ~ uniform(0, 1);
+  mu_phi ~ normal(0.2, 0.05) T[0, 1];
   sigma_phi_star ~ normal(0.1, 0.05);
   
   // Gamma prior for Poisson intensities

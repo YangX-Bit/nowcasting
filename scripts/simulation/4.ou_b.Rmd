@@ -27,8 +27,8 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "4. ou_b")
@@ -39,9 +39,9 @@ data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "4. 
 fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
                       "1.stan_model_fixed_q.stan")
 fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
-                     "2.stan_model_fixed_b.stan")
+                     "1.stan_model_fixed_q.stan")
 rw_b <- file.path(path_proj, "source", "models", "withIntercept",
-                     "5.stan_model_rw_b_logis.stan")
+                     "7.stan_model_ou_b_logis-twoStep.stan")
 ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
                       "6.stan_model_ou_b_logis.stan")
 
@@ -167,20 +167,21 @@ print(exp_b_plot_ou)
 
 ## fit model
 ```{r}
-# out_ou_b_FR <-
-#   nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = scoreRange,
-#                           case_true = ou_b_FR$case_true,
-#                           start_date = as.Date("2024-01-01"),
-#                           D = D, seeds = seed,
-#                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
-#                           compiled_models = compiled_models,
-#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                           num_chains = 3, suppress_output = T,
-#                           posterior_draws_path = posterior_draws_path)
-# 
-# 
-# save(out_ou_b_FR, file = file.path(data_save_path, "FR_ou_b.RData"))
-load(file.path(data_save_path, "FR_ou_b.RData"))
+out_ou_b_FR <-
+  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = as.Date("2024-01-30"),
+                          case_true = ou_b_FR$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          #posterior_draws_path = posterior_draws_path
+                          )
+
+
+#save(out_ou_b_FR, file = file.path(data_save_path, "FR_ou_b.RData"))
+#load(file.path(data_save_path, "FR_ou_b.RData"))
 
 results_ou_b_FR <- nowcasts_table(out_ou_b_FR, D = D, report_unit = "day", 
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
@@ -209,10 +210,11 @@ out_ou_b_NFR <-
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
+                          #posterior_draws_path = posterior_draws_path
+                          )
 
 
-save(out_ou_b_NFR, file = file.path(data_save_path, "NFR_ou_b.RData"))
+#save(out_ou_b_NFR, file = file.path(data_save_path, "NFR_ou_b.RData"))
 # load(file.path(data_save_path, "NFR_ou_b.RData"))
 
 results_ou_b_NFR <- nowcasts_table(out_ou_b_NFR, D = D, report_unit = "day",
