@@ -76,19 +76,26 @@ D <- 15;
 # Time period for checking
 D_check <- 5
 
+#
+num_sims <- 2
+
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
 
 ```{r}
 # ou_FR
-params_ou_b_FR <- list(
+params_ou_b_FR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_ou_b_FR[[i]] <- simulateData(
+        params <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
     n_obs       = n_obs,
     date_start = as.Date("2024-01-01"),
     D = D,
-    seed       = seed
+    seed       = i
   ),
   q_model = list(
     method        = "ou_b",
@@ -96,13 +103,18 @@ params_ou_b_FR <- list(
                          alpha_phi =0.5, mu_phi = 0.2, phi_init = 0.2, phi_sigma = 0.05)
   )
 )
-
-ou_b_FR <- simulateData(params_ou_b_FR)
+  )
+}
 ```
 
 ```{r}
+
+params_ou_b_NFR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_ou_b_NFR[[i]] <- simulateData(
 # ou_NFR
-params_ou_b_NFR <- list(
+    params <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
@@ -117,91 +129,67 @@ params_ou_b_NFR <- list(
                          alpha_phi =0.5, mu_phi = 0.1, phi_init = 0.1, phi_sigma = 0.05)
   )
 )
-
-ou_b_NFR <- simulateData(params_ou_b_NFR)
-ou_b_NFR$case_reported_cumulated[,16] - ou_b_NFR$case_true
+  )
+}
 ```
 
-## expplot
-```{r}
-# exploritary analysis
-page_num <- ceiling(nrow(ou_b_FR$case_reported_cumulated)/16)
-exp_plot_ou <- fit_exp_plot(ou_b_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_ou)
-
-exp_plot_ou$coefficients
-exp_b_data_ou<- data.frame( date = as.Date(rownames(ou_b_FR$case_reported_cumulated)),
-                          b = exp_plot_ou$coefficients$b)
-
-exp_b_plot_ou <- ggplot(exp_b_data_ou, aes(x = date, y = b)) +
-  geom_point(color = "black", size = 1.5) +       
-  geom_smooth(method = "loess", se = TRUE,        
-              color = "blue", fill = "grey", alpha = 0.5) +
-  theme_minimal() +
-  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-
-print(exp_b_plot_ou)
-```
-
-
-```{r}
-# exploritary analysis
-page_num <- ceiling(nrow(ou_b_NFR$case_reported_cumulated)/16)
-exp_plot_ou <- fit_exp_plot(ou_b_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_ou)
-
-exp_plot_ou$coefficients
-exp_b_data_ou<- data.frame( date = as.Date(rownames(ou_b_NFR$case_reported_cumulated)),
-                          b = exp_plot_ou$coefficients$b)
-
-exp_b_plot_ou <- ggplot(exp_b_data_ou, aes(x = date, y = b)) +
-  geom_point(color = "black", size = 1.5) +       
-  geom_smooth(method = "loess", se = TRUE,        
-              color = "blue", fill = "grey", alpha = 0.5) +
-  theme_minimal() +
-  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-
-print(exp_b_plot_ou)
-
-```
 
 ## fit model
 ```{r}
-out_ou_b_FR <-
-  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = as.Date("2024-01-30"),
+
+out_ou_b_FR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_ou_b_FR_list[[i]] <-
+  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = ou_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
+                          num_chains = 3, suppress_output = T
                           #posterior_draws_path = posterior_draws_path
                           )
-
+}
 
 #save(out_ou_b_FR, file = file.path(data_save_path, "FR_ou_b.RData"))
 #load(file.path(data_save_path, "FR_ou_b.RData"))
 
-results_ou_b_FR <- nowcasts_table(out_ou_b_FR, D = D, report_unit = "day", 
+results_ou_b_FR <- compute_all_nowcasts_tables(out_ou_b_FR_list, D, "day", c("fixed_q", "fixed_b", "rw_b", "ou_b"))
+# Average metrics
+metrics_1_ou_b_FR_avg <- average_nowcasts_metrics(
+  results_all   = results_ou_b_FR,
+  methods       =  c("fixed_q", "fixed_b", "rw_b", "ou_b")
+)
+
+metrics_1_ou_b_FR_avg
+
+# Average metrics
+metrics_1_ou_b_FR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_ou_b_FR,
+  methods       = c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+  filter_length = D_check
+)
+metrics_1_ou_b_FR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
+
+results_ou_b_FR <- nowcasts_table(out_ou_b_FR_list[[1]], D = D, report_unit = "day", 
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
 
 plots_ou_b_FR <- nowcasts_plot(results_ou_b_FR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
-
-for (i in 1:length(results_ou_b_FR)) {
-  print(calculate_metrics(results_ou_b_FR[[i]],
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
-}
-
-for (i in 1:length(results_ou_b_FR)) {
-  print(calculate_metrics(data.table::last(results_ou_b_FR[[i]],D_check),
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
-}
-print(plots_ou_b_FR)
+plots_ou_b_FR
 ```   
 
 ```{r}
-out_ou_b_NFR <-
+out_ou_b_NFR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_ou_b_NFR_list[[i]] <-
   nowcasting_moving_window(ou_b_NFR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = ou_b_NFR$case_true,
                           start_date = as.Date("2024-01-01"),
@@ -209,27 +197,39 @@ out_ou_b_NFR <-
                           methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
+                          num_chains = 3, suppress_output = T
                           #posterior_draws_path = posterior_draws_path
                           )
+}
+
+#save(out_ou_b_NFR, file = file.path(data_save_path, "FR_ou_b.RData"))
+#load(file.path(data_save_path, "FR_ou_b.RData"))
+
+results_ou_b_NFR <- compute_all_nowcasts_tables(out_ou_b_NFR_list, D, "day", c("fixed_q", "fixed_b", "rw_b", "ou_b"))
+# Average metrics
+metrics_1_ou_b_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_ou_b_NFR,
+  methods       =  c("fixed_q", "fixed_b", "rw_b", "ou_b")
+)
+
+metrics_1_ou_b_NFR_avg
+
+# Average metrics
+metrics_1_ou_b_NFR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_ou_b_NFR,
+  methods       = c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+  filter_length = D_check
+)
+metrics_1_ou_b_NFR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
 
 
-#save(out_ou_b_NFR, file = file.path(data_save_path, "NFR_ou_b.RData"))
-# load(file.path(data_save_path, "NFR_ou_b.RData"))
-
-results_ou_b_NFR <- nowcasts_table(out_ou_b_NFR, D = D, report_unit = "day",
+results_ou_b_NFR <- nowcasts_table(out_ou_b_NFR_list[[1]], D = D, report_unit = "day", 
                           methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
 
 plots_ou_b_NFR <- nowcasts_plot(results_ou_b_NFR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
-
-for (i in 1:length(results_ou_b_NFR)) {
-  print(calculate_metrics(results_ou_b_NFR[[i]],
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
-}
-
-for (i in 1:length(results_ou_b_NFR)) {
-  print(calculate_metrics(data.table::last(results_ou_b_NFR[[i]],D_check),
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
-}
-print(plots_ou_b_NFR)
+plots_ou_b_NFR
 ```   

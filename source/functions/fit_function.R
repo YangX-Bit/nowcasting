@@ -110,7 +110,7 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
           iter_warmup = iter_warmup,
           chains = num_chains,
           refresh = refresh,
-          thin = thin,
+          thin = thin
           #output_dir = posterior_draws_path
         )
       }
