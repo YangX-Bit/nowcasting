@@ -1,0 +1,311 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+# place for draws
+# mac
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+
+#Windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "multiSims")
+
+#data path
+data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "multiSims","sin_b")
+```
+
+```{r}
+#models
+fixed_q <- file.path(path_proj, "source", "models", 
+                      "1.stan_model_fixed_q.stan")
+fixed_b <- file.path(path_proj, "source", "models", 
+                     "2.stan_model_fixed_b.stan")
+# rw_b <- file.path(path_proj, "source", "models", 
+#                      "5.stan_model_rw_b_logis.stan")
+ou_b <-  file.path(path_proj, "source", "models", 
+                      "6.stan_model_ou_b_logis.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  #rw_b = cmdstan_model(rw_b),
+  ou_b = cmdstan_model(ou_b)
+)
+
+models_to_use <- c("fixed_q", "fixed_b", "ou_b")
+```
+
+
+## simulate data - FR
+
+### setting
+```{r}
+###### setting #####
+seed <- 123
+set.seed(seed)
+
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+beta_lamb = 0.5
+N_obs = 60
+# reprot delay
+D <- 15;
+
+# Time period for checking
+D_check <- 5
+
+#
+num_sims <- 10
+
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+```
+
+```{r}
+# ou_FR
+params_sin_b_FR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_sin_b_FR[[i]] <- simulateData(
+        params <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = i
+  ),
+  q_model = list(
+    method        = "sin_b",
+    method_params = list(
+      b_min         = 0.05,
+      b_max         = 1,
+      phi_min       = 0,
+      phi_max       = 1,
+      
+      b_baseline    = 0.4,
+      phi_baseline  = 0.2,
+      
+      freq          = 0.1,
+      amp_b         = 0.2,
+      amp_phi       = 0.15,
+      
+      sigma_b       = 0.05,
+      sigma_phi     = 0.01
+    )
+  )
+)
+  )
+}
+plot(params_sin_b_FR[[1]]$b, type = "b")
+plot(params_sin_b_FR[[1]]$phi, type = "b")
+```
+
+```{r}
+
+# ou_FR
+params_sin_b_NFR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_sin_b_NFR[[i]] <- simulateData(
+        params <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = i
+  ),
+  q_model = list(
+    method        = "sin_b",
+    method_params = list(
+      b_min         = 0.05,
+      b_max         = 1,
+      phi_min       = 0,
+      phi_max       = 1,
+      
+      b_baseline    = 0.2,
+      phi_baseline  = 0.1,
+      
+      freq          = 0.1,
+      amp_b         = 0.1,
+      amp_phi       = 0.05,
+      
+      sigma_b       = 0.03,
+      sigma_phi     = 0.01
+    )
+  )
+)
+  )
+}
+plot(params_sin_b_NFR[[1]]$b, type = "b")
+plot(params_sin_b_NFR[[1]]$phi, type = "b")
+```
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(params_sin_b_FR[[1]]$case_reported_cumulated)/16)
+exp_plot_sin_b <- fit_exp_plot(params_sin_b_FR[[1]]$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_sin_b)
+
+exp_plot_sin_b$coefficients
+exp_b_data_sin_b<- data.frame( date = as.Date(rownames(params_sin_b_FR[[1]]$case_reported_cumulated)),
+                          b = exp_plot_sin_b$coefficients$b)
+
+exp_b_plot_sin_b <- ggplot(exp_b_data_sin_b, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_sin_b)
+
+```
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(params_sin_b_NFR[[1]]$case_reported_cumulated)/16)
+exp_plot_sin_b <- fit_exp_plot(params_sin_b_NFR[[1]]$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_sin_b)
+
+exp_plot_sin_b$coefficients
+exp_b_data_sin_b<- data.frame( date = as.Date(rownames(params_sin_b_NFR[[1]]$case_reported_cumulated)),
+                          b = exp_plot_sin_b$coefficients$b)
+
+exp_b_plot_sin_b <- ggplot(exp_b_data_sin_b, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_sin_b)
+
+```
+
+## fit model
+```{r}
+out_sin_b_FR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_sin_b_FR_list[[i]] <-
+  nowcasting_moving_window(params_sin_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_sin_b_FR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods = models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "sin_b")
+                          )
+}
+
+save(out_sin_b_FR_list, file = file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
+#load(file.path(data_save_path, "FR_sin_b.RData"))
+
+results_sin_b_FR <- compute_all_nowcasts_tables(out_sin_b_FR_list, D, "day", models_to_use)
+# Average metrics
+metrics_1_sin_b_FR_avg <- average_nowcasts_metrics(
+  results_all   = results_sin_b_FR,
+  methods       =  models_to_use
+)
+
+metrics_1_sin_b_FR_avg
+
+# Average metrics
+metrics_1_sin_b_FR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_sin_b_FR,
+  methods       = models_to_use,
+  filter_length = D_check
+)
+metrics_1_sin_b_FR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
+
+results_sin_b_FR <- nowcasts_table(out_sin_b_FR_list[[1]], D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_sin_b_FR <- nowcasts_plot(results_sin_b_FR, D = D, report_unit = "day", methods = models_to_use)
+plots_sin_b_FR
+```   
+
+```{r}
+out_sin_b_NFR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_sin_b_NFR_list[[i]] <-
+  nowcasting_moving_window(params_sin_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_sin_b_NFR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods = models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "sin_b")
+                          )
+}
+
+save(out_sin_b_NFR_list, file = file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
+#load(file.path(data_save_path, "FR_sin_b.RData"))
+
+results_sin_b_NFR <- compute_all_nowcasts_tables(out_sin_b_NFR_list, D, "day", models_to_use)
+# Average metrics
+metrics_1_sin_b_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_sin_b_NFR,
+  methods       =  models_to_use
+)
+
+metrics_1_sin_b_NFR_avg
+
+# Average metrics
+metrics_1_sin_b_NFR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_sin_b_NFR,
+  methods       = models_to_use,
+  filter_length = D_check
+)
+metrics_1_sin_b_NFR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
+
+results_sin_b_NFR <- nowcasts_table(out_sin_b_NFR_list[[1]], D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_sin_b_NFR <- nowcasts_plot(results_sin_b_NFR, D = D, report_unit = "day", methods = models_to_use)
+plots_sin_b_NFR
+```   

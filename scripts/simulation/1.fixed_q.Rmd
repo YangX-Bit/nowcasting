@@ -27,8 +27,9 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+# windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "1. fixed_q")
@@ -36,13 +37,13 @@ data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "1. 
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
+fixed_q <- file.path(path_proj, "source", "models", 
                       "1.stan_model_fixed_q.stan")
-fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
+fixed_b <- file.path(path_proj, "source", "models", 
                      "2.stan_model_fixed_b.stan")
-rw_b <- file.path(path_proj, "source", "models", "withIntercept",
+rw_b <- file.path(path_proj, "source", "models", 
                      "5.stan_model_rw_b_logis.stan")
-ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
+ou_b <-  file.path(path_proj, "source", "models", 
                       "6.stan_model_ou_b_logis.stan")
 
 compiled_models <- list(
@@ -52,7 +53,7 @@ compiled_models <- list(
   ou_b = cmdstan_model(ou_b)
 )
 
-models_to_use <- models_to_use
+models_to_use <- c("fixed_q", "fixed_b", "rw_b", "ou_b")
 ```
 
 
@@ -120,7 +121,7 @@ params_fixed_q_NFR <- list(
 )
 
 fixed_q_NFR <- simulateData(params_fixed_q_NFR)
-fixed_q_NFR$case_reported_cumulated[,16] - fixed_q_NFR$case_true
+
 ```
 
 ## expplot
@@ -169,15 +170,15 @@ print(exp_b_plot_fixed_q)
 
 ## fit model
 ```{r}
-out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported_cumulated, scoreRange =  as.Date("2024-02-12"),
+out_fixed_q_FR <- nowcasting_moving_window(fixed_q_FR$case_reported_cumulated, scoreRange =  scoreRange,
                           case_true = fixed_q_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
                           methods =models_to_use,
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T
-                          posterior_draws_path = posterior_draws_path
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_q")
                           )
 
 
@@ -206,7 +207,7 @@ plots_fixed_q_FR
 ```   
 
 ```{r}
-out_fixed_q_NFR <- nowcasting_moving_window(fixed_q_NFR$case_reported_cumulated, scoreRange = as.Date("2024-02-12"),
+out_fixed_q_NFR <- nowcasting_moving_window(fixed_q_NFR$case_reported_cumulated, scoreRange = scoreRange,
                           case_true = fixed_q_NFR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -214,7 +215,7 @@ out_fixed_q_NFR <- nowcasting_moving_window(fixed_q_NFR$case_reported_cumulated,
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_q")
                           )
 
 

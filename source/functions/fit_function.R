@@ -32,27 +32,14 @@ slice_data <- function(data, scoreRange,
   return(result)
 }
 
-data <- fixed_q_NFR$case_reported_cumulated
-scoreRange = as.Date("2024-02-12")
-case_true = fixed_q_NFR$case_true
-start_date = as.Date("2024-01-01")
-D = D
-seeds = seed
-methods =c("fixed_q", "fixed_b", "rw_b", "ou_b")
-compiled_models = compiled_models
-iter_sampling = 2000
-iter_warmup = 1000
-refresh = 0
-num_chains = 3
-suppress_output = T
-i = 1
+
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, seeds = 123,
                                      methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
-                                     num_chains = 3, thin = 2,suppress_output = TRUE
+                                     num_chains = 3, thin = 2,suppress_output = TRUE,
                                     posterior_draws_path = file.path(path_proj, "source", "models",
                                                                      "posterior_draws")
                                      ){
@@ -123,8 +110,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
           iter_warmup = iter_warmup,
           chains = num_chains,
           refresh = refresh,
-          thin = thin
-          #output_dir = posterior_draws_path
+          thin = thin,
+          output_dir = posterior_draws_path
         )
       }
       

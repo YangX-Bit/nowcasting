@@ -331,6 +331,79 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
       phi_i <- phi_out[i]
       qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
     }
+  } else if (method == "sin_b") {
+    #-------------------------------------------------------------
+    # sin_b: Sine + noise model (final-scale baseline) for b(t) and phi(t)
+    #
+    # Required parameters in 'method_params':
+    #   1) b_min, b_max        : Lower and upper bounds for b(t)
+    #   2) phi_min, phi_max    : Lower and upper bounds for phi(t)
+    #
+    #   3) b_baseline, phi_baseline : Baseline (offset) in the final scale
+    #
+    #   4) freq                : Sine wave frequency (shared by both b and phi)
+    #   5) amp_b, amp_phi      : Amplitudes for b(t) and phi(t) in final scale
+    #   6) sigma_b, sigma_phi  : Std dev of Gaussian noise for b(t) and phi(t)
+    #
+    # The final b(t) and phi(t) are clamped to [b_min,b_max], [phi_min,phi_max].
+    # This approach avoids the [-1,1] -> [x_min,x_max] mapping,
+    # so your baseline is directly in the final scale.
+    #-------------------------------------------------------------
+    
+    required_params <- c(
+      "b_min", "b_max",
+      "phi_min", "phi_max",
+      "b_baseline", "phi_baseline",
+      "freq",
+      "amp_b", "amp_phi",
+      "sigma_b", "sigma_phi"
+    )
+    
+    if (!all(required_params %in% names(method_params))) {
+      stop(
+        "method=sin_b requires the following parameters in method_params:\n",
+        paste(required_params, collapse = ", ")
+      )
+    }
+    
+    # Extract parameters
+    b_min       <- method_params$b_min
+    b_max       <- method_params$b_max
+    phi_min     <- method_params$phi_min
+    phi_max     <- method_params$phi_max
+    
+    b_baseline  <- method_params$b_baseline
+    phi_baseline<- method_params$phi_baseline
+    
+    freq        <- method_params$freq
+    amp_b       <- method_params$amp_b
+    amp_phi     <- method_params$amp_phi
+    
+    sigma_b     <- method_params$sigma_b
+    sigma_phi   <- method_params$sigma_phi
+    
+    # Initialize output containers
+    b_out   <- numeric(N_obs)
+    phi_out <- numeric(N_obs)
+    qd_out  <- matrix(NA_real_, nrow = N_obs, ncol = max_delay + 1)
+    
+    # Loop over time
+    for (t in seq_len(N_obs)) {
+      # 1) Compute the raw b(t) and phi(t) in final scale
+      #    baseline + sine + noise
+      b_raw   <- b_baseline   + amp_b   * sin(2 * pi * freq * t) +
+        rnorm(1, mean = 0, sd = sigma_b)
+      phi_raw <- phi_baseline + amp_phi * sin(2 * pi * freq * t) +
+        rnorm(1, mean = 0, sd = sigma_phi)
+      
+      # 2) Clamp to [b_min, b_max], [phi_min, phi_max] to avoid out-of-bound values
+      b_out[t]   <- max(b_min, min(b_max, b_raw))
+      phi_out[t] <- max(phi_min, min(phi_max, phi_raw))
+      
+      # 3) Build q(d): q[d] = 1 - (1 - phi(t)) * exp(-b(t)*d)
+      qd_out[t, ] <- 1 - (1 - phi_out[t]) * exp(-b_out[t] * (0:max_delay))
+    }
+    
   } else {
     stop("method must be one of: 'fixed_q', 'fixed_b', 'rw_b', 'ou_b'!")
   }

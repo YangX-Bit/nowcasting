@@ -12,11 +12,16 @@ parameters {
   vector<lower=0>[N_obs] lambda_t;       // Poisson intensities (λ[t]) for each time point
 
   // Ornstein-Uhlenbeck process parameters
-  real<lower=0> alpha;                    // Mean-reversion rate
-  real mu;                                 // Long-term mean
-  real<lower=0> sigma_ou;                 // Diffusion coefficient
+  real<lower=0> alpha_b;                    // Mean-reversion rate
+  real<lower=0> mu_b;                                 // Long-term mean
+  real<lower=0> sigma_b;                 // Diffusion coefficient
+  
+  real<lower=0> alpha_phi;                    // Mean-reversion rate
+  real<lower=0> mu_phi;                                 // Long-term mean
+  real<lower=0> sigma_phi;                 // Diffusion coefficient
 
   vector<lower=0.05, upper=1>[N_obs] b_t;                  // Logarithm of b_t parameter for stability
+  vector<lower=0, upper=1>[N_obs] phi; 
 }
 
 transformed parameters {
@@ -31,7 +36,7 @@ transformed parameters {
   // Precompute all q_d values
   for (n in 1:N_obs){
     for (d in 1:D){
-      q_d_matrix[n, d] = 1 - exp(- b_t[n] * d);
+      q_d_matrix[n, d] = 1 - (1 - phi[n]) * exp(- b_t[n] * d);
     }
   }
 }
@@ -41,24 +46,32 @@ model {
   alpha_lambda ~ uniform(0, 10);
   beta_lambda  ~ uniform(0, 10);
 
-  alpha ~ normal(0.5, 0.2);       // Prior for alpha
-  mu    ~ normal(0.5, 0.2);       // Prior for mu
-  sigma_ou ~ normal(0.1, 0.05);   // Prior for sigma_ou
+  alpha_b ~ normal(0.5, 0.2);       // Prior for alpha
+  mu_b    ~ normal(0.5, 0.2);       // Prior for mu
+  sigma_b ~ normal(0.1, 0.05);   // Prior for sigma_b
+  
+  alpha_phi ~ normal(0.5, 0.2);       // Prior for alpha
+  mu_phi    ~ uniform(0,1);       // Prior for mu
+  sigma_phi ~ normal(0.1, 0.05);   // Prior for sigma_b
 
   // Gamma prior for Poisson intensities (lambda_t)
   lambda_t ~ gamma(alpha_lambda, beta_lambda);
-
+  
   // Ornstein-Uhlenbeck process for b_t
-  b_t[1] ~ normal(mu, sigma_ou);
+  b_t[1] ~ normal(mu_b, sigma_b);
+  phi[1] ~ normal(mu_phi, sigma_phi);
   for (t in 2:N_obs){
-    b_t[t] ~ normal(b_t[t-1] + alpha * (mu - b_t[t-1]), sigma_ou);
+    b_t[t] ~ normal(b_t[t-1] + alpha_b * (mu_b - b_t[t-1]), sigma_b);
+    phi[t] ~ normal(phi[t-1] + alpha_phi * (mu_phi - phi[t-1]), sigma_phi);
   }
+  
+  //phi ~ uniform(0,1);
 
   // Likelihood: Vectorized
   for (k in 1:K){
     int t = obs_index[k,1];
     int d = obs_index[k,2];
-    Y[t,d] ~ poisson(lambda_t[t] * q_d_matrix[t, d]);
+    Y[t,(d+1)] ~ poisson(lambda_t[t] * q_d_matrix[t, (d+1)]);
   }
 }
 

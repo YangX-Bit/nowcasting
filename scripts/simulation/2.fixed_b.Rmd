@@ -27,8 +27,9 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEachMethods")
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "temp")
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+# windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "2. fixed_b")
@@ -36,21 +37,24 @@ data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "2. 
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
+fixed_q <- file.path(path_proj, "source", "models", 
                       "1.stan_model_fixed_q.stan")
-fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
+fixed_b <- file.path(path_proj, "source", "models", 
                      "2.stan_model_fixed_b.stan")
-rw_b <- file.path(path_proj, "source", "models", "withIntercept",
+rw_b <- file.path(path_proj, "source", "models", 
                      "5.stan_model_rw_b_logis.stan")
-ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
+ou_b <-  file.path(path_proj, "source", "models", 
                       "6.stan_model_ou_b_logis.stan")
 
 compiled_models <- list(
   fixed_q = cmdstan_model(fixed_q),
   fixed_b = cmdstan_model(fixed_b),
-  rw_b = cmdstan_model(rw_b),
+  #rw_b = cmdstan_model(rw_b),
   ou_b = cmdstan_model(ou_b)
 )
+
+# models_to_use <- c("fixed_b", "fixed_b", "rw_b", "ou_b")
+models_to_use <- c("fixed_q", "fixed_b",  "ou_b")
 ```
 
 
@@ -69,7 +73,7 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
                  alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
                  rep(10,5))
 beta_lamb = 0.5
-n_obs = 60
+N_obs = 60
 # reprot delay
 D <- 15;
 
@@ -81,11 +85,11 @@ scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26
 
 ```{r}
 # fixed_b_FR
-params_fixed_b_FR <-  list(
+params_fixed_b_FR <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
+    N_obs       = N_obs,
     date_start = as.Date("2024-01-01"),
     D = D,
     seed       = seed
@@ -97,15 +101,16 @@ params_fixed_b_FR <-  list(
 )
 
 fixed_b_FR <- simulateData(params_fixed_b_FR)
+
 ```
 
 ```{r}
 # fixed_b_NFR
-params_fixed_b_NFR <-  list(
+params_fixed_b_NFR <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
+    N_obs       = N_obs,
     date_start = as.Date("2024-01-01"),
     D = D,
     seed       = seed
@@ -117,7 +122,7 @@ params_fixed_b_NFR <-  list(
 )
 
 fixed_b_NFR <- simulateData(params_fixed_b_NFR)
-fixed_b_NFR$case_reported_cumulated[,16] - fixed_b_NFR$case_true
+
 ```
 
 ## expplot
@@ -140,7 +145,6 @@ exp_b_plot_fixed_b <- ggplot(exp_b_data_fixed_b, aes(x = date, y = b)) +
 
 print(exp_b_plot_fixed_b)
 
-
 ```
 
 
@@ -162,38 +166,45 @@ exp_b_plot_fixed_b <- ggplot(exp_b_data_fixed_b, aes(x = date, y = b)) +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
 
 print(exp_b_plot_fixed_b)
+
 ```
 
 ## fit model
 ```{r}
-out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported_cumulated, scoreRange = scoreRange,
+out_fixed_b_FR <- nowcasting_moving_window(fixed_b_FR$case_reported_cumulated, scoreRange =  scoreRange,
                           case_true = fixed_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+                          methods =models_to_use,
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+                          )
+
 
 save(out_fixed_b_FR, file = file.path(data_save_path, "FR_fixed_b.RData"))
-# load( file.path(data_save_path, "FR_fixed_b.RData"))
+#load( file.path(data_save_path, "FR_fixed_b.RData"))
+# 
+results_fixed_b_FR <- nowcasts_table(out_fixed_b_FR, D = D, report_unit = "day",
+                          methods = models_to_use
+                          )
 
-results_fixed_b_FR <- nowcasts_table(out_fixed_b_FR, D = D, report_unit = "day", 
-                          methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
-
-plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
+plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day",
+                                  methods = models_to_use
+                                  )
 
 for (i in 1:length(results_fixed_b_FR)) {
   print(calculate_metrics(results_fixed_b_FR[[i]],
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
+                          methods = models_to_use))
 }
 
 for (i in 1:length(results_fixed_b_FR)) {
-  print(calculate_metrics(data.table::last(results_fixed_b_FR[[i]],D_check),
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
+  print(calculate_metrics(data.table::last(results_fixed_b_FR[[i]], D_check),
+                          methods = models_to_use))
 }
-print(plots_fixed_b_FR)
+
+plots_fixed_b_FR
 ```   
 
 ```{r}
@@ -201,28 +212,34 @@ out_fixed_b_NFR <- nowcasting_moving_window(fixed_b_NFR$case_reported_cumulated,
                           case_true = fixed_b_NFR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
-                          methods =c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+                          methods =models_to_use,
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = posterior_draws_path)
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+                          )
+
 
 save(out_fixed_b_NFR, file = file.path(data_save_path, "NFR_fixed_b.RData"))
 #load( file.path(data_save_path, "NFR_fixed_b.RData"))
 
-results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR, D = D, report_unit = "day",
-                          methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"))
+results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR, D = D, report_unit = "day", 
+                          methods = models_to_use
+                          )
 
-plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b"))
+plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", 
+                                  methods = models_to_use
+                                  )
 
 for (i in 1:length(results_fixed_b_NFR)) {
   print(calculate_metrics(results_fixed_b_NFR[[i]],
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
+                          methods = models_to_use))
 }
 
 for (i in 1:length(results_fixed_b_NFR)) {
   print(calculate_metrics(data.table::last(results_fixed_b_NFR[[i]],D_check),
-                          methods = c("fixed_q", "fixed_b", "rw_b" , "ou_b")))
+                          methods = models_to_use))
 }
-print(plots_fixed_b_NFR)
+
+plots_fixed_b_NFR
 ```   

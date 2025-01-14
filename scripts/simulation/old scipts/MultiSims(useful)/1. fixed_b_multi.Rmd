@@ -1,0 +1,236 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+# place for draws
+# mac
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+
+#Windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "multiSims")
+
+#data path
+data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "multiSims","fixed_b")
+```
+
+```{r}
+#models
+fixed_q <- file.path(path_proj, "source", "models", 
+                      "1.stan_model_fixed_q.stan")
+fixed_b <- file.path(path_proj, "source", "models", 
+                     "2.stan_model_fixed_b.stan")
+# rw_b <- file.path(path_proj, "source", "models", 
+#                      "5.stan_model_rw_b_logis.stan")
+ou_b <-  file.path(path_proj, "source", "models", 
+                      "6.stan_model_ou_b_logis.stan")
+
+compiled_models <- list(
+  fixed_q = cmdstan_model(fixed_q),
+  fixed_b = cmdstan_model(fixed_b),
+  #rw_b = cmdstan_model(rw_b),
+  ou_b = cmdstan_model(ou_b)
+)
+
+models_to_use <- c("fixed_q", "fixed_b", "ou_b")
+```
+
+
+## simulate data - FR
+
+### setting
+```{r}
+###### setting #####
+seed <- 123
+set.seed(seed)
+
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+beta_lamb = 0.5
+N_obs = 60
+# reprot delay
+D <- 15;
+
+# Time period for checking
+D_check <- 5
+
+#
+num_sims <- 1
+
+scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
+```
+
+```{r}
+# ou_FR
+params_fixed_b_FR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_fixed_b_FR[[i]] <- simulateData(
+        params <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = i
+  ),
+  q_model = list(
+    method        = "fixed_b",
+    method_params = list(b = 0.4, phi =0.2)
+  )
+)
+  )
+}
+```
+
+```{r}
+
+params_fixed_b_NFR <- list()
+# generate
+for (i in 1:num_sims) {
+  params_fixed_b_NFR[[i]] <- simulateData(
+# ou_NFR
+    params <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = seed
+  ),
+  q_model = list(
+    method        = "fixed_b",
+    method_params = list(b = 0.1, phi =0.1)
+  )
+)
+  )
+}
+```
+
+
+## fit model
+```{r}
+out_fixed_b_FR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_fixed_b_FR_list[[i]] <-
+  nowcasting_moving_window(params_fixed_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_fixed_b_FR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods = models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+                          )
+}
+
+# save(out_fixed_b_FR_list, file = file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
+#load(file.path(data_save_path, "FR_fixed_b.RData"))
+
+results_fixed_b_FR <- compute_all_nowcasts_tables(out_fixed_b_FR_list, D, "day", models_to_use)
+# Average metrics
+metrics_1_fixed_b_FR_avg <- average_nowcasts_metrics(
+  results_all   = results_fixed_b_FR,
+  methods       =  models_to_use
+)
+
+metrics_1_fixed_b_FR_avg
+
+# Average metrics
+metrics_1_fixed_b_FR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_fixed_b_FR,
+  methods       = models_to_use,
+  filter_length = D_check
+)
+metrics_1_fixed_b_FR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
+
+results_fixed_b_FR <- nowcasts_table(out_fixed_b_FR_list[[1]], D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = models_to_use)
+plots_fixed_b_FR
+```   
+
+```{r}
+out_fixed_b_NFR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_fixed_b_NFR_list[[i]] <-
+  nowcasting_moving_window(params_fixed_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_fixed_b_NFR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods = models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+                          )
+}
+
+save(out_fixed_b_NFR_list, file = file.path(data_save_path, paste0("NFR_fixed_b_",num_sims, "Sims.RData")))
+#load(file.path(data_save_path, "FR_fixed_b.RData"))
+
+results_fixed_b_NFR <- compute_all_nowcasts_tables(out_fixed_b_NFR_list, D, "day", models_to_use)
+# Average metrics
+metrics_1_fixed_b_NFR_avg <- average_nowcasts_metrics(
+  results_all   = results_fixed_b_NFR,
+  methods       =  models_to_use
+)
+
+metrics_1_fixed_b_NFR_avg
+
+# Average metrics
+metrics_1_fixed_b_NFR_avg_incomp <- average_nowcasts_metrics(
+  results_all   = results_fixed_b_NFR,
+  methods       = models_to_use,
+  filter_length = D_check
+)
+metrics_1_fixed_b_NFR_avg_incomp
+# highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (All Time Window)")
+# highlight_metrics(metrics_1_FR_avg_incomplete, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+#                   table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+
+
+results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR_list[[1]], D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = models_to_use)
+plots_fixed_b_NFR
+```   
