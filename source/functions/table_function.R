@@ -142,7 +142,7 @@ compute_all_nowcasts_tables <- function(
     out_list,
     D,
     report_unit = "day",
-    methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+    methods = c("fixed_q", "fixed_b", "rw_b", "ou_b"),
     replicate_ids = 1:length(out_list)
 ){
   num_sims <- length(out_list)
