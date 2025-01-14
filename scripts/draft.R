@@ -171,3 +171,77 @@ plot_multiple_curves(
   ou_b_FR = ou_b_FR                     # 包含 b_t 和 phi 数据的对象
 )
 
+
+
+
+
+#fix p FR
+model_test_1 <- out_fixed_q_FR$fixed_q[[1]]
+model_test_2 <- out_fixed_q_FR$fixed_b[[1]]
+model_test_3 <- out_fixed_q_FR$ou_b[[1]]
+raw_data = fixed_q_FR
+
+
+#fix p NFR
+model_test_1 <- out_fixed_q_NFR$fixed_q[[1]]
+model_test_2 <- out_fixed_q_NFR$fixed_b[[1]]
+model_test_3 <- out_fixed_q_NFR$ou_b[[1]]
+raw_data = fixed_q_NFR
+
+#ou b FR
+model_test_1 <- out_ou_b_FR$fixed_q[[1]]
+model_test_2 <- out_ou_b_FR$fixed_b[[1]]
+model_test_3 <- out_ou_b_FR$ou_b[[1]]
+raw_data = ou_b_FR
+
+plot_fitted_qd(
+  model = model_test_1,
+  D = D,
+  num_rows = 6, 
+  num_cols = 7, 
+  N_obs = 40,
+  raw_data = raw_data,
+  model_type = "fixed_q"
+)
+
+plot_fitted_qd(
+  model = model_test_2,
+  D = D,
+  num_rows = 6, 
+  num_cols = 7, 
+  N_obs = 40,
+  raw_data = raw_data,
+  model_type = "fixed_b"
+)
+
+plot_fitted_qd(
+  model = model_test_3,
+  D = D,
+  num_rows = 6, 
+  num_cols = 7, 
+  N_obs = 40,
+  raw_data = raw_data,
+  model_type = "ou_b"
+)
+
+
+#####
+model_test_2$draws(variables = "b", format = "draw_df")
+
+lambda_t_fixed_q <- as.numeric(apply(model_test_1$draws(variables = "lambda_t", format = "draws_df")[c(1:43)], 2, mean))
+lambda_t_ou_b <- as.numeric(apply(model_test_3$draws(variables = "lambda_t", format = "draws_df")[c(1:43)], 2, mean))
+lambda_t_fixed_b <- as.numeric(apply(model_test_2$draws(variables = "lambda_t", format = "draws_df")[c(1:43)], 2, mean))
+
+lambda_t_ou_b
+lambda_t_fixed_b
+lambda_t_fixed_q
+
+lambda_t_ou_b-lambda_t_fixed_b
+lambda_t_fixed_q - lambda_t_fixed_b
+
+
+
+model_test_2$draws(variables = "b", format = "draws_df")
+hist(model_test_2$draws(variables = "b", format = "draws_df")$b)
+hist(model_test_2$draws(variables = "phi", format = "draws_df")$phi)
+

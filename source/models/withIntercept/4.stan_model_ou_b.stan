@@ -71,7 +71,7 @@ model {
   for (k in 1:K){
     int t = obs_index[k,1];
     int d = obs_index[k,2];
-    Y[t,d] ~ poisson(lambda_t[t] * q_d_matrix[t, d]);
+    Y[t,(d+1)] ~ poisson(lambda_t[t] * q_d_matrix[t, (d+1)]);
   }
 }
 

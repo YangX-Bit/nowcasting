@@ -387,3 +387,244 @@ nowcasts_plot <- function(nowcasts_list,
 }
 
 
+
+
+#' Plot multiple curves with different model types
+#'
+#' @param model A CmdStanModel fit result, used to extract draws (samples).
+#' @param x_range A numeric vector for the x values you want to plot over (e.g., 1:N).
+#' @param num_rows Number of rows in facet plot.
+#' @param num_cols Number of columns in facet plot.
+#' @param exp_grow_func A function that generates the curve (e.g., exponential growth) 
+#'        given x and parameters. You can define your own logic.
+#' @param raw_data A data frame or list containing “black line” parameters 
+#'        (if you have them). This could store b_t, phi_t, p, or other variables 
+#'        you want to show in black lines for comparison.
+#' @param model_type Character string indicating which type of model we are dealing with:
+#'        "fixed_q", "fixed_b", "rw_b", or "ou_b".
+#' @param D (Optional) The dimension/length of p if model_type = "fixed_q" (e.g., D+1).
+#' @param N_obs (Optional) The length of b_t and phi_t if model_type = "rw_b"/"ou_b".
+#'
+#' This function extracts parameters based on the model type, then plots both black lines 
+#' (from some external source, e.g. raw_data) and red lines (from model draws) with 
+#' uncertainty intervals (95% CI).
+#'
+
+plot_fitted_qd <- function(model, 
+                           D = 15,
+                           N_obs = 60,
+                           x_range = c(0:D), 
+                           num_rows = 5, 
+                           num_cols = 5, 
+                           raw_data = NULL, 
+                           model_type = c("fixed_q", "fixed_b", "rw_b", "ou_b"),
+                           alpha = 0.05
+) {
+  library(cmdstanr)
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  
+  model_type <- match.arg(model_type)
+  
+  exp_grow_func <- function(d, b, phi){
+    1 - (1 - phi)*exp(-b * d)
+  }
+  
+  upr <- 1 - alpha/2; lwr <- alpha/2
+  #------------------------------------------------------------------
+  # 1) Extract parameters from CmdStan model draws
+  #    The extraction strategy depends on the model type
+  #------------------------------------------------------------------
+  
+  if (model_type == "fixed_q") {
+    # In a "fixed_q" model, we extract 'p' which is of length D+1
+    # Here we assume the parameter name in the Stan model is "p".
+    # You can adjust the code if your parameter is named differently.
+    
+    p_draws <- model$draws(variables = c("p"), format = "draws_df")
+    # Suppose we only want the first 30 draws to show in plots (just as an example):
+    p_samples <- p_draws[, 1:(D+1)]
+    
+    # Compute mean and 95% CI across the draws
+    mean_values_p <- apply(p_samples, 2, mean)
+    ci_lower_p <- apply(p_samples, 2, function(x) quantile(x, lwr))
+    ci_upper_p <- apply(p_samples, 2, function(x) quantile(x, upr))
+    
+    # You can then use p to generate some curve if needed.
+    # For demonstration, I'll define: y_red = exp_grow_func(x_range, p).
+    # But you might have your own logic to handle p.
+    # For example, if p is a vector controlling daily shape, you might have 
+    # a function like daily_func(x, p_vector). 
+    # Modify as needed:
+    
+    # Example placeholder
+    # We'll treat mean_values_p[i] as a single parameter that goes into exp_grow_func,
+    # but in your real code, you'd likely define a custom function that uses p as a vector.
+    
+  } else if (model_type == "fixed_b") {
+    # In a "fixed_b" model, we extract fixed b and phi (both scalars, presumably)
+    b_draws   <- model$draws(variables = "b",   format = "draws_df")
+    phi_draws <- model$draws(variables = "phi", format = "draws_df")
+    
+    b_samples   <- b_draws$b
+    phi_samples <- phi_draws$phi
+    
+    mean_values_b   <- mean(b_samples)
+    ci_lower_b      <- quantile(b_samples, lwr)  
+    ci_upper_b      <- quantile(b_samples, upr)  
+    
+    mean_values_phi   <- mean(phi_samples)
+    ci_lower_phi      <- quantile(phi_samples, lwr)  
+    ci_upper_phi      <- quantile(phi_samples, upr)  
+    
+  } else if (model_type %in% c("rw_b", "ou_b")) {
+    # In a "rw_b" (random walk) model, we assume b_t and phi_t are length = N_obs
+    b_t_draws   <- model$draws(variables = "b_t",   format = "draws_df")
+    phi_t_draws <- model$draws(variables = "phi_t", format = "draws_df")
+    
+    # Suppose each column in b_t_draws or phi_t_draws is a sample dimension 
+    # (b_t[1], b_t[2], ..., b_t[N_obs]) repeated across MCMC draws.
+    b_t_samples   <- b_t_draws[, 1:N_obs]
+    phi_t_samples <- phi_t_draws[, 1:N_obs]
+    
+    mean_values_b_t   <- apply(b_t_samples, 2, mean)
+    ci_lower_b_t      <- apply(b_t_samples, 2, function(x) quantile(x, lwr))
+    ci_upper_b_t      <- apply(b_t_samples, 2, function(x) quantile(x, upr))
+    
+    mean_values_phi_t <- apply(phi_t_samples, 2, mean)
+    ci_lower_phi_t    <- apply(phi_t_samples, 2, function(x) quantile(x, lwr))
+    ci_upper_phi_t    <- apply(phi_t_samples, 2, function(x) quantile(x, upr))
+    
+  }
+  #------------------------------------------------------------------
+  # 2) Construct data for plotting
+  #    We will demonstrate a generic approach:
+  #    - "Black line" data might come from raw_data (your external data).
+  #    - "Red line" data and ribbons (95% CI) come from the means/CI of the model draws.
+  #------------------------------------------------------------------
+  
+  # Let's assume raw_data has the same structure as in your original code example: 
+  # b_t[c(1:30)], phi[c(1:30)], etc.
+  # In practice, you might store it differently depending on the model_type.
+  #
+  # We'll create a list of data frames, one per facet (num_rows * num_cols).
+  # Each data frame has x, y, group, lower, upper, plot_id. Then we'll bind_rows them.
+  
+  # Here is a generic placeholder approach that tries to mimic your original code 
+  # with black lines from 'raw_data' and red lines from the mean/CI. 
+  # You will likely adjust to your actual needs (particularly for "fixed_q").
+  
+  # Number of subplots we want to create:
+  n_plots <- num_rows * num_cols
+  
+  plot_data_list <- lapply(seq_len(n_plots), function(i) {
+    #---------------------------------------
+    # BLACK CURVE:
+    #---------------------------------------
+    # For demonstration, let's pretend that raw_data$b_t and raw_data$phi 
+    # each store at least 30 values that we can index with [i].
+    # (In real usage, you might do something else or might not have black lines for all models.)
+    
+    if (model_type != "fixed_q") {
+      # Example:
+      b_for_black   <- raw_data$b[i]
+      phi_for_black <- raw_data$phi[i]
+      
+      # Evaluate black curve
+      y_black <- exp_grow_func(x_range, b_for_black, phi_for_black)
+    } else {
+      y_black <- raw_data$qd
+    }
+    
+    #---------------------------------------
+    # RED CURVE & UNCERTAINTY:
+    #---------------------------------------
+    # Here we do a simple demonstration for "fixed_b", "rw_b", or "ou_b" 
+    # using b/phi or b_t[i], phi_t[i] to produce a red curve. 
+    # For "fixed_q", you'd define your own logic to incorporate p.
+    #---------------------------------------
+    
+    if (model_type == "fixed_q") {
+      # If p is length D+1, you'd likely have a function that uses all of those p 
+      # values at once. Below is a simple placeholder:
+      # mean_values_p[i] is a single number, but p is actually a vector of length D+1.
+      # So you'd use the entire vector for your real function. Here, we just demo:
+      p_mean  <- mean_values_p
+      p_lower <- ci_lower_p
+      p_upper <- ci_upper_p
+      
+      y_red        <- cumsum(p_mean)  # placeholder usage
+      y_red_lower  <- cumsum(p_lower) # placeholder usage
+      y_red_upper  <- pmin(cumsum(p_upper), 1)# placeholder usage
+      
+    } else if (model_type == "fixed_b") {
+      
+      y_red       <- exp_grow_func(x_range, mean_values_b,   mean_values_phi)
+      y_red_lower <- exp_grow_func(x_range, ci_lower_b,  ci_lower_phi)
+      y_red_upper <- pmin(exp_grow_func(x_range, ci_upper_b,  ci_upper_phi), 1)
+      
+    } else if (model_type %in% c("rw_b", "ou_b")) {
+      # b_t and phi_t are length N_obs each. We are just indexing i for demonstration.
+      # In practice, you might want to visualize all b_t or phi_t across time, 
+      # or multiple subplots, etc.
+      if (i <= length(mean_values_b_t)) {
+        b_mean_t   <- mean_values_b_t[i]
+        b_lower_t  <- ci_lower_b_t[i]
+        b_upper_t  <- ci_upper_b_t[i]
+        
+        phi_mean_t <- mean_values_phi_t[i]
+        phi_lower_t<- ci_lower_phi_t[i]
+        phi_upper_t<- ci_upper_phi_t[i]
+        
+        y_red       <- exp_grow_func(x_range, b_mean_t,   phi_mean_t)
+        y_red_lower <- exp_grow_func(x_range, b_lower_t,  phi_lower_t)
+        y_red_upper <- exp_grow_func(x_range, b_upper_t,  phi_upper_t)
+      } else {
+        y_red       <- rep(NA, length(x_range))
+        y_red_lower <- rep(NA, length(x_range))
+        y_red_upper <- rep(NA, length(x_range))
+      }
+      
+    } else {
+      # Fallback
+      y_red       <- rep(NA, length(x_range))
+      y_red_lower <- rep(NA, length(x_range))
+      y_red_upper <- rep(NA, length(x_range))
+    }
+    
+    #---------------------------------------
+    # Assemble data frame for subplot i
+    #---------------------------------------
+    data.frame(
+      x = rep(x_range, 2),  # repeat x for black + red
+      y = c(y_black, y_red),
+      group = c(rep("Black", length(x_range)), rep("Red", length(x_range))),
+      lower = c(rep(NA, length(x_range)), y_red_lower),  # only valid for red
+      upper = c(rep(NA, length(x_range)), y_red_upper),  # only valid for red
+      plot_id = i  # used to distinguish subplots
+    )
+  })
+  
+  # Combine list of data frames
+  plot_data <- bind_rows(plot_data_list)
+  
+  #------------------------------------------------------------------
+  # 3) Plot using ggplot2
+  #------------------------------------------------------------------
+  ggplot(plot_data, aes(x = x, y = y, color = group)) +
+    geom_line(aes(size = group), show.legend = FALSE) +  
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = group), 
+                alpha = 0.2, color = NA) +
+    scale_color_manual(values = c("Black" = "black", "Red" = "red")) +
+    scale_fill_manual(values = c("Black" = NA, "Red" = "red")) +
+    scale_size_manual(values = c("Black" = 1.5, "Red" = 1)) +  # width for lines
+    facet_wrap(~plot_id, nrow = num_rows, ncol = num_cols) +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(title = paste("Comparison of Curves with Uncertainty Intervals -", model_type),
+         x = "X", y = "Y")
+}
+
+
+

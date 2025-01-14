@@ -39,9 +39,9 @@ data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "4. 
 fixed_q <- file.path(path_proj, "source", "models", "withIntercept",
                       "1.stan_model_fixed_q.stan")
 fixed_b <- file.path(path_proj, "source", "models", "withIntercept",
-                     "1.stan_model_fixed_q.stan")
+                     "2.stan_model_fixed_b.stan")
 rw_b <- file.path(path_proj, "source", "models", "withIntercept",
-                     "7.stan_model_ou_b_logis-twoStep.stan")
+                     "1.stan_model_fixed_q.stan")
 ou_b <-  file.path(path_proj, "source", "models", "withIntercept",
                       "6.stan_model_ou_b_logis.stan")
 
@@ -69,7 +69,7 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
                  alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
                  rep(10,5))
 beta_lamb = 0.5
-n_obs = 60
+N_obs = 60
 # reprot delay
 D <- 15;
 
@@ -85,7 +85,7 @@ params_ou_b_FR <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
+    N_obs       = N_obs,
     date_start = as.Date("2024-01-01"),
     D = D,
     seed       = seed
@@ -106,7 +106,7 @@ params_ou_b_NFR <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
     beta_lamb  = beta_lamb,
-    n_obs       = n_obs,
+    N_obs       = N_obs,
     date_start = as.Date("2024-01-01"),
     D = D,
     seed       = seed
@@ -168,7 +168,7 @@ print(exp_b_plot_ou)
 ## fit model
 ```{r}
 out_ou_b_FR <-
-  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = as.Date("2024-01-30"),
+  nowcasting_moving_window(ou_b_FR$case_reported_cumulated, scoreRange = as.Date("2024-02-12"),
                           case_true = ou_b_FR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
@@ -180,7 +180,7 @@ out_ou_b_FR <-
                           )
 
 
-#save(out_ou_b_FR, file = file.path(data_save_path, "FR_ou_b.RData"))
+save(out_ou_b_FR, file = file.path(data_save_path, "FR_ou_b.RData"))
 #load(file.path(data_save_path, "FR_ou_b.RData"))
 
 results_ou_b_FR <- nowcasts_table(out_ou_b_FR, D = D, report_unit = "day", 

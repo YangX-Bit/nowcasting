@@ -3,7 +3,7 @@ data {
   int<lower=0> D;             // Maximum delay (D)
   array[N_obs, D] int<lower=0> Y;   // Reported cases (T x D matrix)
   int<lower=1> K;                   // number of obs in total
-  array[K, 2] int<lower=1> obs_index; // coordinates
+  array[K, 2] int<lower=0> obs_index; // coordinates
 }
 
 parameters {
@@ -30,7 +30,7 @@ model {
     int d = obs_index[k,2];
     
     real q_d = 1 - (1 - phi) * exp(- b * d);
-    Y[t,d] ~ poisson(lambda_t[t] * q_d);
+    Y[t,(d+1)] ~ poisson(lambda_t[t] * q_d);
   }
 }
 

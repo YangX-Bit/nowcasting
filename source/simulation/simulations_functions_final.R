@@ -10,7 +10,7 @@ simulateData <- function(
       data = list(
         alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
         beta_lamb  = 0.5,
-        n_obs       = 30,            
+        N_obs       = 30,            
         date_start = as.Date("2024-01-01"),
         D = 20,
         seed       = 123
@@ -35,7 +35,7 @@ simulateData <- function(
   # (A) data
   alpha_lamb  <- params$data$alpha_lamb
   beta_lamb   <- params$data$beta_lamb
-  n_obs       <- params$data$n_obs
+  N_obs       <- params$data$N_obs
   date_start  <- params$data$date_start
   D           <- params$data$D
   seed        <- params$data$seed
@@ -50,8 +50,8 @@ simulateData <- function(
   #---------------------------------------------------------
   # 3) Check the input
   #---------------------------------------------------------
-  if (!(length(alpha_lamb) == n_obs)) {
-    stop("The length of `alpha_lamb` should be equal to the length of `n_obs`！")
+  if (!(length(alpha_lamb) == N_obs)) {
+    stop("The length of `alpha_lamb` should be equal to the length of `N_obs`！")
   }
  
   
@@ -66,7 +66,7 @@ simulateData <- function(
   simsQ_out <- generateQ(
     method        = method,
     method_params = method_params,
-    n_obs          = n_obs,
+    N_obs          = N_obs,
     D             = D,
     max_delay = max_delay
   )
@@ -77,7 +77,7 @@ simulateData <- function(
   simulation_result <- runSimulation(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    n_obs      = n_obs,
+    N_obs      = N_obs,
     date_start = date_start,
     simsQ_out  = simsQ_out,
     max_delay  = max_delay,
@@ -93,23 +93,23 @@ simulateData <- function(
 runSimulation <- function(
     alpha_lamb,
     beta_lamb,
-    n_obs,
+    N_obs,
     date_start,
     simsQ_out,
     max_delay,
     D
 ) {
   # Generate the date sequence
-  date_seq <- seq.Date(from = date_start, by = "day", length.out = n_obs)
+  date_seq <- seq.Date(from = date_start, by = "day", length.out = N_obs)
   
   # Initialize variables
-  lambda_t     <- numeric(n_obs)        # Disease intensity
-  case_true    <- integer(n_obs)        # True number of cases
-  case_reported<- matrix(0, nrow = n_obs, ncol = max_delay + 1)  # Reported cases
+  lambda_t     <- numeric(N_obs)        # Disease intensity
+  case_true    <- integer(N_obs)        # True number of cases
+  case_reported<- matrix(0, nrow = N_obs, ncol = max_delay + 1)  # Reported cases
   rownames(case_reported) <- as.character(date_seq)
 
   # Simulation process
-  for (tt in seq_len(n_obs)){
+  for (tt in seq_len(N_obs)){
     
     # 1) λ_t ~ Gamma
     lambda_t[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
@@ -160,7 +160,7 @@ runSimulation <- function(
     # Disease intensity
     lambda_t   = round(lambda_t),
     # b(t) parameter
-    b_t        = round(simsQ_out$b_t, 4),
+    b        = round(simsQ_out$b, 4),
     # intercept
     phi = round(simsQ_out$phi, 4),
     # q(d) reporting proportion
@@ -172,18 +172,18 @@ runSimulation <- function(
   ))
 }
 
-generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
+generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
   #----------------------------------------------------------------
   # method:         "fixed_q", "fixed_b", "rw_b", "ou_b"
   # method_params:  a list of parameters required by each method
-  # n_obs:          number of observations (time points)
+  # N_obs:          number of observations (time points)
   # D:              maximum delay used in certain methods
   # max_delay:      size for qd columns (default 100)
   #
   # Returns a list:
-  #   $qd    : either a matrix (n_obs x (max_delay+1)) or a vector
-  #   $b_t   : vector (length n_obs) of b(t)
-  #   $phi   : vector (length n_obs) of phi(t)
+  #   $qd    : either a matrix (N_obs x (max_delay+1)) or a vector
+  #   $b_t   : vector (length N_obs) of b(t)
+  #   $phi   : vector (length N_obs) of phi(t)
   #----------------------------------------------------------------
   
   # Output containers
@@ -250,9 +250,9 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
     
     # Initialize storage
-    b_out <- phi_out <- numeric(n_obs)
-    b_star <- phi_star <- numeric(n_obs)
-    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
+    b_out <- phi_out <- numeric(N_obs)
+    b_star <- phi_star <- numeric(N_obs)
+    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
     
     # Start values
     b_star[1] <- b_star_init
@@ -263,7 +263,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     phi_star[2] <- phi_star[1] + rnorm(1, 0, phi_star_sigma)
     
     # Fill remaining values (second-order RW)
-    for (i in 3:n_obs) {
+    for (i in 3:N_obs) {
       b_star[i] <- 2 * b_star[i-1] - b_star[i-2] + rnorm(1, 0, b_star_sigma)
       phi_star[i] <- 2 * phi_star[i-1] - phi_star[i-2] + rnorm(1, 0, phi_star_sigma)
     }
@@ -272,7 +272,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     b_out <- logistic_transform(b_star, 0.05, 1)
     phi_out <- logistic_transform(phi_star, 0, 1)
     
-    for (i in seq_len(n_obs)) {
+    for (i in seq_len(N_obs)) {
       b_i <- b_out[i]
       phi_i <- phi_out[i]
       qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
@@ -305,16 +305,16 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     mu_phi_star <- inverse_logistic_transform(mu_phi, 0, 1)
     
     # Initialize arrays
-    b_star <- phi_star <- numeric(n_obs)
-    b_out <- phi_out <- numeric(n_obs)
-    qd_out <- matrix(NA, nrow = n_obs, ncol = max_delay + 1)
+    b_star <- phi_star <- numeric(N_obs)
+    b_out <- phi_out <- numeric(N_obs)
+    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
     
     # Set initial values
     b_star[1] <- b_star_init
     phi_star[1] <- phi_star_init
     
     # OU updates in logistic-transformed space
-    for (i in 2:n_obs) {
+    for (i in 2:N_obs) {
       drift_b_star <- alpha_b * (mu_b_star - b_star[i-1])
       b_star[i] <- b_star[i-1] + drift_b_star + rnorm(1, 0, b_star_sigma)
       
@@ -326,7 +326,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     b_out <- logistic_transform(b_star, 0.05, 1)
     phi_out <- logistic_transform(phi_star, 0, 1)
     
-    for (i in seq_len(n_obs)) {
+    for (i in seq_len(N_obs)) {
       b_i <- b_out[i]
       phi_i <- phi_out[i]
       qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
@@ -335,7 +335,7 @@ generateQ <- function(method, method_params, n_obs, D, max_delay = 100) {
     stop("method must be one of: 'fixed_q', 'fixed_b', 'rw_b', 'ou_b'!")
   }
   
-  return(list(qd = qd_out, b_t = b_out, phi = phi_out))
+  return(list(qd = qd_out, b = b_out, phi = phi_out))
 }
 
 
@@ -540,20 +540,3 @@ extract_last_valid <- function(mat, D = ncol(mat)) {
   return(last_valid)
 }
 
-### functions to get coordinates of non-NAs
-
-find_non_na_coords <- function(mat) {
-  # dimension
-  N <- nrow(mat)
-  D <- ncol(mat)
-  
-  # indices for non NAs
-  non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
-  
-  coords_df <- as.matrix(non_na_indices)
-  
-  # rename cols
-  colnames(coords_df) <- c("row", "col")
-  
-  return(coords_df)
-}

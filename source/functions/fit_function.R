@@ -32,7 +32,20 @@ slice_data <- function(data, scoreRange,
   return(result)
 }
 
-
+data <- fixed_q_NFR$case_reported_cumulated
+scoreRange = as.Date("2024-02-12")
+case_true = fixed_q_NFR$case_true
+start_date = as.Date("2024-01-01")
+D = D
+seeds = seed
+methods =c("fixed_q", "fixed_b", "rw_b", "ou_b")
+compiled_models = compiled_models
+iter_sampling = 2000
+iter_warmup = 1000
+refresh = 0
+num_chains = 3
+suppress_output = T
+i = 1
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
                                      D = 20, seeds = 123,
@@ -40,8 +53,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
                                      num_chains = 3, thin = 2,suppress_output = TRUE
-                                     #posterior_draws_path = file.path(path_proj, "source", "models",
-                                    #                                  "posterior_draws")
+                                    posterior_draws_path = file.path(path_proj, "source", "models",
+                                                                     "posterior_draws")
                                      ){
   if(is.null(case_true)){
     stop("You must input true cases.")
@@ -127,6 +140,28 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
   }
   return(model_fits)
 }
+
+### functions to get coordinates of non-NAs
+find_non_na_coords <- function(mat) {
+  # dimension
+  N <- nrow(mat)
+  D <- ncol(mat)
+  
+  # indices for non NAs
+  non_na_indices <- which(!is.na(mat), arr.ind = TRUE)
+  
+  coords_df <- as.matrix(non_na_indices)
+  
+  # rename cols
+  colnames(coords_df) <- c("row", "col")
+  
+  # make col consist to d = 0,...,D
+  coords_df[,2] = coords_df[,2] - 1
+  
+  return(coords_df)
+}
+
+
 
 normalize_matrix_columns <- function(matrix_data) {
   # result matrix

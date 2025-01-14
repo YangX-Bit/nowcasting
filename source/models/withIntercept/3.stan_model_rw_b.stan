@@ -3,7 +3,7 @@ data {
   int<lower=0> D;              // Maximum delay
   array[N_obs, D] int<lower=0> Y; // Reported cases, dimension T x D
   int<lower=1> K;                 // Number of non-missing entries
-  array[K, 2] int<lower=1> obs_index; // Coordinates (t, d) of non-missing Y
+  array[K, 2] int<lower=0> obs_index; // Coordinates (t, d) of non-missing Y
 }
 
 // -------------------------------------------------------------------
@@ -89,7 +89,7 @@ model {
   for (k in 1:K) {
     int t = obs_index[k, 1];
     int d = obs_index[k, 2];
-    Y[t, d] ~ poisson(lambda_t[t] * q[t]);
+    Y[t, (d+1)] ~ poisson(lambda_t[t] * q[t]);
   }
 }
 
