@@ -56,12 +56,14 @@ model {
   
   // Priors for OU parameters
   alpha_b ~ normal(0.5, 0.2);
-  mu_b ~ normal(0.3, 0.1) T[0.05, 1];
-  sigma_b_star ~ normal(0.1, 0.05);
+  //mu_b ~ normal(0.3, 0.1) T[0.05, 1];
+  mu_b ~ beta(3, 6);
+  sigma_b_star ~ normal(0.1, 0.05)T[0, 1];
   
   alpha_phi_t ~ normal(0.5, 0.2);
-  mu_phi_t ~ normal(0.2, 0.05) T[0, 1];
-  sigma_phi_star ~ normal(0.1, 0.05);
+  //mu_phi_t ~ normal(0.2, 0.05) T[0, 1];
+  mu_phi_t ~ beta(1, 4);
+  sigma_phi_star ~ normal(0.1, 0.05)T[0, 1];
   
   // Gamma prior for Poisson intensities
   lambda_t ~ gamma(alpha_lambda, beta_lambda);

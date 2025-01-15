@@ -43,24 +43,33 @@ rownames(husO104_input) <- as.character(husO104$date)
 # set week
 set_week_start("Sunday")
 #SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
+
+# mac
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+
+#Windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "HusO104")
 ```
 
 ```{r}
-fixed_q <- file.path(path_proj, "source", "models",
-                     "trunc", "1.stan_model_fixed_q_trunc.stan")
-fixed_b <- file.path(path_proj, "source", "models",
-                     "trunc", "2.stan_model_fixed_b_trunc.stan")
-linear_b <- file.path(path_proj, "source", "models", "trunc",
-                     "3.stan_model_linear_b_trunc.stan")
-ou_b <-  file.path(path_proj, "source", "models", "trunc",
-                      "4.stan_model_ou_b_trunc.stan")
+#models
+fixed_q <- file.path(path_proj, "source", "models", 
+                      "1.stan_model_fixed_q.stan")
+fixed_b <- file.path(path_proj, "source", "models", 
+                     "2.stan_model_fixed_b.stan")
+# rw_b <- file.path(path_proj, "source", "models", 
+#                      "5.stan_model_rw_b_logis.stan")
+ou_b <-  file.path(path_proj, "source", "models", 
+                      "6.stan_model_ou_b_logis.stan")
 
 compiled_models <- list(
   fixed_q = cmdstan_model(fixed_q),
   fixed_b = cmdstan_model(fixed_b),
-  linear_b = cmdstan_model(linear_b),
+  #rw_b = cmdstan_model(rw_b),
   ou_b = cmdstan_model(ou_b)
 )
+
+models_to_use <- c("fixed_q", "fixed_b", "ou_b")
 
 ```
 
@@ -97,7 +106,7 @@ exp_plot
 
 ```{r}
 exp_b_data_husO104 <- data.frame( date = as.Date(rownames(husO104_exp_plot)),
-                          b = exp_plot$coefficients)
+                          b = exp_plot$coefficients$b)
 
 exp_b_plot_husO104 <- ggplot(exp_b_data_husO104, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +       
@@ -128,25 +137,27 @@ auto.arima(fit_ar1_husO104$b)
 ```
 
 ```{r}
-scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="5 day")
+scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="7 day")
 
-out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  as.Date("2011-06-16"), 
+out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104, 
                                 case_true = case_true_husO104,
                                 start_date = as.Date("2011-05-07"),
                                 #start_date = scoreRange[1] - weeks(20),
-                                D = 15, sigma_b = 0.5, seeds = seed,
-                                models_to_run =  c("fixed_q", "fixed_b", "linear_b", "ou_b"),
+                                D = D,  seeds = seed,
+                                methods =  models_to_use,
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T)
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path
+                                )
 
 # save(out, file = file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
 #out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
-                          models_to_run = c("fixed_q", "fixed_b", "linear_b", "ou_b"))
+                          methods = models_to_use)
 
-results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", models_to_run = c("fixed_q", "fixed_b", "linear_b" , "ou_b"))
+results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use)
 ```
 
 ```{r}
@@ -156,14 +167,14 @@ results_husO104_plots
 
 ```{r}
 for(i in 1:length(results_husO104)){
-  print(calculate_metrics(results_husO104[[i]]))
+  print(calculate_metrics(results_husO104[[i]], methods = models_to_use))
 }
 ```
 
 
 ```{r}
 for(i in 1:length(results_husO104)){
-  print(calculate_metrics(data.table::last(results_husO104[[i]],D)))
+  print(calculate_metrics(data.table::last(results_husO104[[i]],D), models_to_use))
 }
 
 ```

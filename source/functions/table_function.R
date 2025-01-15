@@ -78,29 +78,37 @@ calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "linear_b", 
   # Initialize result list
   results <- list()
   
-  # Calculate metrics for each method
   for (method in methods) {
-    mean_col <- paste0("mean_", method)
+    mean_col  <- paste0("mean_", method)
     lower_col <- paste0("lower_", method)
     upper_col <- paste0("upper_", method)
     
-    # Calculate errors
     error <- df[[mean_col]] - df$case_true
     abs_error <- abs(error)
-    rel_error <- error / df$case_true
+    
+    # For RMSPE & MAPE, use a small epsilon where case_true == 0
+    nonzero_idx <- df$case_true != 0
+    
+    rel_error <- error[nonzero_idx] / df$case_true[nonzero_idx]
     abs_rel_error <- abs(rel_error)
     
+    # error <- df[[mean_col]] - df$case_true
+    # abs_error <- abs(error)
+    # rel_error <- error / df$case_true
+    # abs_rel_error <- abs(rel_error)
+    
+    
+    
     # Metrics
-    RMSE <- sqrt(mean(error^2, na.rm = TRUE))
+    RMSE  <- sqrt(mean(error^2, na.rm = TRUE))
     RMSPE <- sqrt(mean(rel_error^2, na.rm = TRUE)) * 100
-    MAE <- mean(abs_error, na.rm = TRUE)
-    MAPE <- mean(abs_rel_error, na.rm = TRUE) * 100
+    MAE   <- mean(abs_error, na.rm = TRUE)
+    MAPE  <- mean(abs_rel_error, na.rm = TRUE) * 100
     
     # Prediction interval metrics
     interval_width <- mean(df[[upper_col]] - df[[lower_col]], na.rm = TRUE)
     coverage <- mean((df$case_true >= df[[lower_col]]) & (df$case_true <= df[[upper_col]]), na.rm = TRUE)
     
-    # Store results (force to numeric to avoid list nesting)
     results[[method]] <- c(
       RMSE = RMSE,
       RMSPE = RMSPE,
@@ -111,14 +119,15 @@ calculate_metrics <- function(df, methods = c("fixed_q", "fixed_b", "linear_b", 
     )
   }
   
-  # Convert to a data frame
+  # Convert to data frame
   results_df <- do.call(rbind, results)
-  results_df <- as.data.frame(round(results_df,2))  # Ensure it's a data frame
-  results_df$Method <- rownames(results_df)  # Add method names as a column
+  results_df <- as.data.frame(round(results_df,2))
+  results_df$Method <- rownames(results_df)
   rownames(results_df) <- NULL
   
   return(results_df)
 }
+
 
 
 # --------------------------------------------------

@@ -81,7 +81,7 @@ D <- 15;
 D_check <- 5
 
 #
-num_sims <- 10
+num_sims <- 5
 
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
@@ -229,7 +229,7 @@ for (i in 1:num_sims){
                           )
 }
 
-save(out_sin_b_FR_list, file = file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
+#save(out_sin_b_FR_list, file = file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
 #load(file.path(data_save_path, "FR_sin_b.RData"))
 
 results_sin_b_FR <- compute_all_nowcasts_tables(out_sin_b_FR_list, D, "day", models_to_use)
@@ -278,7 +278,7 @@ for (i in 1:num_sims){
                           )
 }
 
-save(out_sin_b_NFR_list, file = file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
+#save(out_sin_b_NFR_list, file = file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
 #load(file.path(data_save_path, "FR_sin_b.RData"))
 
 results_sin_b_NFR <- compute_all_nowcasts_tables(out_sin_b_NFR_list, D, "day", models_to_use)
@@ -309,3 +309,10 @@ results_sin_b_NFR <- nowcasts_table(out_sin_b_NFR_list[[1]], D = D, report_unit 
 plots_sin_b_NFR <- nowcasts_plot(results_sin_b_NFR, D = D, report_unit = "day", methods = models_to_use)
 plots_sin_b_NFR
 ```   
+
+```{r}
+highlight_metrics(metrics_1_NFR_avg, method_names = c("Fixed q", "Fixed b", "OU b"),
+                  table_caption = "Fully Reported + Low Variability (All Time Window)")
+highlight_metrics(metrics_1_sin_b_NFR_avg_incomp, method_names = c("Fixed q", "Fixed b", "Linear b", "OU b"),
+                  table_caption = "Fully Reported + Low Variability (Last D Time Unit)")
+```

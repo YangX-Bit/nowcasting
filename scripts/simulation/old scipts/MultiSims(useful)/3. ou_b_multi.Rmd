@@ -81,7 +81,7 @@ D <- 15;
 D_check <- 5
 
 #
-num_sims <- 10
+num_sims <- 5
 
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
@@ -140,24 +140,24 @@ for (i in 1:num_sims) {
 
 ## fit model
 ```{r}
-# out_ou_b_FR_list <- list()
-# for (i in 1:num_sims){
-#   print(paste0("Now is working on ",i,"th simulation."))
-#   out_ou_b_FR_list[[i]] <-
-#   nowcasting_moving_window(params_ou_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
-#                           case_true = params_ou_b_FR[[i]]$case_true,
-#                           start_date = as.Date("2024-01-01"),
-#                           D = D, seeds = seed,
-#                           methods =models_to_use,
-#                           compiled_models = compiled_models,
-#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                           num_chains = 3, suppress_output = T,
-#                           posterior_draws_path = file.path(posterior_draws_path, "ou_b")
-#                           )
-# }
+out_ou_b_FR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_ou_b_FR_list[[i]] <-
+  nowcasting_moving_window(params_ou_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_ou_b_FR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods =models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "ou_b")
+                          )
+}
 
-# save(out_ou_b_FR_list, file = file.path(data_save_path, paste0("FR_ou_b_",num_sims,"Sims.RData")))
-load(file.path(data_save_path, paste0("FR_ou_b_",num_sims,"Sims.RData")))
+save(out_ou_b_FR_list, file = file.path(data_save_path, paste0("FR_ou_b_",num_sims,"Sims.RData")))
+# load(file.path(data_save_path, paste0("FR_ou_b_",num_sims,"Sims.RData")))
 
 results_ou_b_FR <- compute_all_nowcasts_tables(out_ou_b_FR_list, D, "day", models_to_use)
 # Average metrics
@@ -189,24 +189,24 @@ plots_ou_b_FR
 ```   
 
 ```{r}
-# out_ou_b_NFR_list <- list()
-# for (i in 1:num_sims){
-#   print(paste0("Now is working on ",i,"th simulation."))
-#   out_ou_b_NFR_list[[i]] <-
-#   nowcasting_moving_window(params_ou_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
-#                           case_true = params_ou_b_NFR[[i]]$case_true,
-#                           start_date = as.Date("2024-01-01"),
-#                           D = D, seeds = seed,
-#                           methods =models_to_use,
-#                           compiled_models = compiled_models,
-#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-#                           num_chains = 3, suppress_output = T,
-#                           posterior_draws_path = file.path(posterior_draws_path, "ou_b")
-#                           )
-# }
-# 
-# save(out_ou_b_NFR_list, file = file.path(data_save_path, paste0("NFR_ou_b_",num_sims, "Sims.RData")))
-load(file.path(data_save_path, paste0("NFR_ou_b_",num_sims, "Sims.RData")))
+out_ou_b_NFR_list <- list()
+for (i in 1:num_sims){
+  print(paste0("Now is working on ",i,"th simulation."))
+  out_ou_b_NFR_list[[i]] <-
+  nowcasting_moving_window(params_ou_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = params_ou_b_NFR[[i]]$case_true,
+                          start_date = as.Date("2024-01-01"),
+                          D = D, seeds = seed,
+                          methods =models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "ou_b")
+                          )
+}
+
+save(out_ou_b_NFR_list, file = file.path(data_save_path, paste0("NFR_ou_b_",num_sims, "Sims.RData")))
+#load(file.path(data_save_path, paste0("NFR_ou_b_",num_sims, "Sims.RData")))
 
 results_ou_b_NFR <- compute_all_nowcasts_tables(out_ou_b_NFR_list, D, "day", models_to_use)
 # Average metrics

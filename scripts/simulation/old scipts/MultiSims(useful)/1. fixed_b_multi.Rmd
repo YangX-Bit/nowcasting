@@ -81,7 +81,7 @@ D <- 15;
 D_check <- 5
 
 #
-num_sims <- 1
+num_sims <- 5
 
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
@@ -154,7 +154,7 @@ for (i in 1:num_sims){
                           )
 }
 
-# save(out_fixed_b_FR_list, file = file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
+save(out_fixed_b_FR_list, file = file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
 #load(file.path(data_save_path, "FR_fixed_b.RData"))
 
 results_fixed_b_FR <- compute_all_nowcasts_tables(out_fixed_b_FR_list, D, "day", models_to_use)
@@ -185,6 +185,7 @@ results_fixed_b_FR <- nowcasts_table(out_fixed_b_FR_list[[1]], D = D, report_uni
 plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = models_to_use)
 plots_fixed_b_FR
 ```   
+
 
 ```{r}
 out_fixed_b_NFR_list <- list()
@@ -234,3 +235,13 @@ results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR_list[[1]], D = D, report_u
 plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = models_to_use)
 plots_fixed_b_NFR
 ```   
+
+
+```{r}
+# plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = models_to_use,
+#                                   combine_plots = T, ncol=1, nrow = 3)
+# 
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "fixed_b", "NotFR_b01_sd03.png"), 
+#        plot = plots_fixed_b_FR, 
+#        width = 10, height = 14, dpi = 300)
+```
