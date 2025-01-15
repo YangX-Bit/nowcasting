@@ -138,24 +138,24 @@ for (i in 1:num_sims) {
 
 ## fit model
 ```{r}
-out_fixed_b_FR_list <- list()
-for (i in 1:num_sims){
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_fixed_b_FR_list[[i]] <-
-  nowcasting_moving_window(params_fixed_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = params_fixed_b_FR[[i]]$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods = models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
-                          )
-}
-
-save(out_fixed_b_FR_list, file = file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
-#load(file.path(data_save_path, "FR_fixed_b.RData"))
+# out_fixed_b_FR_list <- list()
+# for (i in 1:num_sims){
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_fixed_b_FR_list[[i]] <-
+#   nowcasting_moving_window(params_fixed_b_FR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = params_fixed_b_FR[[i]]$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods = models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+#                           )
+# }
+# 
+# save(out_fixed_b_FR_list, file = file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
+load(file.path(data_save_path, paste0("FR_fixed_b_",num_sims,"Sims.RData")))
 
 results_fixed_b_FR <- compute_all_nowcasts_tables(out_fixed_b_FR_list, D, "day", models_to_use)
 # Average metrics
@@ -188,24 +188,24 @@ plots_fixed_b_FR
 
 
 ```{r}
-out_fixed_b_NFR_list <- list()
-for (i in 1:num_sims){
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_fixed_b_NFR_list[[i]] <-
-  nowcasting_moving_window(params_fixed_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = params_fixed_b_NFR[[i]]$case_true,
-                          start_date = as.Date("2024-01-01"),
-                          D = D, seeds = seed,
-                          methods = models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
-                          )
-}
-
-save(out_fixed_b_NFR_list, file = file.path(data_save_path, paste0("NFR_fixed_b_",num_sims, "Sims.RData")))
-#load(file.path(data_save_path, "FR_fixed_b.RData"))
+# out_fixed_b_NFR_list <- list()
+# for (i in 1:num_sims){
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_fixed_b_NFR_list[[i]] <-
+#   nowcasting_moving_window(params_fixed_b_NFR[[i]]$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = params_fixed_b_NFR[[i]]$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D, seeds = seed,
+#                           methods = models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "fixed_b")
+#                           )
+# }
+# 
+# save(out_fixed_b_NFR_list, file = file.path(data_save_path, paste0("NFR_fixed_b_",num_sims, "Sims.RData")))
+load(file.path(data_save_path, paste0("NFR_fixed_b_",num_sims, "Sims.RData")))
 
 results_fixed_b_NFR <- compute_all_nowcasts_tables(out_fixed_b_NFR_list, D, "day", models_to_use)
 # Average metrics
@@ -235,13 +235,35 @@ results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR_list[[1]], D = D, report_u
 plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = models_to_use)
 plots_fixed_b_NFR
 ```   
+```{r}
+highlight_metrics(metrics_1_fixed_b_FR_avg, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange,
+                  table_caption = "Fully Reported + Fixed b (All Time Window)")
+highlight_metrics(metrics_1_fixed_b_FR_avg_incomp, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange,
+                  table_caption = "Fully Reported + Fixed b (Last 5 days)")
+```
+
+```{r}
+highlight_metrics(metrics_1_fixed_b_NFR_avg, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange,
+                  table_caption = "Not Fully Reported + Fixed b (All Time Window)")
+highlight_metrics(metrics_1_fixed_b_NFR_avg_incomp, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange,
+                  table_caption = "Not Fully Reported + Fixed b (Last 5 days)")
+```
 
 
 ```{r}
-# plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = models_to_use,
-#                                   combine_plots = T, ncol=1, nrow = 3)
-# 
-# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "fixed_b", "NotFR_b01_sd03.png"), 
-#        plot = plots_fixed_b_FR, 
-#        width = 10, height = 14, dpi = 300)
+plots_fixed_b_FR <- nowcasts_plot(results_fixed_b_FR, D = D, report_unit = "day", methods = models_to_use,
+                                  combine_plots = T, ncol=1, nrow = 3)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "fixed_b", "FR_fixed_b.png"),
+       plot = plots_fixed_b_FR,
+       width = 10, height = 16, dpi = 300)
+```
+
+```{r}
+plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = models_to_use,
+                                  combine_plots = T, ncol=1, nrow = 3)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "fixed_b", "NFR_fixed_b.png"),
+       plot = plots_fixed_b_NFR,
+       width = 10, height = 16, dpi = 300)
 ```

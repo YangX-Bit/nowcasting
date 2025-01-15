@@ -270,16 +270,17 @@ average_nowcasts_metrics <- function(
       
       # Compute metrics on the filtered or full data
       metrics_rt <- calculate_metrics(df_rt, methods = methods)
-      # Optionally add replicate_id = r or keep it separate
-      # metrics_rt$replicate_id <- r
-      
       metrics_for_t_list[[r]] <- metrics_rt
     }
     
-    # Combine row-wise
+    # Combine row-wise (all replicates for this t)
     metrics_for_t <- bind_rows(metrics_for_t_list)
     
-    # Average across replicates
+    # Convert 'Method' into a factor with the specified order:
+    metrics_for_t <- metrics_for_t %>%
+      mutate(Method = factor(Method, levels = methods))
+    
+    # Average across replicates, keeping the factor order
     metrics_avg_t <- metrics_for_t %>%
       group_by(Method) %>%
       summarize(
@@ -291,13 +292,15 @@ average_nowcasts_metrics <- function(
         Coverage_Rate  = mean(Coverage_Rate, na.rm=TRUE),
         .groups = "drop"
       ) %>%
-      mutate_if(is.numeric, round, 2)
+      mutate_if(is.numeric, round, 2) %>%
+      arrange(Method)  # ensure final ordering follows factor levels
     
     metrics_t_averaged[[t]] <- metrics_avg_t
   }
   
   return(metrics_t_averaged)
 }
+
 
 
 

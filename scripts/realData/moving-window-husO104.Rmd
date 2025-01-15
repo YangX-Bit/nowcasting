@@ -137,31 +137,45 @@ auto.arima(fit_ar1_husO104$b)
 ```
 
 ```{r}
-scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="7 day")
+# scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="7 day")
+scoreRange_husO104 <- seq(as.Date("2011-05-29"), as.Date("2011-06-19"),by="7 day")
 
-out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104, 
-                                case_true = case_true_husO104,
-                                start_date = as.Date("2011-05-07"),
-                                #start_date = scoreRange[1] - weeks(20),
-                                D = D,  seeds = seed,
-                                methods =  models_to_use,
-                                compiled_models = compiled_models,
-                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T,
-                                posterior_draws_path = posterior_draws_path
-                                )
-
-# save(out, file = file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+# out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104, 
+#                                 case_true = case_true_husO104,
+#                                 start_date = as.Date("2011-05-07"),
+#                                 #start_date = scoreRange[1] - weeks(20),
+#                                 D = D,  seeds = seed,
+#                                 methods =  models_to_use,
+#                                 compiled_models = compiled_models,
+#                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
+#                                 num_chains = 3, suppress_output = T,
+#                                 posterior_draws_path = posterior_draws_path
+#                                 )
+# 
+# save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110529_to_110619_nine.RData"))
 #out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
                           methods = models_to_use)
 
-results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use)
+results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use,
+                                       combine_plots = T, ncol=2, nrow = 2)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots.png"),
+       plot = results_husO104_plots,
+       width = 20, height = 16, dpi = 300)
+
 ```
 
 ```{r}
-results_husO104_plots
+list_husO104 <- list()
+for(i in 1:length(results_husO104)){
+  list_husO104[[i]] <- calculate_metrics(data.table::last(results_husO104[[i]],5),
+                          methods = models_to_use)
+}
+list_husO104
+highlight_metrics(list_husO104, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_husO104,
+                  table_caption = "Metrics of Nowcast last 5 days for HusO104 data (D = 15)")
 ```
 
 
