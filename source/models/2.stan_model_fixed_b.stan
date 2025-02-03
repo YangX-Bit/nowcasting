@@ -1,45 +1,40 @@
 data {
-  int<lower=0> N_obs;         // Number of time points (T)
-  int<lower=0> D;             // Maximum delay (D)
-  array[N_obs, D] int<lower=0> Y;   // Reported cases (T x D matrix)
-  int<lower=1> K;                   // number of obs in total
-  array[K, 2] int<lower=0> obs_index; // coordinates
+  int<lower=0> T;                       // number of time points
+  int<lower=0> D;                       // maximum delay
+  array[T, D+1] int<lower=0> Y;         // reported cases (t x d matrix)
 }
 
 parameters {
-  real<lower=0> alpha_lambda;  // Gamma prior shape parameter for lambda
-  real<lower=0> beta_lambda;   // Gamma prior rate parameter for lambda
-  vector<lower=0>[N_obs] lambda_t;   // Poisson intensities (λ[t]) at each time point
-  real<lower=0.05> b;
-  real<lower=0, upper=1> phi;
+  vector<lower=0>[T] lambda;            // expected number of cases
+  real<lower=0> b;                   // rate of accumulated reporting probability
+  real<lower=0, upper=1> phi;           // same-day reporting probability
+}
+
+transformed parameters {
+  vector<lower=0, upper=1>[D+1] q;
+  q[1] = 1 - phi;
+  for (d in 1:D)
+    q[d+1] = 1 - phi * exp(- b * d);    // accumulated reporting probability
 }
 
 model {
   // Priors
-  alpha_lambda ~ uniform(0, 10);
-  beta_lambda ~ uniform(0, 10);
-  //b ~ beta(0.33, 0.33); // mean = 0.3  sigma2 = 0.1
-  //phi ~ beta(0.2325, 1.3175); // mean = 0.15  sigma2 = 0.05
-  b ~ beta(3, 6); // m=0.33 sd=0.022
-  phi ~ beta(1, 4); // m=0.2 sd=0.267
-  
-  // Gamma prior on Poisson intensities (lambda_t)
-  lambda_t ~ gamma(alpha_lambda, beta_lambda);
-  
-  // Likelihood: Marginalized Poisson likelihood for N_t and Binomial for Y
-  for(k in 1:K){
-    int t = obs_index[k,1];
-    int d = obs_index[k,2];
-    
-    real q_d = 1 - (1 - phi) * exp(- b * d);
-    Y[t,(d+1)] ~ poisson(lambda_t[t] * q_d);
+  b ~ lognormal(0, 0.3);
+  phi ~ uniform(0, 1);
+  lambda ~ lognormal(0, 3);
+
+  // Likelihood
+  for (t in 1:T) {
+    Y[t, 1] ~ poisson(lambda[t] * q[1]);
+    int Dmax = min(T-t, D);
+    for (d in 1:Dmax)
+      Y[t, d+1] ~ poisson(lambda[t] * q[d+1]);
   }
 }
 
 generated quantities {
-  vector<lower=0>[N_obs] N_t;
-  for (t in 1:N_obs) {
-    N_t[t] = poisson_rng(lambda_t[t]); // Sample N_t from Poisson distribution
-  }
+  vector<lower=0>[T] N;                 // number of cases
+  for (t in 1:T)
+    N[t] = poisson_rng(lambda[t]);
 }
 
