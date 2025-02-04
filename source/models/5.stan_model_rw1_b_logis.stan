@@ -33,9 +33,7 @@ model {
   sigma_logit_phi ~ lognormal(-7, 2);
 
   // First-order random walks
-  // log_b[1] ~ normal(log(0.7), sqrt(1^2 + sigma_log_b^2 * factor));
-  // logit_phi[1] ~ normal(1, sqrt(1^2 + sigma_logit_phi^2 * factor));
-  log_b[1] ~ normal(0, sqrt(1^2 + sigma_log_b^2 * factor));
+  log_b[1] ~ normal(0, sqrt(1^2 + sigma_log_b^2 * factor));             // log(0.7)
   logit_phi[1] ~ normal(0, sqrt(1^2 + sigma_logit_phi^2 * factor));
   for (t in 2:T) {
     log_b[t] ~ normal(log_b[t-1], sigma_log_b);
