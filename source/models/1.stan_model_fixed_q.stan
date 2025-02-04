@@ -23,11 +23,9 @@ model {
   lambda ~ lognormal(0, 3);
 
   // Likelihood
-  for (t in 1:T) {
-    int Dmax = min(T-t, D);
-    for (d in 0:Dmax)
+  for (d in 0:D)
+    for (t in 1:(T-d))
       Y[t, d+1] ~ poisson(lambda[t] * q[d+1]);
-  }
 }
 
 generated quantities {
