@@ -1,7 +1,7 @@
 data {
   int<lower=0> T;                       // number of time points
   int<lower=0> D;                       // maximum delay
-  array[T, D+1] int<lower=0> Y;         // reported cases (t x d matrix)
+  array[T, D+1] int<lower=0> Y;         // reported cases (t x (d+1) matrix)
 }
 
 transformed data {
