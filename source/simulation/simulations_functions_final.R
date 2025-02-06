@@ -235,51 +235,27 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
     # 3) rw_b: second-order random walk for both b(t) and phi(t)
     #----------------------------------------------------------------
   } else if (method == "rw_b") {
-    if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma") %in% names(method_params))) {
-      stop("method=rw_b requires b_init, b_sigma, phi_init, phi_sigma!")
+    if (!all(c("b_intercept", "b_sigma", "phi_intercept", "phi_sigma") %in% names(method_params))) {
+      stop("method=rw_b requires b_intercept, b_sigma, phi_intercept, phi_sigma!")
     }
 
     # Extract parameters
-    b_init    <- method_params$b_init
+    b_intercept    <- method_params$b_intercept
     b_sigma   <- method_params$b_sigma
-    phi_init  <- method_params$phi_init
+    phi_intercept  <- method_params$phi_intercept
     phi_sigma <- method_params$phi_sigma
 
-    # Logistic transform with constraints
-    # b is constrained to [0.05, 1]
-    # phi is constrained to [0, 1]
-    b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
-    b_star_sigma <- b_sigma / (b_init * (1 - b_init)) # Scale adjustment for logistic
-    phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
-    phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
+    b <- arima.sim(model = list(order = c(0, 1, 0)), n.start = 100, n = N_obs, sd = b_sigma)
+    b_out <- exp(b_intercept + b - mean(b))
 
-    # Initialize storage
-    b_out <- phi_out <- numeric(N_obs)
-    b_star <- phi_star <- numeric(N_obs)
+    phi <- arima.sim(model = list(order = c(0, 1, 0)), n.start = 100, n = N_obs, sd = phi_sigma)
+    phi_out <- plogis(phi_intercept + phi - mean(phi))
+
     qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
-
-    # Start values
-    b_star[1] <- b_star_init
-    phi_star[1] <- phi_star_init
-
-    # Second value for RW
-    b_star[2] <- b_star[1] + rnorm(1, 0, b_star_sigma)
-    phi_star[2] <- phi_star[1] + rnorm(1, 0, phi_star_sigma)
-
-    # Fill remaining values (second-order RW)
-    for (i in 3:N_obs) {
-      b_star[i] <- 2 * b_star[i-1] - b_star[i-2] + rnorm(1, 0, b_star_sigma)
-      phi_star[i] <- 2 * phi_star[i-1] - phi_star[i-2] + rnorm(1, 0, phi_star_sigma)
-    }
-
-    # Transform back to original scale (automatically constrained)
-    b_out <- logistic_transform(b_star, 0.05, 1)
-    phi_out <- logistic_transform(phi_star, 0, 1)
-
     for (i in seq_len(N_obs)) {
       b_i <- b_out[i]
       phi_i <- phi_out[i]
-      qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
+      qd_out[i, ] <- 1 - phi_i * exp(-b_i * (0:max_delay))
     }
 
   } else if (method == "ou_b") {
