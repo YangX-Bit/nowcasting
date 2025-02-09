@@ -30,7 +30,7 @@ source(file.path(path_source, "functions", "table_function.R"))
 #posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
 
 #Windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "multiSims")
+posterior_draws_path = file.path("F:", "draws")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "multiSims","sin_b")
@@ -78,10 +78,10 @@ N_obs = 60
 D <- 15;
 
 # Time period for checking
-D_check <- 5
+D_check <- 10
 
 #
-num_sims <- 5
+num_sims <- 100
 
 scoreRange <- c(as.Date("2024-01-29"),as.Date("2024-02-12"), as.Date("2024-02-26"))
 ```
@@ -230,8 +230,8 @@ print(exp_b_plot_sin_b)
 #                           posterior_draws_path = file.path(posterior_draws_path, "sin_b")
 #                           )
 # }
-#
-#save(out_sin_b_FR_list, file = file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
+# 
+# save(out_sin_b_FR_list, file = file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
 load(file.path(data_save_path, paste0("FR_sin_b_",num_sims,"Sims.RData")))
 
 results_sin_b_FR <- compute_all_nowcasts_tables(out_sin_b_FR_list, D, "day", models_to_use)
@@ -279,8 +279,8 @@ plots_sin_b_FR
 #                           posterior_draws_path = file.path(posterior_draws_path, "sin_b")
 #                           )
 # }
-
-#save(out_sin_b_NFR_list, file = file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
+# 
+# save(out_sin_b_NFR_list, file = file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
 load(file.path(data_save_path, paste0("NFR_sin_b_",num_sims, "Sims.RData")))
 
 results_sin_b_NFR <- compute_all_nowcasts_tables(out_sin_b_NFR_list, D, "day", models_to_use)
