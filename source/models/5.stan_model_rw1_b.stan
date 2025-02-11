@@ -10,7 +10,7 @@ transformed data {
 
 parameters {
   vector<lower=0>[T] lambda;            // expected number of cases
-  vector[T] log_b;                      // log of rate of accumulated reporting probability
+  vector[T] log_b;                      // log rate of accumulated reporting probability
   vector[T] logit_phi;                  // logit of delayed reporting probability
   real<lower=0> sigma_log_b;
   real<lower=0> sigma_logit_phi;
@@ -28,8 +28,8 @@ transformed parameters {
 model {
   // Priors
   lambda ~ lognormal(0, 3);
-  sigma_log_b ~ lognormal(-7, 2);
-  sigma_logit_phi ~ lognormal(-7, 2);
+  sigma_log_b ~ lognormal(-2, 1);
+  sigma_logit_phi ~ lognormal(-2, 1);
 
   // First-order random walks
   log_b[1] ~ normal(0, sqrt(1^2 + sigma_log_b^2 * factor));             // log(0.7)
