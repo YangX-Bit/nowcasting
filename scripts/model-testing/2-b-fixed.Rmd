@@ -1,0 +1,215 @@
+---
+title: "Parametric fixed reported probability"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(bayesplot)
+library(reshape2)
+library(dplyr)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+posterior_draws_path = file.path(path_proj, "data", "draws", "testEach")
+```
+
+```{r}
+fixed_b <- file.path(path_proj, "source", "models", "b-fixed.stan")
+model <- cmdstan_model(fixed_b)
+```
+
+## Fully reported scenario
+
+### Setting
+
+```{r}
+seed <- 123
+set.seed(seed)
+
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c(rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10),
+                alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                rep(10,5))
+beta_lamb = 0.5
+N_obs = 60
+D <- 15;
+```
+
+### Simulation
+
+```{r}
+params_fixed_b_FR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D
+  ),
+  q_model = list(
+    method        = "fixed_b",
+    method_params = list(b = 0.7, phi = 0.9)
+  )
+)
+
+fixed_b_FR <- simulateData(params_fixed_b_FR)
+plot(fixed_b_FR$qd, col = "red", pch = 19, type = "b", ylim = c(0,1))
+```
+
+### Exploratory analysis
+
+```{r}
+page_num <- ceiling(nrow(fixed_b_FR$case_reported_cumulated)/16)
+exp_plot_fixed_b <- fit_exp_plot(fixed_b_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_fixed_b)
+
+exp_plot_fixed_b$coefficients
+exp_b_data_fixed_b <- data.frame( date = as.Date(rownames(fixed_b_FR$case_reported_cumulated)),
+                          b = exp_plot_fixed_b$coefficients$b)
+exp_b_plot_fixed_b <- ggplot(exp_b_data_fixed_b, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +
+  geom_smooth(method = "loess", se = TRUE,
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+print(exp_b_plot_fixed_b)
+```
+
+### Model fitting
+
+```{r}
+ind = 40
+stan_data <- list(T = ind, D = 15, Y = fixed_b_FR$case_reported_cumulated[1:ind, ])
+test = model$sample(
+    data = stan_data,
+    iter_sampling = 3000,
+    iter_warmup = 1000,
+    chains = 1,
+    refresh = 0,
+    thin = 1)
+varnames <- test$summary()$variable
+
+mcmc_areas(test$draws("b"), prob_outer = 0.95)
+
+mcmc_areas(test$draws("phi"), prob_outer = 0.95)
+
+param_true = tibble(
+    parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_FR$lambda_t[1:ind]
+)
+mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^q\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_FR$qd
+)
+mcmc_areas(test$draws("q"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_FR$case_true[1:ind, 1]
+)
+mcmc_areas(test$draws("N"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+```
+
+## Non-fully reported scenario
+
+### Simulation
+
+```{r}
+# fixed_b_NFR
+params_fixed_b_NFR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,
+    beta_lamb  = beta_lamb,
+    N_obs       = N_obs,
+    date_start = as.Date("2024-01-01"),
+    D = D,
+    seed       = seed
+  ),
+  q_model = list(
+    method        = "fixed_b",
+    method_params = list(b = 0.15, phi = 0.9)
+  )
+)
+
+fixed_b_NFR <- simulateData(params_fixed_b_NFR)
+plot(fixed_b_NFR$qd, col = "red", pch = 19, type = "b", ylim = c(0,1))
+```
+
+### Exploratory analysis
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(fixed_b_NFR$case_reported_cumulated)/16)
+exp_plot_fixed_b <- fit_exp_plot(fixed_b_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_fixed_b)
+
+exp_plot_fixed_b$coefficients
+exp_b_data_fixed_b<- data.frame( date = as.Date(rownames(fixed_b_NFR$case_reported_cumulated)),
+                          b = exp_plot_fixed_b$coefficients$b)
+exp_b_plot_fixed_b <- ggplot(exp_b_data_fixed_b, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +
+  geom_smooth(method = "loess", se = TRUE,
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+print(exp_b_plot_fixed_b)
+```
+
+### Model fitting
+
+```{r}
+ind = 40
+stan_data <- list(T = ind, D = 15, Y = fixed_b_NFR$case_reported_cumulated[1:ind, ])
+test = model$sample(
+    data = stan_data,
+    iter_sampling = 3000,
+    iter_warmup = 1000,
+    chains = 1,
+    refresh = 0,
+    thin = 1)
+varnames <- test$summary()$variable
+
+mcmc_areas(test$draws("b"), prob_outer = 0.95)
+
+mcmc_areas(test$draws("phi"), prob_outer = 0.95)
+
+param_true = tibble(
+    parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_NFR$lambda_t[1:ind]
+)
+mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^q\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_NFR$qd
+)
+mcmc_areas(test$draws("q"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
+    x = fixed_b_NFR$case_true[1:ind, 1]
+)
+mcmc_areas(test$draws("N"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+```
