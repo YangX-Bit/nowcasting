@@ -10,19 +10,18 @@ simulateData <- function(
       data = list(
         alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
         beta_lamb  = 0.5,
-        N_obs       = 30,
+        T       = 30,
         date_start = as.Date("2024-01-01"),
         D = 20
       ),
       # C. Model selection
       q_model = list(
-        method       = "fixed_b",  # "fixed_q", "fixed_b", "linear_b", "ou_b"
+        method       = "b_constant",  # "q_constant", "b_constant", "b_rw", "b_ou"
         # different params for diff methods
         method_params= list(
-          # fixed_q: q_D, q_lambda
-          # fixed_b: b, phi
-          # linear_b: beta0, beta1, phi_init, phi_sigma
-          # ou_b: alpha, mu, b_init, b_sigma, phi_init, phi_sigma
+          # q_constant: b, phi
+          # b_constant: b, phi
+          # b_ou: alpha, mu, init_logb, b_sigma, init_logitphi, sigma_logitphi
           b = 0.5, phi = 0.2
         )
       )
@@ -34,7 +33,7 @@ simulateData <- function(
   # (A) data
   alpha_lamb  <- params$data$alpha_lamb
   beta_lamb   <- params$data$beta_lamb
-  N_obs       <- params$data$N_obs
+  T       <- params$data$T
   date_start  <- params$data$date_start
   D           <- params$data$D
 
@@ -42,14 +41,11 @@ simulateData <- function(
   method          <- params$q_model$method
   method_params   <- params$q_model$method_params
 
-  # other parameters
-  max_delay <- 100
-
   #---------------------------------------------------------
   # 3) Check the input
   #---------------------------------------------------------
-  if (!(length(alpha_lamb) == N_obs)) {
-    stop("The length of `alpha_lamb` should be equal to the length of `N_obs`！")
+  if (!(length(alpha_lamb) == T)) {
+    stop("The length of `alpha_lamb` should be equal to the length of `T`！")
   }
 
 
@@ -59,10 +55,9 @@ simulateData <- function(
     print(params$q_model)
   simsQ_out <- generateQ(
     method        = method,
-    method_params = method_params,
-    N_obs          = N_obs,
-    D             = D,
-    max_delay = max_delay
+    params = method_params,
+    T          = T,
+    D             = D
   )
     print(simsQ_out)
 
@@ -72,10 +67,9 @@ simulateData <- function(
   simulation_result <- runSimulation(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    N_obs      = N_obs,
+    T      = T,
     date_start = date_start,
     simsQ_out  = simsQ_out,
-    max_delay  = max_delay,
     D = D
   )
 
@@ -88,23 +82,22 @@ simulateData <- function(
 runSimulation <- function(
     alpha_lamb,
     beta_lamb,
-    N_obs,
+    T,
     date_start,
     simsQ_out,
-    max_delay,
     D
 ) {
   # Generate the date sequence
-  date_seq <- seq.Date(from = date_start, by = "day", length.out = N_obs)
+  date_seq <- seq.Date(from = date_start, by = "day", length.out = T)
 
   # Initialize variables
-  lambda_t     <- numeric(N_obs)        # Disease intensity
-  case_true    <- integer(N_obs)        # True number of cases
-  case_reported<- matrix(0, nrow = N_obs, ncol = max_delay + 1)  # Reported cases
+  lambda_t     <- numeric(T)        # Disease intensity
+  case_true    <- integer(T)        # True number of cases
+  case_reported<- matrix(0, nrow = T, ncol = D + 1)  # Reported cases
   rownames(case_reported) <- as.character(date_seq)
 
   # Simulation process
-  for (tt in seq_len(N_obs)){
+  for (tt in seq_len(T)){
 
     # 1) λ_t ~ Gamma
     lambda_t[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
@@ -113,12 +106,12 @@ runSimulation <- function(
     case_true[tt] <- rpois(1, lambda = lambda_t[tt])
 
     # 3) Get the reporting proportion for the current time point
-    if (is.vector(simsQ_out$qd)){
-      # If qd is a vector (constant model)
-      prob_temp <- simsQ_out$qd
+    if (is.vector(simsQ_out$q)){
+      # If q is a vector (constant model)
+      prob_temp <- simsQ_out$q
     } else {
-      # If qd is a matrix (time-varying model, etc.)
-      prob_temp <- simsQ_out$qd[tt, ]
+      # If q is a matrix (time-varying model, etc.)
+      prob_temp <- simsQ_out$q[tt, ]
     }
 
     # 4) Calculate single-day reporting proportions
@@ -129,10 +122,10 @@ runSimulation <- function(
 
   }
 
-  qd_out <- if(is.vector(simsQ_out$qd)){
-    simsQ_out$qd[1:(D+1)]
+  qd_out <- if(is.vector(simsQ_out$q)){
+    simsQ_out$q[1:(D+1)]
   } else {
-    simsQ_out$qd[, 1:(D+1)]
+    simsQ_out$q[, 1:(D+1)]
   }
 
   # Convert true cases to matrix and set row names
@@ -156,7 +149,7 @@ runSimulation <- function(
     # intercept
     phi = round(simsQ_out$phi, 4),
     # q(d) reporting proportion
-    qd         = round(qd_out, 4),
+    q         = round(qd_out, 4),
     # Date sequence
     date_seq   = date_seq,
     # Used D value
@@ -164,151 +157,79 @@ runSimulation <- function(
   ))
 }
 
-generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
+generateQ <- function(method, params, T, D) {
   #----------------------------------------------------------------
-  # method:         "fixed_q", "fixed_b", "rw_b", "ou_b"
-  # method_params:  a list of parameters required by each method
-  # N_obs:          number of observations (time points)
+  # method:         "q_constant", "b_constant", "b_rw", "b_ou"
+  # params:  a list of parameters required by each method
+  # T:          number of observations (time points)
   # D:              maximum delay used in certain methods
-  # max_delay:      size for qd columns (default 100)
   #
   # Returns a list:
-  #   $qd    : either a matrix (N_obs x (max_delay+1)) or a vector
-  #   $b_t   : vector (length N_obs) of b(t)
-  #   $phi   : vector (length N_obs) of phi(t)
+  #   $q    : either a matrix (T x (max_delay+1)) or a vector
+  #   $b_t   : vector (length T) of b(t)
+  #   $phi   : vector (length T) of phi(t)
   #----------------------------------------------------------------
 
-  # Output containers
-  b_out  <- NULL
-  qd_out   <- NULL
-  phi_out  <- NULL
+  if (method %in% c("q_constant", "b_constant")) {
 
-  #----------------------------------------------------------------
-  # 1) fixed_q: A simple method that returns an exponential distribution q
-  #----------------------------------------------------------------
-  if (method == "fixed_q") {
-    # Expecting something like:
-    # method_params$q_D (delay) and method_params$q_lambda (rate)
-    if (!all(c("q_D", "b", "phi") %in% names(method_params))) {
-      stop("method=fixed_q requires 'q_D' and 'q_lambda' in method_params!")
+    if (!all(c("b", "phi") %in% names(params))) {
+      stop("method=q_constant,b_constant requires 'b' and 'phi' in params!")
     }
-    q_D      <- method_params$q_D
-    q_lambda <- method_params$q_lambda
-    b <- method_params$b
-    phi <- method_params$phi
+    b <- params$b
+    phi <- params$phi
+    q <- 1 - phi * exp(-b * (0:D))
 
-    # Generate a per-day exponential distribution, summing to 1
-    # qd_out <- generate_exponential_q(D = q_D, lambda = q_lambda)  # your own function
-    qd_out <- 1 - phi * exp(-b * (0:q_D))
-    qd_out <- qd_out / max(qd_out)
+  } else if (method == "b_rw") {
 
-    # Return placeholders for b, phi
-    b_out <- b
-    phi_out <- phi
-
-    #----------------------------------------------------------------
-    # 2) fixed_b: phi and b are constants
-    #----------------------------------------------------------------
-  } else if (method == "fixed_b") {
-    # Expecting method_params$b, method_params$phi
-    if (!all(c("b", "phi") %in% names(method_params))) {
-      stop("method=fixed_b requires 'b' and 'phi' in method_params!")
-    }
-    b   <- method_params$b
-    phi <- method_params$phi
-
-    # A single vector of size (max_delay+1): q[d] = 1 - (1-phi)*exp(-b * d)
-    qd_out <- 1 - phi * exp(-b * (0:max_delay))
-
-    # b, phi are scalars
-    b_out  <- b
-    phi_out  <- phi
-
-    #----------------------------------------------------------------
-    # 3) rw_b: second-order random walk for both b(t) and phi(t)
-    #----------------------------------------------------------------
-  } else if (method == "rw_b") {
-    if (!all(c("b_intercept", "b_sigma", "phi_intercept", "phi_sigma") %in% names(method_params))) {
-      stop("method=rw_b requires b_intercept, b_sigma, phi_intercept, phi_sigma!")
+    if (!all(c("mu_logb", "sigma_logb", "mu_logitphi", "sigma_logitphi") %in% names(params))) {
+      stop("method=b_rw requires mu_logb, sigma_logb, mu_logitphi, sigma_logitphi!")
     }
 
-    # Extract parameters
-    b_intercept    <- method_params$b_intercept
-    b_sigma   <- method_params$b_sigma
-    phi_intercept  <- method_params$phi_intercept
-    phi_sigma <- method_params$phi_sigma
+    logb <- arima.sim(model = list(order = c(0, 1, 0)), sd = params$sigma_logb,
+            n = T, n.start = 100) |> as.numeric()
+    logitphi <- arima.sim(model = list(order = c(0, 1, 0)), sd = params$sigma_logitphi,
+            n = T, n.start = 100) |> as.numeric()
 
-    b <- arima.sim(model = list(order = c(0, 1, 0)), n.start = 100, n = N_obs, sd = b_sigma)
-    b_out <- exp(b_intercept + b - mean(b))
+    b <- exp(params$mu_logb + logb - mean(logb))
+    phi <- plogis(params$mu_logitphi + logitphi - mean(logitphi))
 
-    phi <- arima.sim(model = list(order = c(0, 1, 0)), n.start = 100, n = N_obs, sd = phi_sigma)
-    phi_out <- plogis(phi_intercept + phi - mean(phi))
-
-    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
-    for (i in seq_len(N_obs)) {
-      b_i <- b_out[i]
-      phi_i <- phi_out[i]
-      qd_out[i, ] <- 1 - phi_i * exp(-b_i * (0:max_delay))
+    q <- matrix(NA, nrow = T, ncol = D + 1)
+    for (i in seq_len(T)) {
+      q[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
     }
 
-  } else if (method == "ou_b") {
-    if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma",
-               "b_theta", "b_mu", "phi_theta", "phi_mu") %in% names(method_params))) {
-      stop("method=ou_b requires b_init, b_sigma, phi_init, phi_sigma, b_theta, b_mu, phi_theta, phi_mu!")
+  } else if (method == "b_ou") {
+
+    if (!all(c("init_logb", "mu_logb", "sigma_logb", "theta_logitphi",
+            "init_logitphi", "mu_logitphi", "sigma_logitphi", "theta_logb") %in% names(params))) {
+      stop("method=b_ou requires init_logb, mu_logb, sigma_logb, theta_logb, init_logitphi, mu_logitphi, sigma_logitphi, theta_logitphi!")
     }
 
-    # Extract parameters
-    b_init <- method_params$b_init
-    b_mu <- method_params$b_mu
-    b_sigma <- method_params$b_sigma
-    b_theta <- method_params$b_theta
+    logb <- logitphi <- numeric(T)
+    logb[1] <- params$init_logb
+    logitphi[1] <- params$init_logitphi
 
-    phi_init <- method_params$phi_init
-    phi_sigma <- method_params$phi_sigma
-    phi_mu <- method_params$phi_mu
-    phi_theta <- method_params$phi_theta
+    for (i in 2:T) {
+      drift_b_star <- params$theta_logb * (params$mu_logb - logb[i-1])
+      logb[i] <- logb[i-1] + drift_b_star + rnorm(1, 0, params$sigma_logb)
 
-    # # Logistic transform
-    # b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
-    # b_star_sigma <- b_sigma / (b_init * (1 - b_init))
-    # phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
-    # phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
-
-    # # Transform OU targets to logistic scale
-    # mu_b_star <- inverse_logistic_transform(b_mu, 0.05, 1)
-    # mu_phi_star <- inverse_logistic_transform(phi_mu, 0, 1)
-
-    # Initialize arrays
-    b <- phi <- numeric(N_obs)
-
-    # Set initial values
-    b[1] <- b_init
-    phi[1] <- phi_init
-
-    # OU updates in logistic-transformed space
-    for (i in 2:N_obs) {
-      drift_b_star <- b_theta * (b_mu - b[i-1])
-      b[i] <- b[i-1] + drift_b_star + rnorm(1, 0, b_sigma)
-
-      drift_phi_star <- phi_theta * (phi_mu - phi[i-1])
-      phi[i] <- phi[i-1] + drift_phi_star + rnorm(1, 0, phi_sigma)
+      drift_phi_star <- params$theta_logitphi * (params$mu_logitphi - logitphi[i-1])
+      logitphi[i] <- logitphi[i-1] + drift_phi_star + rnorm(1, 0, param$sigma_logitphi)
     }
 
-    # Transform back to original scale (automatically constrained)
-    b_out <- exp(b)
-    phi_out <- plogis(phi)
+    b <- exp(logb)
+    phi <- plogis(phi)
 
-    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
-    for (i in seq_len(N_obs)) {
-      b_i <- b_out[i]
-      phi_i <- phi_out[i]
-      qd_out[i, ] <- 1 - phi_i * exp(-b_i * (0:max_delay))
+    qd_out <- matrix(NA, nrow = T, ncol = D + 1)
+    for (i in seq_len(T)) {
+      qd_out[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
     }
+
   } else if (method == "sin_b") {
     #-------------------------------------------------------------
     # sin_b: Sine + noise model (final-scale baseline) for b(t) and phi(t)
     #
-    # Required parameters in 'method_params':
+    # Required parameters in 'params':
     #   1) b_min, b_max        : Lower and upper bounds for b(t)
     #   2) phi_min, phi_max    : Lower and upper bounds for phi(t)
     #
@@ -332,36 +253,36 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
       "sigma_b", "sigma_phi"
     )
 
-    if (!all(required_params %in% names(method_params))) {
+    if (!all(required_params %in% names(params))) {
       stop(
-        "method=sin_b requires the following parameters in method_params:\n",
+        "method=sin_b requires the following parameters in params:\n",
         paste(required_params, collapse = ", ")
       )
     }
 
     # Extract parameters
-    b_min       <- method_params$b_min
-    b_max       <- method_params$b_max
-    phi_min     <- method_params$phi_min
-    phi_max     <- method_params$phi_max
+    b_min       <- params$b_min
+    b_max       <- params$b_max
+    phi_min     <- params$phi_min
+    phi_max     <- params$phi_max
 
-    b_baseline  <- method_params$b_baseline
-    phi_baseline<- method_params$phi_baseline
+    b_baseline  <- params$b_baseline
+    phi_baseline<- params$phi_baseline
 
-    freq        <- method_params$freq
-    amp_b       <- method_params$amp_b
-    amp_phi     <- method_params$amp_phi
+    freq        <- params$freq
+    amp_b       <- params$amp_b
+    amp_phi     <- params$amp_phi
 
-    sigma_b     <- method_params$sigma_b
-    sigma_phi   <- method_params$sigma_phi
+    sigma_b     <- params$sigma_b
+    sigma_phi   <- params$sigma_phi
 
     # Initialize output containers
-    b_out   <- numeric(N_obs)
-    phi_out <- numeric(N_obs)
-    qd_out  <- matrix(NA_real_, nrow = N_obs, ncol = max_delay + 1)
+    b_out   <- numeric(T)
+    phi_out <- numeric(T)
+    qd_out  <- matrix(NA_real_, nrow = T, ncol = D + 1)
 
     # Loop over time
-    for (t in seq_len(N_obs)) {
+    for (t in seq_len(T)) {
       # 1) Compute the raw b(t) and phi(t) in final scale
       #    baseline + sine + noise
       b_raw   <- b_baseline   + amp_b   * sin(2 * pi * freq * t) +
@@ -374,14 +295,14 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
       phi_out[t] <- max(phi_min, min(phi_max, phi_raw))
 
       # 3) Build q(d): q[d] = 1 - (1 - phi(t)) * exp(-b(t)*d)
-      qd_out[t, ] <- 1 - (1 - phi_out[t]) * exp(-b_out[t] * (0:max_delay))
+      qd_out[t, ] <- 1 - (1 - phi_out[t]) * exp(-b_out[t] * (0:D))
     }
 
   } else {
-    stop("method must be one of: 'fixed_q', 'fixed_b', 'rw_b', 'ou_b'!")
+    stop("method must be one of: 'q_constant', 'b_constant', 'b_rw', 'b_ou'!")
   }
 
-  return(list(qd = qd_out, b = b_out, phi = phi_out))
+  return(list(q = q, b = b, phi = phi))
 }
 
 

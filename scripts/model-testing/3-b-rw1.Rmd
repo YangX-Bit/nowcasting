@@ -26,8 +26,8 @@ posterior_draws_path = file.path(path_proj, "data", "draws", "testEach")
 ```
 
 ```{r}
-rw_b <- file.path(path_proj, "source", "models", "b-rw1.stan")
-model <- cmdstan_model(rw_b)
+b_rw <- file.path(path_proj, "source", "models", "b-rw1.stan")
+model <- cmdstan_model(b_rw)
 ```
 
 ## Fully reported scenario
@@ -42,60 +42,60 @@ alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10
                  alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
                  rep(10,5))
 beta_lamb = 0.5
-N_obs = 60
+T = 60
 D <- 15;
 ```
 
 ### Simulation
 
 ```{r}
-params_rw_b_FR <- list(
+params_b_rw_FR <- list(
   data = list(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    N_obs       = N_obs,
+    T       = T,
     date_start = as.Date("2024-01-01"),
     D = D
   ),
   q_model = list(
-    method        = "rw_b",
-    method_params = list(b_intercept = log(0.7), b_sigma = 0.1, phi_intercept = 1, phi_sigma = 0.1)
+    method        = "b_rw",
+    method_params = list(mu_logb = log(0.7), sigma_logb = 0.1, mu_logitphi = 1, sigma_logitphi = 0.1)
   )
 )
 
-rw_b_FR <- simulateData(params_rw_b_FR)
+b_rw_FR <- simulateData(params_b_rw_FR)
 par(mfrow = c(2, 1))
-plot(rw_b_FR$b, pch = 19, type = "b")
-plot(rw_b_FR$phi, pch = 19, type = "b")
+plot(b_rw_FR$b, pch = 19, type = "b")
+plot(b_rw_FR$phi, pch = 19, type = "b")
 
 par(mfrow = c(1, 1))
-matplot(t(rw_b_FR$qd), type = "l", lty = 1, ylim = c(0, 1))
+matplot(t(b_rw_FR$q), type = "l", lty = 1, ylim = c(0, 1))
 ```
 
 ### Exploratory analysis
 
 ```{r}
-page_num <- ceiling(nrow(rw_b_FR$case_reported_cumulated)/16)
-exp_plot_rw_b <- fit_exp_plot(rw_b_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-exp_plot_rw_b
+page_num <- ceiling(nrow(b_rw_FR$case_reported_cumulated)/16)
+exp_plot_b_rw <- fit_exp_plot(b_rw_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+exp_plot_b_rw
 
-exp_plot_rw_b$coefficients
-exp_b_data_rw_b<- data.frame( date = as.Date(rownames(rw_b_FR$case_reported_cumulated)),
-                          b = exp_plot_rw_b$coefficients$b)
-exp_b_plot_rw_b <- ggplot(exp_b_data_rw_b, aes(x = date, y = b)) +
+exp_plot_b_rw$coefficients
+exp_b_data_b_rw<- data.frame( date = as.Date(rownames(b_rw_FR$case_reported_cumulated)),
+                          b = exp_plot_b_rw$coefficients$b)
+exp_b_plot_b_rw <- ggplot(exp_b_data_b_rw, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +
   geom_smooth(method = "loess", se = TRUE,
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-print(exp_b_plot_rw_b)
+print(exp_b_plot_b_rw)
 ```
 
 ### Model fitting
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = rw_b_FR$case_reported_cumulated[1:ind, ])
+stan_data <- list(T = ind, D = 15, Y = b_rw_FR$case_reported_cumulated[1:ind, ])
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
@@ -110,35 +110,35 @@ mcmc_areas(test$draws("sigma_logit_phi"), prob_outer = 0.95)
 
 param_true = tibble(
     parameter = grep("^b\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_FR$b[1:ind]
+    x = b_rw_FR$b[1:ind]
 )
 mcmc_areas(test$draws("b"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^phi\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_FR$phi[1:ind]
+    x = b_rw_FR$phi[1:ind]
 )
 mcmc_areas(test$draws("phi"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_FR$lambda_t[1:ind]
+    x = b_rw_FR$lambda_t[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^q\\[10,.+\\]$", varnames, value = TRUE),
-    x = rw_b_FR$qd[10,]
+    x = b_rw_FR$q[10,]
 )
 mcmc_areas(test$draws(grep("^q\\[10,.+\\]$", varnames, value = TRUE)), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_FR$case_true[1:ind, 1]
+    x = b_rw_FR$case_true[1:ind, 1]
 )
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
@@ -149,53 +149,54 @@ mcmc_areas(test$draws("N"), prob_outer = 0.95) +
 ### Simulation
 
 ```{r}
-params_rw_b_NFR <- list(
+params_b_rw_NFR <- list(
   data = list(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    N_obs       = N_obs,
+    T       = T,
     date_start = as.Date("2024-01-01"),
     D = D
   ),
   q_model = list(
-    method        = "rw_b",
-    method_params = list(b_intercept = log(0.2), b_sigma = 0.1, phi_intercept = 1.5, phi_sigma = 0.1)
+    method        = "b_rw",
+    method_params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5,
+            sigma_logitphi = 0.1)
   )
 )
 
-rw_b_NFR <- simulateData(params_rw_b_NFR)
+b_rw_NFR <- simulateData(params_b_rw_NFR)
 par(mfrow = c(2, 1))
-plot(rw_b_NFR$b, pch = 19, type = "b")
-plot(rw_b_NFR$phi, pch = 19, type = "b")
+plot(b_rw_NFR$b, pch = 19, type = "b")
+plot(b_rw_NFR$phi, pch = 19, type = "b")
 
 par(mfrow = c(1, 1))
-matplot(t(rw_b_NFR$qd), type = "l", lty = 1, ylim = c(0, 1))
+matplot(t(b_rw_NFR$q), type = "l", lty = 1, ylim = c(0, 1))
 ```
 
 ### Exploratory analysis
 
 ```{r}
-page_num <- ceiling(nrow(rw_b_NFR$case_reported_cumulated)/16)
-exp_plot_rw_b <- fit_exp_plot(rw_b_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_rw_b)
+page_num <- ceiling(nrow(b_rw_NFR$case_reported_cumulated)/16)
+exp_plot_b_rw <- fit_exp_plot(b_rw_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_b_rw)
 
-exp_plot_rw_b$coefficients
-exp_b_data_rw_b<- data.frame( date = as.Date(rownames(rw_b_NFR$case_reported_cumulated)),
-                          b = exp_plot_rw_b$coefficients$b)
-exp_b_plot_rw_b <- ggplot(exp_b_data_rw_b, aes(x = date, y = b)) +
+exp_plot_b_rw$coefficients
+exp_b_data_b_rw<- data.frame( date = as.Date(rownames(b_rw_NFR$case_reported_cumulated)),
+                          b = exp_plot_b_rw$coefficients$b)
+exp_b_plot_b_rw <- ggplot(exp_b_data_b_rw, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +
   geom_smooth(method = "loess", se = TRUE,
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-print(exp_b_plot_rw_b)
+print(exp_b_plot_b_rw)
 ```
 
 ### Model fitting
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = rw_b_NFR$case_reported_cumulated[1:ind, ])
+stan_data <- list(T = ind, D = 15, Y = b_rw_NFR$case_reported_cumulated[1:ind, ])
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
@@ -210,35 +211,35 @@ mcmc_areas(test$draws("sigma_logit_phi"), prob_outer = 0.95)
 
 param_true = tibble(
     parameter = grep("^b\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_NFR$b[1:ind]
+    x = b_rw_NFR$b[1:ind]
 )
 mcmc_areas(test$draws("b"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^phi\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_NFR$phi[1:ind]
+    x = b_rw_NFR$phi[1:ind]
 )
 mcmc_areas(test$draws("phi"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_NFR$lambda_t[1:ind]
+    x = b_rw_NFR$lambda_t[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^q\\[10,.+\\]$", varnames, value = TRUE),
-    x = rw_b_NFR$qd[11,]
+    x = b_rw_NFR$q[11,]
 )
 mcmc_areas(test$draws(grep("^q\\[10,.+\\]$", varnames, value = TRUE)), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
-    x = rw_b_NFR$case_true[1:ind, 1]
+    x = b_rw_NFR$case_true[1:ind, 1]
 )
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
