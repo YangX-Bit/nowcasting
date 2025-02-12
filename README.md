@@ -31,3 +31,8 @@
     quickly move toward 0:
     * Moderate: rlnorm(100000, meanlog = 0, sdlog = 2)
     * Allows very high numbers: rlnorm(100000, meanlog = 0, sdlog = 3)
+- Function: `rmultinom`
+    * Probabilities vector are automatically normalized to sum to 1. Careful in case
+      of non fully reported cases, we do not wish for this probabilities to be
+    normalized because it will distribute the total cases into the D delays. This
+    means that it will become fully reported case.
