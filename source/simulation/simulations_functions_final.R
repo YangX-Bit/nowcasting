@@ -2,11 +2,7 @@ library(dplyr)
 library(tidyr)
 
 simulateData <- function(
-    #------------------------------
-    # 1) Input control
-    #------------------------------
     params = list(
-      # A. Data
       data = list(
         alpha_lamb = c(1:10, seq(10, 120, by = 4), seq(120, 3, by = -6)),
         beta_lamb  = 0.5,
@@ -14,22 +10,19 @@ simulateData <- function(
         date_start = as.Date("2024-01-01"),
         D = 20
       ),
-      # C. Model selection
       q_model = list(
         method       = "b_constant",  # "q_constant", "b_constant", "b_rw", "b_ou"
-        # different params for diff methods
         method_params= list(
           # q_constant: b, phi
           # b_constant: b, phi
-          # b_ou: alpha, mu, init_logb, b_sigma, init_logitphi, sigma_logitphi
+          # b_rw: mu_logb, sigma_logb, mu_logitphi, sigma_logitphi
+          # b_ou: init_logb, mu_logb, sigma_logb, theta_logb,
+          #     theta_logitphi, init_logitphi, mu_logitphi, sigma_logitphi
           b = 0.5, phi = 0.2
         )
       )
     )
 ){
-  #---------------------------------------------------------
-  # 2) Local variebles
-  #---------------------------------------------------------
   # (A) data
   alpha_lamb  <- params$data$alpha_lamb
   beta_lamb   <- params$data$beta_lamb
@@ -41,41 +34,16 @@ simulateData <- function(
   method          <- params$q_model$method
   method_params   <- params$q_model$method_params
 
-  #---------------------------------------------------------
-  # 3) Check the input
-  #---------------------------------------------------------
   if (!(length(alpha_lamb) == T)) {
     stop("The length of `alpha_lamb` should be equal to the length of `T`！")
   }
 
+  simsQ_out <- generateQ(method = method, params = method_params, T = T, D = D)
 
-  #---------------------------------------------------------
-  # 5) use generateQ() to generate q(d) and b_t
-  #---------------------------------------------------------
-    print(params$q_model)
-  simsQ_out <- generateQ(
-    method        = method,
-    params = method_params,
-    T          = T,
-    D             = D
-  )
-    print(simsQ_out)
-
-  #---------------------------------------------------------
-  # 6) simulation
-  #---------------------------------------------------------
   simulation_result <- runSimulation(
-    alpha_lamb = alpha_lamb,
-    beta_lamb  = beta_lamb,
-    T      = T,
-    date_start = date_start,
-    simsQ_out  = simsQ_out,
-    D = D
-  )
+    alpha_lamb = alpha_lamb, beta_lamb  = beta_lamb, T = T, date_start = date_start,
+    simsQ_out  = simsQ_out, D = D)
 
-  #---------------------------------------------------------
-  # 7) output
-  #---------------------------------------------------------
   return(simulation_result)
 }
 
@@ -91,7 +59,7 @@ runSimulation <- function(
   date_seq <- seq.Date(from = date_start, by = "day", length.out = T)
 
   # Initialize variables
-  lambda_t     <- numeric(T)        # Disease intensity
+  lambda     <- numeric(T)        # Disease intensity
   case_true    <- integer(T)        # True number of cases
   case_reported<- matrix(0, nrow = T, ncol = D + 1)  # Reported cases
   rownames(case_reported) <- as.character(date_seq)
@@ -100,10 +68,10 @@ runSimulation <- function(
   for (tt in seq_len(T)){
 
     # 1) λ_t ~ Gamma
-    lambda_t[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
+    lambda[tt] <- rgamma(1, shape = alpha_lamb[tt], rate = beta_lamb)
 
     # 2) True number of cases
-    case_true[tt] <- rpois(1, lambda = lambda_t[tt])
+    case_true[tt] <- rpois(1, lambda = lambda[tt])
 
     # 3) Get the reporting proportion for the current time point
     if (is.vector(simsQ_out$q)){
@@ -115,10 +83,10 @@ runSimulation <- function(
     }
 
     # 4) Calculate single-day reporting proportions
-    p_temp <- c(prob_temp[1], diff(prob_temp))
+    p_temp <- c(prob_temp[1], diff(prob_temp), 1 - prob_temp[D+1])
 
     # 5) Distribute the true cases to each delay day
-    case_reported[tt, ] <- rmultinom(n = 1, size = case_true[tt], prob = p_temp)
+    case_reported[tt, ] <- rmultinom(n = 1, size = case_true[tt], prob = p_temp)[1:(D+1)]
 
   }
 
@@ -143,7 +111,7 @@ runSimulation <- function(
     # True cases
     case_true  = case_true,
     # Disease intensity
-    lambda_t   = round(lambda_t),
+    lambda   = round(lambda, 4),
     # b(t) parameter
     b        = round(simsQ_out$b, 4),
     # intercept
@@ -214,16 +182,17 @@ generateQ <- function(method, params, T, D) {
       logb[i] <- logb[i-1] + drift_b_star + rnorm(1, 0, params$sigma_logb)
 
       drift_phi_star <- params$theta_logitphi * (params$mu_logitphi - logitphi[i-1])
-      logitphi[i] <- logitphi[i-1] + drift_phi_star + rnorm(1, 0, param$sigma_logitphi)
+      logitphi[i] <- logitphi[i-1] + drift_phi_star + rnorm(1, 0, params$sigma_logitphi)
     }
 
     b <- exp(logb)
-    phi <- plogis(phi)
+    phi <- plogis(logitphi)
 
-    qd_out <- matrix(NA, nrow = T, ncol = D + 1)
+    q <- matrix(NA, nrow = T, ncol = D + 1)
     for (i in seq_len(T)) {
-      qd_out[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
+      q[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
     }
+    print("here we go")
 
   } else if (method == "sin_b") {
     #-------------------------------------------------------------

@@ -26,8 +26,8 @@ posterior_draws_path = file.path(path_proj, "data", "draws", "testEach")
 ```
 
 ```{r}
-fixed_q <- file.path(path_proj, "source", "models", "q-fixed.stan")
-model <- cmdstan_model(fixed_q)
+q_constant <- file.path(path_proj, "source", "models", "q-constant.stan")
+model <- cmdstan_model(q_constant)
 ```
 
 ## Fully reported scenario
@@ -42,55 +42,55 @@ alpha_lamb =  c(rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,
                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
                 rep(10,5))
 beta_lamb = 0.5
-N_obs = 60
+T = 60
 D <- 15;
 ```
 
 ### Simulation
 
 ```{r}
-params_fixed_q_FR <- list(
+params_q_constant_FR <- list(
   data = list(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    N_obs       = N_obs,
+    T       = T,
     date_start = as.Date("2024-01-01"),
     D = D
   ),
   q_model = list(
-    method        = "fixed_q",
-    method_params = list(q_D = 100, b = 0.7, phi = 0.9)
+    method        = "q_constant",
+    method_params = list(b = 0.7, phi = 0.9)
   )
 )
 
-fixed_q_FR <- simulateData(params_fixed_q_FR)
-plot(fixed_q_FR$qd, col = "red", pch = 19, type = "b", ylim = c(0,1))
+q_constant_FR <- simulateData(params_q_constant_FR)
+plot(q_constant_FR$q, col = "red", pch = 19, type = "b", ylim = c(0,1))
 ```
 
 ### Exploratory analysis
 
 ```{r}
-page_num <- ceiling(nrow(fixed_q_FR$case_reported_cumulated)/16)
-exp_plot_fixed_q <- fit_exp_plot(fixed_q_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_fixed_q)
+page_num <- ceiling(nrow(q_constant_FR$case_reported_cumulated)/16)
+exp_plot_q_constant <- fit_exp_plot(q_constant_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_q_constant)
 
-exp_plot_fixed_q$coefficients
-exp_b_data_fixed_q<- data.frame( date = as.Date(rownames(fixed_q_FR$case_reported_cumulated)),
-                          b = exp_plot_fixed_q$coefficients$b)
-exp_b_plot_fixed_q <- ggplot(exp_b_data_fixed_q, aes(x = date, y = b)) +
+exp_plot_q_constant$coefficients
+exp_b_data_q_constant<- data.frame( date = as.Date(rownames(q_constant_FR$case_reported_cumulated)),
+                          b = exp_plot_q_constant$coefficients$b)
+exp_b_plot_q_constant <- ggplot(exp_b_data_q_constant, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +
   geom_smooth(method = "loess", se = TRUE,
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-print(exp_b_plot_fixed_q)
+print(exp_b_plot_q_constant)
 ```
 
 ### Model fitting
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = fixed_q_FR$case_reported_cumulated[1:ind, ])
+stan_data <- list(T = ind, D = 15, Y = q_constant_FR$case_reported_cumulated[1:ind, ])
 
 test = model$sample(
     data = stan_data,
@@ -103,28 +103,28 @@ varnames <- test$summary()$variable
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_FR$lambda_t[1:ind]
+    x = q_constant_FR$lambda[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^p\\[.+\\]$", varnames, value = TRUE),
-    x = c(fixed_q_FR$qd[1], diff(fixed_q_FR$qd))
+    x = c(q_constant_FR$q[1], diff(q_constant_FR$q))
 )
 mcmc_areas(test$draws("p"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^q\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_FR$qd
+    x = q_constant_FR$q
 )
 mcmc_areas(test$draws("q"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_FR$case_true[1:ind, 1]
+    x = q_constant_FR$case_true[1:ind, 1]
 )
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
@@ -135,50 +135,49 @@ mcmc_areas(test$draws("N"), prob_outer = 0.95) +
 ### Simulation
 
 ```{r}
-# fixed_q_NFR
-params_fixed_q_NFR <- list(
+# q_constant_NFR
+params_q_constant_NFR <- list(
   data = list(
     alpha_lamb = alpha_lamb,
     beta_lamb  = beta_lamb,
-    N_obs       = N_obs,
+    T       = T,
     date_start = as.Date("2024-01-01"),
     D = D
   ),
   q_model = list(
-    method        = "fixed_q",
-    method_params = list(q_D = 100, b = 0.15, phi = 0.9)
+    method        = "q_constant",
+    method_params = list(b = 0.15, phi = 0.9)
   )
 )
-fixed_q_NFR <- simulateData(params_fixed_q_NFR)
-plot(fixed_q_NFR$qd, col = "red", pch = 19, type = "b", ylim = c(0,1))
+q_constant_NFR <- simulateData(params_q_constant_NFR)
+plot(q_constant_NFR$q, col = "red", pch = 19, type = "b", ylim = c(0,1))
 ```
 
 ### Exploratory analysis
 
 ```{r}
 # exploritary analysis
-page_num <- ceiling(nrow(fixed_q_NFR$case_reported_cumulated)/16)
-exp_plot_fixed_q <- fit_exp_plot(fixed_q_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
-print(exp_plot_fixed_q)
+page_num <- ceiling(nrow(q_constant_NFR$case_reported_cumulated)/16)
+exp_plot_q_constant <- fit_exp_plot(q_constant_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_q_constant)
 
-exp_plot_fixed_q$coefficients
-exp_b_data_fixed_q<- data.frame( date = as.Date(rownames(fixed_q_NFR$case_reported_cumulated)),
-                          b = exp_plot_fixed_q$coefficients$b)
-
-exp_b_plot_fixed_q <- ggplot(exp_b_data_fixed_q, aes(x = date, y = b)) +
+exp_plot_q_constant$coefficients
+exp_b_data_q_constant<- data.frame( date = as.Date(rownames(q_constant_NFR$case_reported_cumulated)),
+                          b = exp_plot_q_constant$coefficients$b)
+exp_b_plot_q_constant <- ggplot(exp_b_data_q_constant, aes(x = date, y = b)) +
   geom_point(color = "black", size = 1.5) +
   geom_smooth(method = "loess", se = TRUE,
               color = "blue", fill = "grey", alpha = 0.5) +
   theme_minimal() +
   labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
-print(exp_b_plot_fixed_q)
+print(exp_b_plot_q_constant)
 ```
 
 ### Model fitting
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = fixed_q_NFR$case_reported_cumulated[1:ind, ])
+stan_data <- list(T = ind, D = 15, Y = q_constant_NFR$case_reported_cumulated[1:ind, ])
 
 test = model$sample(
     data = stan_data,
@@ -191,28 +190,28 @@ varnames <- test$summary()$variable
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_NFR$lambda_t[1:ind]
+    x = q_constant_NFR$lambda[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^p\\[.+\\]$", varnames, value = TRUE),
-    x = c(fixed_q_NFR$qd[1], diff(fixed_q_NFR$qd))
+    x = c(q_constant_NFR$q[1], diff(q_constant_NFR$q))
 )
 mcmc_areas(test$draws("p"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^q\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_NFR$qd
+    x = q_constant_NFR$q
 )
 mcmc_areas(test$draws("q"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 
 param_true = tibble(
     parameter = grep("^N\\[.+\\]$", varnames, value = TRUE),
-    x = fixed_q_NFR$case_true[1:ind, 1]
+    x = q_constant_NFR$case_true[1:ind, 1]
 )
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)

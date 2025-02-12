@@ -124,7 +124,7 @@ mcmc_areas(test$draws("phi"), prob_outer = 0.95) +
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = b_rw_FR$lambda_t[1:ind]
+    x = b_rw_FR$lambda[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
@@ -225,7 +225,7 @@ mcmc_areas(test$draws("phi"), prob_outer = 0.95) +
 
 param_true = tibble(
     parameter = grep("^lambda\\[.+\\]$", varnames, value = TRUE),
-    x = b_rw_NFR$lambda_t[1:ind]
+    x = b_rw_NFR$lambda[1:ind]
 )
 mcmc_areas(test$draws("lambda"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
