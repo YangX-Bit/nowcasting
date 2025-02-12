@@ -90,8 +90,8 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
       warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
     }
     
-    stan_data_trunc <- list(N_obs = N_obs_local, D = D + 1, Y = data_trunc,
-                            K = nrow(indices_data_trunc), obs_index = indices_data_trunc)
+    stan_data_trunc <- list(T = N_obs_local, D = D, Y = data_trunc,
+                            N = nrow(indices_data_trunc), obs_index = indices_data_trunc)
 
     # return(stan_data_trunc)
     # Fit models based on what is selected 
