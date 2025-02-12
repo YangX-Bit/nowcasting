@@ -19,9 +19,9 @@ transformed parameters {
 
 model {
   // Priors
-  b ~ lognormal(0, 0.3);
-  phi ~ uniform(0, 1);
   lambda ~ lognormal(0, 2.5);
+  b ~ lognormal(0, 1);
+  phi ~ uniform(0, 1);
 
   // Likelihood
   for (d in 0:D)

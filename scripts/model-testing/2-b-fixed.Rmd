@@ -35,9 +35,6 @@ model <- cmdstan_model(fixed_b)
 ### Setting
 
 ```{r}
-seed <- 123
-set.seed(seed)
-
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -97,7 +94,7 @@ stan_data <- list(T = ind, D = 15, Y = fixed_b_FR$case_reported_cumulated[1:ind,
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
-    iter_warmup = 1000,
+    iter_warmup = 2000,
     chains = 1,
     refresh = 0,
     thin = 1)
@@ -141,8 +138,7 @@ params_fixed_b_NFR <- list(
     beta_lamb  = beta_lamb,
     N_obs       = N_obs,
     date_start = as.Date("2024-01-01"),
-    D = D,
-    seed       = seed
+    D = D
   ),
   q_model = list(
     method        = "fixed_b",
@@ -182,7 +178,7 @@ stan_data <- list(T = ind, D = 15, Y = fixed_b_NFR$case_reported_cumulated[1:ind
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
-    iter_warmup = 1000,
+    iter_warmup = 2000,
     chains = 1,
     refresh = 0,
     thin = 1)

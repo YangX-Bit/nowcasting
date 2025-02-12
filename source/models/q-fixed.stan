@@ -19,8 +19,8 @@ transformed parameters {
 
 model {
   // Priors
+  lambda ~ lognormal(0, 3);
   p ~ dirichlet(p_alpha);               // simplex uniform
-  lambda ~ lognormal(0, 2.5);
 
   // Likelihood
   for (d in 0:D)
