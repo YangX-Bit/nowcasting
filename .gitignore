@@ -1,3 +1,11 @@
+scripts/model-testing/*.html
+
+source/models/*.exe
+source/models/q-fixed
+source/models/b-fixed
+source/models/b-rw1
+source/models/b-ou
+
 # History files
 .Rhistory
 .Rapp.history
