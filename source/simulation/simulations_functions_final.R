@@ -12,8 +12,7 @@ simulateData <- function(
         beta_lamb  = 0.5,
         N_obs       = 30,
         date_start = as.Date("2024-01-01"),
-        D = 20,
-        seed       = 123
+        D = 20
       ),
       # C. Model selection
       q_model = list(
@@ -38,7 +37,6 @@ simulateData <- function(
   N_obs       <- params$data$N_obs
   date_start  <- params$data$date_start
   D           <- params$data$D
-  seed        <- params$data$seed
 
   # (B) model for qd
   method          <- params$q_model$method
@@ -54,11 +52,6 @@ simulateData <- function(
     stop("The length of `alpha_lamb` should be equal to the length of `N_obs`！")
   }
 
-
-  #---------------------------------------------------------
-  # 4) Set Random Seed
-  #---------------------------------------------------------
-  set.seed(seed)
 
   #---------------------------------------------------------
   # 5) use generateQ() to generate q(d) and b_t
@@ -206,7 +199,7 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
 
     # Generate a per-day exponential distribution, summing to 1
     # qd_out <- generate_exponential_q(D = q_D, lambda = q_lambda)  # your own function
-    qd_out <- 1 - (1 - phi) * exp(-b * (0:q_D))
+    qd_out <- 1 - phi * exp(-b * (0:q_D))
     qd_out <- qd_out / max(qd_out)
 
     # Return placeholders for b, phi
@@ -225,7 +218,7 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
     phi <- method_params$phi
 
     # A single vector of size (max_delay+1): q[d] = 1 - (1-phi)*exp(-b * d)
-    qd_out <- 1 - (1 - phi) * exp(-b * (0:max_delay))
+    qd_out <- 1 - phi * exp(-b * (0:max_delay))
 
     # b, phi are scalars
     b_out  <- b
@@ -260,56 +253,56 @@ generateQ <- function(method, method_params, N_obs, D, max_delay = 100) {
 
   } else if (method == "ou_b") {
     if (!all(c("b_init", "b_sigma", "phi_init", "phi_sigma",
-               "alpha_b", "mu_b", "alpha_phi", "mu_phi") %in% names(method_params))) {
-      stop("method=ou_b requires b_init, b_sigma, phi_init, phi_sigma, alpha_b, mu_b, alpha_phi, mu_phi!")
+               "b_theta", "b_mu", "phi_theta", "phi_mu") %in% names(method_params))) {
+      stop("method=ou_b requires b_init, b_sigma, phi_init, phi_sigma, b_theta, b_mu, phi_theta, phi_mu!")
     }
 
     # Extract parameters
     b_init <- method_params$b_init
+    b_mu <- method_params$b_mu
     b_sigma <- method_params$b_sigma
+    b_theta <- method_params$b_theta
+
     phi_init <- method_params$phi_init
     phi_sigma <- method_params$phi_sigma
-    alpha_b <- method_params$alpha_b
-    mu_b <- method_params$mu_b
-    alpha_phi <- method_params$alpha_phi
-    mu_phi <- method_params$mu_phi
+    phi_mu <- method_params$phi_mu
+    phi_theta <- method_params$phi_theta
 
-    # Logistic transform
-    b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
-    b_star_sigma <- b_sigma / (b_init * (1 - b_init))
-    phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
-    phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
+    # # Logistic transform
+    # b_star_init <- inverse_logistic_transform(b_init, 0.05, 1)
+    # b_star_sigma <- b_sigma / (b_init * (1 - b_init))
+    # phi_star_init <- inverse_logistic_transform(phi_init, 0, 1)
+    # phi_star_sigma <- phi_sigma / (phi_init * (1 - phi_init))
 
-    # Transform OU targets to logistic scale
-    mu_b_star <- inverse_logistic_transform(mu_b, 0.05, 1)
-    mu_phi_star <- inverse_logistic_transform(mu_phi, 0, 1)
+    # # Transform OU targets to logistic scale
+    # mu_b_star <- inverse_logistic_transform(b_mu, 0.05, 1)
+    # mu_phi_star <- inverse_logistic_transform(phi_mu, 0, 1)
 
     # Initialize arrays
-    b_star <- phi_star <- numeric(N_obs)
-    b_out <- phi_out <- numeric(N_obs)
-    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
+    b <- phi <- numeric(N_obs)
 
     # Set initial values
-    b_star[1] <- b_star_init
-    phi_star[1] <- phi_star_init
+    b[1] <- b_init
+    phi[1] <- phi_init
 
     # OU updates in logistic-transformed space
     for (i in 2:N_obs) {
-      drift_b_star <- alpha_b * (mu_b_star - b_star[i-1])
-      b_star[i] <- b_star[i-1] + drift_b_star + rnorm(1, 0, b_star_sigma)
+      drift_b_star <- b_theta * (b_mu - b[i-1])
+      b[i] <- b[i-1] + drift_b_star + rnorm(1, 0, b_sigma)
 
-      drift_phi_star <- alpha_phi * (mu_phi_star - phi_star[i-1])
-      phi_star[i] <- phi_star[i-1] + drift_phi_star + rnorm(1, 0, phi_star_sigma)
+      drift_phi_star <- phi_theta * (phi_mu - phi[i-1])
+      phi[i] <- phi[i-1] + drift_phi_star + rnorm(1, 0, phi_sigma)
     }
 
     # Transform back to original scale (automatically constrained)
-    b_out <- logistic_transform(b_star, 0.05, 1)
-    phi_out <- logistic_transform(phi_star, 0, 1)
+    b_out <- exp(b)
+    phi_out <- plogis(phi)
 
+    qd_out <- matrix(NA, nrow = N_obs, ncol = max_delay + 1)
     for (i in seq_len(N_obs)) {
       b_i <- b_out[i]
       phi_i <- phi_out[i]
-      qd_out[i, ] <- 1 - (1 - phi_i) * exp(-b_i * (0:max_delay))
+      qd_out[i, ] <- 1 - phi_i * exp(-b_i * (0:max_delay))
     }
   } else if (method == "sin_b") {
     #-------------------------------------------------------------
