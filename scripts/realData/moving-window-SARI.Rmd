@@ -51,23 +51,23 @@ posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", 
 
 ```{r}
 #models
-fixed_q <- file.path(path_proj, "source", "models", 
-                      "1.stan_model_fixed_q.stan")
-fixed_b <- file.path(path_proj, "source", "models", 
-                     "2.stan_model_fixed_b.stan")
-# rw_b <- file.path(path_proj, "source", "models", 
-#                      "5.stan_model_rw_b_logis.stan")
-ou_b <-  file.path(path_proj, "source", "models", 
-                      "6.stan_model_ou_b_logis.stan")
+q_constant <- file.path(path_proj, "source", "models", 
+                      "q-constant.stan")
+b_constant <- file.path(path_proj, "source", "models", 
+                     "b-constant.stan")
+b_rw <- file.path(path_proj, "source", "models", 
+                     "b-rw1.stan")
+b_ou <-  file.path(path_proj, "source", "models", 
+                      "b-ou.stan")
 
 compiled_models <- list(
-  fixed_q = cmdstan_model(fixed_q),
-  fixed_b = cmdstan_model(fixed_b),
-  #rw_b = cmdstan_model(rw_b),
-  ou_b = cmdstan_model(ou_b)
+  q_constant = cmdstan_model(q_constant),
+  b_constant = cmdstan_model(b_constant),
+  b_rw = cmdstan_model(b_rw),
+  b_ou = cmdstan_model(b_ou)
 )
 
-models_to_use <- c("fixed_q", "fixed_b", "ou_b")
+models_to_use <- c("q_constant", "b_constant", "b_rw", "b_ou")
 ```
 
 ```{r, warning=FALSE}
@@ -146,7 +146,6 @@ scoreRange_SARI
 out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
                                 case_true = case_true,
                                 start_date = as.Date("2009-06-15"),
-                                #start_date = scoreRange[1] - weeks(20),
                                 D = D, seeds = 111,
                                 methods = models_to_use,
                                 compiled_models = compiled_models,
@@ -154,14 +153,14 @@ out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_
                                 num_chains = 3, suppress_output = T,
                                 posterior_draws_path = posterior_draws_path)
 
-save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=26.RData"))
+#save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=26.RData"))
 
 
 ```
 
 ```{r}
 
-load(file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=5.RData"))
+#load(file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=5.RData"))
 
 results_SARI <- nowcasts_table(out_SARI, D = 5, report_unit = "day", 
                           methods = models_to_use)

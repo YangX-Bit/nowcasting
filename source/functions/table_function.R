@@ -47,7 +47,7 @@ nowcasts_table <- function(results_list,
     # Dynamically add model results
     for (model_name in methods) {
       # model_name might be "fixed_q", "fixed_b", ...
-      samples <- results_list[[model_name]][[i]]$draws(variables = "N_t", format = "draws_matrix")
+      samples <- results_list[[model_name]][[i]]$draws(variables = "N", format = "draws_matrix")
       nowcasts_df[[paste0("mean_", model_name)]]  <- apply(samples, 2, mean)
       nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
       nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
