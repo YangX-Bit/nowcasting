@@ -1,8 +1,8 @@
 scripts/model-testing/*.html
 
 source/models/*.exe
-source/models/q-fixed
-source/models/b-fixed
+source/models/q-constant
+source/models/b-constant
 source/models/b-rw1
 source/models/b-ou
 
