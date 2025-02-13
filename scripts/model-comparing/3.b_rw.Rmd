@@ -1,0 +1,351 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(bayesplot)
+library(reshape2)
+library(dplyr)
+```
+
+# Setting
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+# place for draws
+# mac
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+
+#Windows
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
+
+#data path
+data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "3. b_rw")
+```
+
+```{r}
+#models
+q_constant <- file.path(path_proj, "source", "models", 
+                      "q-constant.stan")
+b_constant <- file.path(path_proj, "source", "models", 
+                     "b-constant.stan")
+b_rw <- file.path(path_proj, "source", "models", 
+                     "b-rw1.stan")
+b_ou <-  file.path(path_proj, "source", "models", 
+                      "b-ou.stan")
+
+compiled_models <- list(
+  q_constant = cmdstan_model(q_constant),
+  b_constant = cmdstan_model(b_constant),
+  b_rw = cmdstan_model(b_rw),
+  b_ou = cmdstan_model(b_ou)
+)
+
+models_to_use <- c("q_constant", "b_constant", "b_rw", "b_ou")
+```
+
+```{r}
+###### setting #####
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+beta_lamb = 0.5
+T = 60
+# reprot delay
+D <- 15;
+
+# Time period for checking
+D_check <- 5
+
+first_date <- as.Date("2024-01-01")
+
+scoreRange <- c(first_date+days(9), first_date+days(19), first_date+days(29),
+                first_date+days(39), first_date+days(49))
+```
+
+
+## Fully reported case
+
+### Simulation
+```{r}
+params_b_rw_FR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,
+    beta_lamb  = beta_lamb,
+    T       = T,
+    date_start = as.Date("2024-01-01"),
+    D = D
+  ),
+  q_model = list(
+    method        = "b_rw",
+    method_params = list(mu_logb = log(0.7), sigma_logb = 0.1, mu_logitphi = 1, sigma_logitphi = 0.1)
+  )
+)
+
+b_rw_FR <- simulateData(params_b_rw_FR)
+par(mfrow = c(2, 1))
+plot(b_rw_FR$b, pch = 19, type = "b")
+plot(b_rw_FR$phi, pch = 19, type = "b")
+
+par(mfrow = c(1, 1))
+matplot(t(b_rw_FR$q), type = "l", lty = 1, ylim = c(0, 1))
+```
+
+
+### Exploratory analysis
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(b_rw_FR$case_reported_cumulated)/16)
+exp_plot_b_rw <- fit_exp_plot(b_rw_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+# print(exp_plot_b_rw)
+# 
+# exp_plot_b_rw$coefficients
+exp_b_data_b_rw<- data.frame( date = as.Date(rownames(b_rw_FR$case_reported_cumulated)),
+                          b = exp_plot_b_rw$coefficients$b)
+
+exp_b_plot_b_rw <- ggplot(exp_b_data_b_rw, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_b_rw)
+```
+
+
+### Model fitting
+```{r}
+# out_b_rw_FR <-
+#   nowcasting_moving_window(b_rw_FR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = b_rw_FR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_rw")
+#                           )
+# 
+# save(out_b_rw_FR, file = file.path(data_save_path, "FR_b_rw.RData"))
+load( file.path(data_save_path, "FR_b_rw.RData"))
+
+results_b_rw_FR <- nowcasts_table(out_b_rw_FR, D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR, D = D, report_unit = "day", methods = models_to_use)
+
+for (i in 1:length(results_b_rw_FR)) {
+  print(calculate_metrics(results_b_rw_FR[[i]],
+                          methods = models_to_use))
+}
+
+for (i in 1:length(results_b_rw_FR)) {
+  print(calculate_metrics(data.table::last(results_b_rw_FR[[i]],D_check),
+                          methods = models_to_use))
+}
+print(plots_b_rw_FR)
+```   
+
+### Parameter Checking
+```{r}
+# try the third one, "2024-01-30"
+T_test = T * 3/6
+
+# q_constant
+varnames_b_rw <- out_b_rw_FR$b_rw[[3]]$summary()$variable
+
+
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("sigma_log_b"), prob_outer = 0.95)
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("sigma_logit_phi"), prob_outer = 0.95)
+
+param_true = tibble(
+    parameter = grep("^b\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_FR$b[1:T_test]
+)
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("b"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^phi\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_FR$phi[1:T_test]
+)
+
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("phi"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^lambda\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_FR$lambda[1:T_test]
+)
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("lambda"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^q\\[10,.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_FR$q[10,]
+)
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws(grep("^q\\[10,.+\\]$", varnames_b_rw, value = TRUE)), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^N\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_FR$case_true[1:T_test, 1]
+)
+mcmc_areas(out_b_rw_FR$b_rw[[3]]$draws("N"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+```
+
+
+
+### Simulation
+```{r}
+params_b_rw_NFR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,
+    beta_lamb  = beta_lamb,
+    T       = T,
+    date_start = as.Date("2024-01-01"),
+    D = D
+  ),
+  q_model = list(
+    method        = "b_rw",
+    method_params = list(mu_logb = log(0.1), sigma_logb = 0.1, mu_logitphi = 1.5,
+            sigma_logitphi = 0.1)
+  )
+)
+
+b_rw_NFR <- simulateData(params_b_rw_NFR)
+par(mfrow = c(2, 1))
+plot(b_rw_NFR$b, pch = 19, type = "b")
+plot(b_rw_NFR$phi, pch = 19, type = "b")
+
+par(mfrow = c(1, 1))
+matplot(t(b_rw_NFR$q), type = "l", lty = 1, ylim = c(0, 1))
+
+b_rw_NFR$case_true - b_rw_NFR$case_reported_cumulated[,16]
+```
+
+### Exploratory analysis
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(b_rw_NFR$case_reported_cumulated)/16)
+exp_plot_b_rw <- fit_exp_plot(b_rw_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+# print(exp_plot_b_rw)
+# 
+# exp_plot_b_rw$coefficients
+exp_b_data_b_rw<- data.frame( date = as.Date(rownames(b_rw_NFR$case_reported_cumulated)),
+                          b = exp_plot_b_rw$coefficients$b)
+
+exp_b_plot_b_rw <- ggplot(exp_b_data_b_rw, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_b_rw)
+
+```
+
+### Model fitting
+```{r}
+# out_b_rw_NFR <-
+#   nowcasting_moving_window(b_rw_NFR$case_reported_cumulated, scoreRange = scoreRange,
+#                           case_true = b_rw_NFR$case_true,
+#                           start_date = as.Date("2024-01-01"),
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_rw")
+#                           )
+# 
+# save(out_b_rw_NFR, file = file.path(data_save_path, "NFR_b_rw.RData"))
+load( file.path(data_save_path, "NFR_b_rw.RData"))
+
+results_b_rw_NFR <- nowcasts_table(out_b_rw_NFR, D = D, report_unit = "day", 
+                          methods = models_to_use)
+
+plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR, D = D, report_unit = "day", methods = models_to_use)
+
+for (i in 1:length(results_b_rw_NFR)) {
+  print(calculate_metrics(results_b_rw_NFR[[i]],
+                          methods = models_to_use))
+}
+
+for (i in 1:length(results_b_rw_NFR)) {
+  print(calculate_metrics(data.table::last(results_b_rw_NFR[[i]],D_check),
+                          methods = models_to_use))
+}
+print(plots_b_rw_NFR)
+```   
+
+### Parameter Checking
+```{r}
+# try the third one, "2024-01-30"
+T_test = T * 3/6
+
+# q_constant
+varnames_b_rw <- out_b_rw_NFR$b_rw[[3]]$summary()$variable
+
+
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("sigma_log_b"), prob_outer = 0.95)
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("sigma_logit_phi"), prob_outer = 0.95)
+
+param_true = tibble(
+    parameter = grep("^b\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_NFR$b[1:T_test]
+)
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("b"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^phi\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_NFR$phi[1:T_test]
+)
+
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("phi"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^lambda\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_NFR$lambda[1:T_test]
+)
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("lambda"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^q\\[10,.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_NFR$q[10,]
+)
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws(grep("^q\\[10,.+\\]$", varnames_b_rw, value = TRUE)), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+
+param_true = tibble(
+    parameter = grep("^N\\[.+\\]$", varnames_b_rw, value = TRUE),
+    x = b_rw_NFR$case_true[1:T_test, 1]
+)
+mcmc_areas(out_b_rw_NFR$b_rw[[3]]$draws("N"), prob_outer = 0.95) +
+    geom_point(aes(x = x), param_true, color = "red", size = 1)
+```

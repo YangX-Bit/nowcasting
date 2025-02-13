@@ -1,0 +1,241 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(cmdstanr)
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+```
+
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+source(file.path(path_source, "simulation", "simulations_functions_final.R"))
+source(file.path(path_source, "functions", "plot_function.R"))
+source(file.path(path_source, "functions", "fit_function.R"))
+source(file.path(path_source, "functions", "table_function.R"))
+
+# place for draws
+# mac
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+# windows
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
+
+#data path
+data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "2. b_constant")
+```
+
+```{r}
+#models
+q_constant <- file.path(path_proj, "source", "models", 
+                      "q-constant.stan")
+b_constant <- file.path(path_proj, "source", "models", 
+                     "b-constant.stan")
+b_rw <- file.path(path_proj, "source", "models", 
+                     "b-rw1.stan")
+b_ou <-  file.path(path_proj, "source", "models", 
+                      "b-ou.stan")
+
+compiled_models <- list(
+  q_constant = cmdstan_model(q_constant),
+  b_constant = cmdstan_model(b_constant),
+  b_rw = cmdstan_model(b_rw),
+  b_ou = cmdstan_model(b_ou)
+)
+
+models_to_use <- c("q_constant", "b_constant", "b_rw", "b_ou")
+```
+
+
+## simulate data - FR
+
+### setting
+```{r}
+###### setting #####
+
+# data
+alpha_increase_seq_1 <- seq(10, 750, by = 30)
+alpha_decrease_seq_1 <- seq(750, 10, by = -30)
+alpha_lamb =  c( rep(10,5), alpha_increase_seq_1 + rnorm(alpha_increase_seq_1,10,10), 
+                 alpha_decrease_seq_1 + rnorm(alpha_decrease_seq_1,10,10),
+                 rep(10,5))
+beta_lamb = 0.5
+T = 60
+# reprot delay
+D <- 15;
+
+# Time period for checking
+D_check <- 5
+
+first_date <- as.Date("2024-01-01")
+
+scoreRange <- c(first_date+days(9), first_date+days(19), first_date+days(29),
+                first_date+days(39), first_date+days(49))
+```
+
+```{r}
+# b_constant_FR
+params_b_constant_FR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    T       = T,
+    date_start = first_date,
+    D = D
+  ),
+  q_model = list(
+    method        = "b_constant",
+    method_params = list(b = 0.7, phi = 0.9)
+  )
+)
+
+b_constant_FR <- simulateData(params_b_constant_FR)
+```
+
+```{r}
+# b_constant_NFR
+params_b_constant_NFR <- list(
+  data = list(
+    alpha_lamb = alpha_lamb,  
+    beta_lamb  = beta_lamb,
+    T       = T,
+    date_start = first_date,
+    D = D
+  ),
+  q_model = list(
+    method        = "b_constant",
+    method_params = list(b = 0.1, phi = 0.9)
+  )
+)
+
+b_constant_NFR <- simulateData(params_b_constant_NFR)
+```
+
+## expplot
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(b_constant_FR$case_reported_cumulated)/16)
+exp_plot_b_constant <- fit_exp_plot(b_constant_FR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_b_constant)
+
+exp_plot_b_constant$coefficients
+exp_b_data_b_constant<- data.frame( date = as.Date(rownames(b_constant_FR$case_reported_cumulated)),
+                          b = exp_plot_b_constant$coefficients$b)
+
+exp_b_plot_b_constant <- ggplot(exp_b_data_b_constant, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_b_constant)
+
+```
+
+
+```{r}
+# exploritary analysis
+page_num <- ceiling(nrow(b_constant_NFR$case_reported_cumulated)/16)
+exp_plot_b_constant <- fit_exp_plot(b_constant_NFR$case_reported_cumulated,ncol = 4, nrow = 4, page = c(1:page_num), if_fit = T)
+print(exp_plot_b_constant)
+
+exp_plot_b_constant$coefficients
+exp_b_data_b_constant<- data.frame( date = as.Date(rownames(b_constant_NFR$case_reported_cumulated)),
+                          b = exp_plot_b_constant$coefficients$b)
+
+exp_b_plot_b_constant <- ggplot(exp_b_data_b_constant, aes(x = date, y = b)) +
+  geom_point(color = "black", size = 1.5) +       
+  geom_smooth(method = "loess", se = TRUE,        
+              color = "blue", fill = "grey", alpha = 0.5) +
+  theme_minimal() +
+  labs(x = NULL, y = "Y", title = "Smoothed Curve of parameter b")
+
+print(exp_b_plot_b_constant)
+
+```
+
+## fit model
+```{r}
+out_b_constant_FR <- nowcasting_moving_window(b_constant_FR$case_reported_cumulated, scoreRange =  scoreRange,
+                          case_true = b_constant_FR$case_true,
+                          start_date = first_date,
+                          D = D,
+                          methods =models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "b_constant")
+                          )
+
+
+save(out_b_constant_FR, file = file.path(data_save_path, "FR_b_constant.RData"))
+#load( file.path(data_save_path, "FR_b_constant.RData"))
+# 
+results_b_constant_FR <- nowcasts_table(out_b_constant_FR, D = D, report_unit = "day",
+                          methods = models_to_use
+                          )
+
+plots_b_constant_FR <- nowcasts_plot(results_b_constant_FR, D = D, report_unit = "day",
+                                  methods = models_to_use
+                                  )
+
+for (i in 1:length(results_b_constant_FR)) {
+  print(calculate_metrics(results_b_constant_FR[[i]],
+                          methods = models_to_use))
+}
+
+for (i in 1:length(results_b_constant_FR)) {
+  print(calculate_metrics(data.table::last(results_b_constant_FR[[i]], D_check),
+                          methods = models_to_use))
+}
+
+plots_b_constant_FR
+```   
+
+```{r}
+out_b_constant_NFR <- nowcasting_moving_window(b_constant_NFR$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = b_constant_NFR$case_true,
+                          start_date = first_date,
+                          D = D,
+                          methods =models_to_use,
+                          compiled_models = compiled_models,
+                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+                          num_chains = 3, suppress_output = T,
+                          posterior_draws_path = file.path(posterior_draws_path, "b_constant")
+                          )
+
+
+save(out_b_constant_NFR, file = file.path(data_save_path, "NFR_b_constant.RData"))
+#load( file.path(data_save_path, "NFR_b_constant.RData"))
+
+results_b_constant_NFR <- nowcasts_table(out_b_constant_NFR, D = D, report_unit = "day", 
+                          methods = models_to_use
+                          )
+
+plots_b_constant_NFR <- nowcasts_plot(results_b_constant_NFR, D = D, report_unit = "day", 
+                                  methods = models_to_use
+                                  )
+
+for (i in 1:length(results_b_constant_NFR)) {
+  print(calculate_metrics(results_b_constant_NFR[[i]],
+                          methods = models_to_use))
+}
+
+for (i in 1:length(results_b_constant_NFR)) {
+  print(calculate_metrics(data.table::last(results_b_constant_NFR[[i]],D_check),
+                          methods = models_to_use))
+}
+
+plots_b_constant_NFR
+```   

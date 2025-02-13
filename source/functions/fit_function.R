@@ -35,7 +35,7 @@ slice_data <- function(data, scoreRange,
 
 nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      start_date = NULL, predict_length = NULL,
-                                     D = 20, seeds = 123,
+                                     D = 20,
                                      methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
                                      compiled_models,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
@@ -105,7 +105,6 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
       sampling_code <- function() {
         compiled_model$sample(
           data = stan_data_trunc,
-          seed = seeds,
           iter_sampling = iter_sampling,
           iter_warmup = iter_warmup,
           chains = num_chains,

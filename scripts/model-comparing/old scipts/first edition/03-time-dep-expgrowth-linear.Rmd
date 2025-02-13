@@ -1,0 +1,83 @@
+---
+title: "Sims"
+author: "Yang Xiao"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+library(cmdstanr)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+
+
+## simuoate data
+
+```{r}
+source(file.path(path_source, "simulation", "simulations_functions.R"))
+
+# setting: delay,  number of days
+seed <- 123
+D <- 15
+N_obs <- 58
+num_sims <- 1
+
+# time varying b
+beta0 = -2 ; beta1 = 0.01
+data <- simsDataGenQ(days = N_obs, method = "time_varying",
+                     beta0 = beta0, beta1 = beta1, seed = seed)
+
+data$lambda
+data$case_true
+data$case_reported
+```
+```{r}
+model_path <- file.path(path_proj, "source", "models", "stan_model_dep-expgrowth-linear.stan")
+model <- cmdstan_model(model_path)
+
+stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+
+
+fit <- model$sample(
+  data = stan_data,
+  seed = 123,
+  chains = 3,
+  iter_warmup = 1000,   # 设置 warmup 迭代数
+  iter_sampling = 1000  # 设置 sampling 迭代数
+)
+```
+
+
+
+
+
+## fit model
+```{r}
+stan_data <- list(N_obs = N_obs, D = D + 1, Y = round(data$case_reported))
+
+fit <- stan(
+  file = file.path(path_proj, "source", "models", "stan_model_dep-expgrowth-linear.stan"),  
+  data = stan_data, 
+  iter = 2000, chains = 3, seed = 123
+)
+```
+
+
+## check results
+```{r}
+print(fit)
+```
+
+```{r}
+library(ggplot2)
+plot(fit, par = c("b0", "b1")) +
+  geom_point(aes(x, y), data = data.frame(x = c(-2,0.01), y = c(2,1)), color = "blue")
+```
+
