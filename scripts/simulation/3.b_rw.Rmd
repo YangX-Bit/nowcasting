@@ -27,10 +27,10 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
 
 #Windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "3. b_rw")
@@ -121,7 +121,7 @@ params_b_rw_NFR <- list(
   ),
   q_model = list(
     method        = "b_rw",
-    method_params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5,
+    method_params = list(mu_logb = log(0.1), sigma_logb = 0.1, mu_logitphi = 1.5,
             sigma_logitphi = 0.1)
   )
 )
@@ -133,6 +133,8 @@ plot(b_rw_NFR$phi, pch = 19, type = "b")
 
 par(mfrow = c(1, 1))
 matplot(t(b_rw_NFR$q), type = "l", lty = 1, ylim = c(0, 1))
+
+b_rw_NFR$case_true - b_rw_NFR$case_reported_cumulated[,16]
 ```
 
 ## expplot
@@ -213,9 +215,9 @@ print(plots_b_rw_FR)
 ```   
 
 ```{r}
-out_b_rw_FR <-
-  nowcasting_moving_window(b_rw_FR$case_reported_cumulated, scoreRange = scoreRange,
-                          case_true = b_rw_FR$case_true,
+out_b_rw_NFR <-
+  nowcasting_moving_window(b_rw_NFR$case_reported_cumulated, scoreRange = scoreRange,
+                          case_true = b_rw_NFR$case_true,
                           start_date = as.Date("2024-01-01"),
                           D = D, seeds = seed,
                           methods =models_to_use,
@@ -225,22 +227,22 @@ out_b_rw_FR <-
                           posterior_draws_path = file.path(posterior_draws_path, "b_rw")
                           )
 
-save(out_b_rw_FR, file = file.path(data_save_path, "FR_b_rw.RData"))
+save(out_b_rw_NFR, file = file.path(data_save_path, "FR_b_rw.RData"))
 #load( file.path(data_save_path, "FR_b_rw.RData"))
 
-results_b_rw_FR <- nowcasts_table(out_b_rw_FR, D = D, report_unit = "day", 
+results_b_rw_NFR <- nowcasts_table(out_b_rw_NFR, D = D, report_unit = "day", 
                           methods = models_to_use)
 
-plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR, D = D, report_unit = "day", methods = models_to_use)
+plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR, D = D, report_unit = "day", methods = models_to_use)
 
-for (i in 1:length(results_b_rw_FR)) {
-  print(calculate_metrics(results_b_rw_FR[[i]],
+for (i in 1:length(results_b_rw_NFR)) {
+  print(calculate_metrics(results_b_rw_NFR[[i]],
                           methods = models_to_use))
 }
 
-for (i in 1:length(results_b_rw_FR)) {
-  print(calculate_metrics(data.table::last(results_b_rw_FR[[i]],D_check),
+for (i in 1:length(results_b_rw_NFR)) {
+  print(calculate_metrics(data.table::last(results_b_rw_NFR[[i]],D_check),
                           methods = models_to_use))
 }
-print(plots_b_rw_FR)
+print(plots_b_rw_NFR)
 ```   

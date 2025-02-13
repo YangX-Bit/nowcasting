@@ -27,10 +27,10 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
 
 #Windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "4. b_ou")
@@ -122,7 +122,7 @@ params_b_ou_NFR <- list(
   ),
   q_model = list(
     method        = "b_ou",
-    method_params = list(theta_logb = 0.2, mu_logb = log(0.2), init_logb = log(0.2), sigma_logb = 0.15,
+    method_params = list(theta_logb = 0.2, mu_logb = log(0.1), init_logb = log(0.1), sigma_logb = 0.15,
                          theta_logitphi = 0.2, mu_logitphi = 1.5, init_logitphi = 1.5, sigma_logitphi = 0.15)
   )
 )

@@ -116,7 +116,7 @@ params_b_constant_NFR <- list(
   ),
   q_model = list(
     method        = "b_constant",
-    method_params = list(b = 0.7, phi = 0.9)
+    method_params = list(b = 0.1, phi = 0.9)
   )
 )
 

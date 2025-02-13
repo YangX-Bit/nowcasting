@@ -27,9 +27,9 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
 # windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "testEach")
 
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "1. q_constant")
@@ -106,7 +106,7 @@ q_constant_FR <- simulateData(params_q_constant_FR)
 ```
 
 ```{r}
-# q_constant_FR
+# q_constant_NFR
 params_q_constant_NFR <- list(
   data = list(
     alpha_lamb = alpha_lamb,  
@@ -117,7 +117,7 @@ params_q_constant_NFR <- list(
   ),
   q_model = list(
     method        = "q_constant",
-    method_params = list(b = 0.2, phi = 0.9)
+    method_params = list(b = 0.1, phi = 0.9)
   )
 )
 
