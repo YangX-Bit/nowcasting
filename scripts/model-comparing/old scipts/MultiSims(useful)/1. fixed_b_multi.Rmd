@@ -238,6 +238,7 @@ results_fixed_b_NFR <- nowcasts_table(out_fixed_b_NFR_list[[1]], D = D, report_u
 plots_fixed_b_NFR <- nowcasts_plot(results_fixed_b_NFR, D = D, report_unit = "day", methods = models_to_use)
 plots_fixed_b_NFR
 ```   
+
 ```{r}
 highlight_metrics(metrics_1_fixed_b_FR_avg, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange,
                   table_caption = "Fully Reported + Fixed b (All Time Window)")

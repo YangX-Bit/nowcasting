@@ -233,7 +233,7 @@ params_b_ou_NFR <- list(
   ),
   q_model = list(
     method        = "b_ou",
-    method_params = list(theta_logb = 0.2, mu_logb = log(0.1), init_logb = log(0.1), sigma_logb = 0.15,
+    method_params = list(theta_logb = 0.2, mu_logb = log(0.2), init_logb = log(0.2), sigma_logb = 0.15,
                          theta_logitphi = 0.2, mu_logitphi = 1.5, init_logitphi = 1.5, sigma_logitphi = 0.15)
   )
 )

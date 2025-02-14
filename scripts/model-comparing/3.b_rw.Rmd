@@ -228,7 +228,7 @@ params_b_rw_NFR <- list(
   ),
   q_model = list(
     method        = "b_rw",
-    method_params = list(mu_logb = log(0.1), sigma_logb = 0.1, mu_logitphi = 1.5,
+    method_params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5,
             sigma_logitphi = 0.1)
   )
 )

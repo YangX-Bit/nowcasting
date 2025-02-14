@@ -3,6 +3,7 @@ library(gridExtra)
 library(ggforce)
 library(lubridate)
 library(dplyr)
+library(ggpubr)
 
 # for showing the relastionship between bt and sigma
 simulate_plot_q <- function(b_inits,
@@ -386,6 +387,160 @@ nowcasts_plot <- function(nowcasts_list,
   }
 }
 
+nowcasts_plot_separated <- function(nowcasts_list,
+                                    D = NULL,
+                                    report_unit = "week",
+                                    methods = c("q_constant", "b_constant", "b_rw", "b_ou"),
+                                    title = NULL,
+                                    x_lab = NULL,
+                                    y_lab = "Cases / Nowcast",
+                                    legend_position = "right") {
+  library(ggplot2)
+  library(lubridate)
+  library(dplyr)
+  
+  # Basic checks
+  if (is.null(D)) {
+    stop("Parameter 'D' must be provided.")
+  }
+  if (!report_unit %in% c("week", "day")) {
+    stop("report_unit must be 'week' or 'day'.")
+  }
+  
+  factor_loc <- if (report_unit == "week") 7 else 1
+  
+  # Define model name mapping
+  model_labels <- c(
+    "q_constant" = "Constant q",
+    "b_constant" = "Constant b",
+    "b_rw"       = "Random Walk b",
+    "b_ou"       = "OU b"
+  )
+  
+  # Define colors for all lines
+  color_palette <- c(
+    "Real Cases"     = "red",
+    "Reported Cases" = "black",
+    "q_constant"     = "#2E86C1",  # Steel blue
+    "b_constant"     = "#27AE60",  # Emerald green
+    "b_rw"           = "#8E44AD",  # Purple
+    "b_ou"           = "#E67E22"   # Orange
+  )
+  
+  # Updated color scale to ensure all methods are shown
+  color_scale <- scale_color_manual(
+    values = color_palette,
+    breaks = c("Real Cases", "Reported Cases", methods),
+    labels = c("Real Cases", "Reported Cases", unname(model_labels[methods])),
+    name   = "Legend"
+  )
+  
+  p_out <- list()
+  n_runs <- length(nowcasts_list)
+  
+  for (i in seq_len(n_runs)) {
+    nowcasts_df <- nowcasts_list[[i]]
+    now <- unique(nowcasts_df$now)
+    earliest <- unique(nowcasts_df$earliest)
+    last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
+    
+    # Generate one subplot per method
+    method_plots <- lapply(methods, function(method) {
+      ggplot() +
+        # Real cases
+        geom_line(
+          data = nowcasts_df,
+          aes(x = date, y = case_true, color = "Real Cases"),
+          linewidth = 1.5
+        ) +
+        # Reported cases
+        geom_line(
+          data = nowcasts_df,
+          aes(x = date, y = case_reported, color = "Reported Cases"),
+          linewidth = 1.5
+        ) +
+        # Model-specific ribbon
+        geom_ribbon(
+          data = nowcasts_df,
+          aes(
+            x = date,
+            ymin = .data[[paste0("lower_", method)]],
+            ymax = .data[[paste0("upper_", method)]]
+          ),
+          fill = color_palette[method], alpha = 0.3
+        ) +
+        # Model-specific mean line
+        geom_line(
+          data = nowcasts_df,
+          aes(
+            x = date,
+            y = .data[[paste0("mean_", method)]],
+            color = method
+          ),
+          linewidth = 1
+        ) +
+        # Vertical line for "now"
+        geom_vline(xintercept = now, color = "red", linetype = "dashed") +
+        annotate(
+          "text", x = now, y = -1,
+          label = paste0("now: ", now),
+          hjust = 1, vjust = 2, color = "red"
+        ) +
+        # Possible vertical line for last_date_for_delay
+        {
+          if (last_date_for_delay >= earliest) {
+            list(
+              geom_vline(
+                xintercept = last_date_for_delay,
+                color = "orange", linetype = "dashed"
+              ),
+              annotate(
+                "text", x = last_date_for_delay, y = -1,
+                label = last_date_for_delay, vjust = 2, color = "orange"
+              )
+            )
+          } else {
+            list()
+          }
+        } +
+        # Use shared color scale
+        color_scale +
+        labs(
+          title = model_labels[method],
+          x = x_lab,
+          y = y_lab
+        ) +
+        theme_minimal() +
+        theme(
+          legend.position = "right",
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 12),
+          plot.title = element_text(size = 14, hjust = 0.5)
+        )
+    })
+    
+    # Combine the subplots into a single figure with a single legend
+    combined_plot <-
+      ggarrange(
+        plotlist = method_plots,
+        ncol = 2, nrow = 2,
+        common.legend = TRUE,
+        legend = legend_position
+      )
+    
+    # Optionally add an overall title
+    if (!is.null(title)) {
+      combined_plot <- annotate_figure(
+        combined_plot,
+        top = text_grob(title, size = 16, face = "bold")
+      )
+    }
+    
+    p_out[[i]] <- combined_plot
+  }
+  
+  return(p_out)
+}
 
 
 
