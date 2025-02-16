@@ -28,10 +28,10 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # place for draws
 # mac
-posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "multiSims")
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "multiSims")
 # windows
 #posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "multiSims")
-
+posterior_draws_path = file.path("F:/", "draws")
 #data path
 data_save_path = file.path(path_proj, "data", "fitted_model", "simulation", "multiSims", "b_rw")
 ```
@@ -60,7 +60,8 @@ models_to_use <- c("q_constant", "b_constant", "b_rw", "b_ou")
 ```{r}
 ###### setting #####
 # set seed to replicate
-set.seed(123)
+seed <- 123
+set.seed(seed)
 # data
 alpha_increase_seq_1 <- seq(10, 750, by = 30)
 alpha_decrease_seq_1 <- seq(750, 10, by = -30)
@@ -76,7 +77,7 @@ D <- 15;
 D_check <- 5
 
 # number of simulations
-num_sims <- 2
+num_sims <- 100
 
 first_date <- as.Date("2024-01-01")
 
@@ -154,12 +155,12 @@ for (i in 1:num_sims) {
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_rw")
+                          posterior_draws_path = file.path(posterior_draws_path, "b_rw","FR")
                           )
 }
 
 save(out_b_rw_FR_multi, file = file.path(data_save_path, "FR_b_rw_multi.RData"))
-load( file.path(data_save_path, "FR_b_rw_multi.RData"))
+#load( file.path(data_save_path, "FR_b_rw_multi.RData"))
 
 # Result table to generate metrics
 results_b_rw_FR <- compute_all_nowcasts_tables(out_b_rw_FR_multi, D, "day", models_to_use)
@@ -180,16 +181,17 @@ metrics_1_b_rw_FR_avg_incomp <- average_nowcasts_metrics(
 metrics_1_b_rw_FR_avg_incomp
 
 #
-results_b_rw_FR <- nowcasts_table(out_b_rw_FR_multi[[1]], D = D, report_unit = "day", 
+results_b_rw_FR_1 <- nowcasts_table(out_b_rw_FR_multi[[1]], D = D, report_unit = "day", 
                           methods = models_to_use)
 
-plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR, D = D, report_unit = "day", methods = models_to_use)
+plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR_1, D = D, report_unit = "day", methods = models_to_use)
 plots_b_rw_FR
 ```   
 ## Not fully reported case
 
 ### Simulation
 ```{r}
+set.seed(seed)
 b_rw_NFR_multi <- list()
 # generate
 for (i in 1:num_sims) {
@@ -256,12 +258,12 @@ for (i in 1:num_sims) {
                           compiled_models = compiled_models,
                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
                           num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_rw")
+                          posterior_draws_path = file.path(posterior_draws_path, "b_rw","NFR")
                           )
 }
 
 save(out_b_rw_NFR_multi, file = file.path(data_save_path, "NFR_b_rw_multi.RData"))
-load( file.path(data_save_path, "NFR_b_rw_multi.RData"))
+#load( file.path(data_save_path, "NFR_b_rw_multi.RData"))
 
 # Result table to generate metrics
 results_b_rw_NFR <- compute_all_nowcasts_tables(out_b_rw_NFR_multi, D, "day", models_to_use)
@@ -282,10 +284,10 @@ metrics_1_b_rw_NFR_avg_incomp <- average_nowcasts_metrics(
 metrics_1_b_rw_NFR_avg_incomp
 
 #
-results_b_rw_NFR <- nowcasts_table(out_b_rw_NFR_multi[[1]], D = D, report_unit = "day", 
+results_b_rw_NFR_1 <- nowcasts_table(out_b_rw_NFR_multi[[1]], D = D, report_unit = "day", 
                           methods = models_to_use)
 
-plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR, D = D, report_unit = "day", methods = models_to_use)
+plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR_1, D = D, report_unit = "day", methods = models_to_use)
 plots_b_rw_NFR
 ```   
 
@@ -310,7 +312,7 @@ highlight_metrics(metrics_1_b_rw_NFR_avg_incomp, method_names = c("Constant q", 
 ### Plots
 ```{r}
 plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR, D = D, report_unit = "day", methods = models_to_use,
-                                  combine_plots = T, ncol=1, nrow = 3)
+                                  combine_plots = T, ncol=1, nrow = 5)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "FR_b_rw.png"),
        plot = plots_b_rw_FR,
@@ -319,7 +321,7 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "F
 
 ```{r}
 plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR, D = D, report_unit = "day", methods = models_to_use,
-                                  combine_plots = T, ncol=1, nrow = 3)
+                                  combine_plots = T, ncol=1, nrow = 5)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "NFR_b_rw.png"),
        plot = plots_b_rw_NFR,

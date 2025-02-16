@@ -49,8 +49,8 @@ nowcasts_table <- function(results_list,
       # model_name might be "fixed_q", "fixed_b", ...
       samples <- results_list[[model_name]][[i]]$draws(variables = "N", format = "draws_matrix")
       nowcasts_df[[paste0("mean_", model_name)]]  <- apply(samples, 2, mean)
-      nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025)
-      nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975)
+      nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025, na.rm = TRUE)# if this na.rm = TRUE is okay?
+      nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975, na.rm = TRUE)
     }
     
     # Save to output list
