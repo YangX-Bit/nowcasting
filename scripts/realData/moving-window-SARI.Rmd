@@ -42,10 +42,10 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "testEach")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
 
 #Windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
 
 ```
 
@@ -141,95 +141,27 @@ exp_phi_plot
 
 
 ```{r}
-scoreRange_SARI <- seq(as.Date("2009-08-22"),as.Date("2009-12-10"),by="35 day")
+scoreRange_SARI <- seq(as.Date("2009-07-15"),as.Date("2009-10-15"),by="30 day")
 scoreRange_SARI
 out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
                                 case_true = case_true,
                                 start_date = as.Date("2009-06-15"),
-                                D = D, seeds = 111,
+                                D = D, 
                                 methods = models_to_use,
                                 compiled_models = compiled_models,
                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
                                 num_chains = 3, suppress_output = T,
                                 posterior_draws_path = posterior_draws_path)
 
-#save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=26.RData"))
+save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090715_to_901015_D=26.RData"))
 
-
-```
-
-```{r}
-
-#load(file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=5.RData"))
-
-results_SARI <- nowcasts_table(out_SARI, D = 5, report_unit = "day", 
-                          methods = models_to_use)
-
-results_SARI_plots <- nowcasts_plot(results_SARI, D = D, report_unit = "week", methods = models_to_use,
-                                    combine_plots = T, ncol=2, nrow = 2)
-
-ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_plots_D=5.png"),
-       plot = results_SARI_plots,
-       width = 20, height = 16, dpi = 300)
-
-results_SARI_plots
-```
-
-
-```{r}
-# for(i in 1:length(results_SARI)){
-#   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
-# }
-list_sari_d5 <- list()
-for(i in 1:length(results_SARI)){
-  list_sari_d5[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],5),
-                          methods = models_to_use)
-}
-list_sari_d5
-highlight_metrics(list_sari_d5, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_SARI,
-                  table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 5)")
-
+#case_true - as.numeric(data_41002_input[,26])
 ```
 
 
 ```{r}
 
-load(file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=15.RData"))
-
-results_SARI <- nowcasts_table(out_SARI, D = 15, report_unit = "day", 
-                          methods = models_to_use)
-
-results_SARI_plots <- nowcasts_plot(results_SARI, D = D, report_unit = "week", methods = models_to_use,
-                                    combine_plots = T, ncol=2, nrow = 2)
-
-ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_plots_D=15.png"),
-       plot = results_SARI_plots,
-       width = 20, height = 16, dpi = 300)
-
-results_SARI_plots
-```
-
-
-```{r}
-# for(i in 1:length(results_SARI)){
-#   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
-# }
-list_sari_d15 <- list()
-for(i in 1:length(results_SARI)){
-  list_sari_d15[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],5),
-                          methods = models_to_use)
-}
-list_sari_d15
-highlight_metrics(list_sari_d15, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_SARI,
-                  table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 15)")
-
-```
-
-```{r}
-
-load(file.path(path_proj, "data", "fitted_model","SARI_090822_to_901205_D=26.RData"))
-
-results_SARI <- nowcasts_table(out_SARI, D = 26, report_unit = "day", 
+results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "day", 
                           methods = models_to_use)
 
 results_SARI_plots <- nowcasts_plot(results_SARI, D = D, report_unit = "week", methods = models_to_use,
@@ -241,19 +173,30 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_pl
 
 results_SARI_plots
 ```
-
-
 ```{r}
 # for(i in 1:length(results_SARI)){
 #   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
 # }
 list_sari_d26 <- list()
 for(i in 1:length(results_SARI)){
-  list_sari_d26[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],5),
+  list_sari_d26[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],26),
                           methods = models_to_use)
 }
 list_sari_d26
-highlight_metrics(list_sari_d26, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_SARI,
+highlight_metrics(list_sari_d26, method_names = c("Constant q", "Constant b", "Random Walk b","OU b"), date_labels = scoreRange_SARI,
                   table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 26)")
+```
 
+```{r}
+# for(i in 1:length(results_SARI)){
+#   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
+# }
+list_sari_d5 <- list()
+for(i in 1:length(results_SARI)){
+  list_sari_d5[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],5),
+                          methods = models_to_use)
+}
+list_sari_d5
+highlight_metrics(list_sari_d26, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_SARI,
+                  table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 5)")
 ```
