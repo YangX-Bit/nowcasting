@@ -144,30 +144,31 @@ print(exp_b_plot_b_rw)
 ### Model fitting
 ```{r}
 out_b_rw_FR_multi <- list()
-for (i in 1:num_sims) {
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_b_rw_FR_multi[[i]] <- 
-    nowcasting_moving_window(b_rw_FR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
-                          case_true = b_rw_FR_multi[[i]]$case_true,
-                          start_date = first_date,
-                          D = D,
-                          methods =models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_rw","FR")
-                          )
-}
-
-save(out_b_rw_FR_multi, file = file.path(data_save_path, "FR_b_rw_multi.RData"))
-#load( file.path(data_save_path, "FR_b_rw_multi.RData"))
+# for (i in 1:num_sims) {
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_b_rw_FR_multi[[i]] <- 
+#     nowcasting_moving_window(b_rw_FR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
+#                           case_true = b_rw_FR_multi[[i]]$case_true,
+#                           start_date = first_date,
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_rw","FR")
+#                           )
+# }
+# 
+# save(out_b_rw_FR_multi, file = file.path(data_save_path, "FR_b_rw_multi.RData"))
+load( file.path(data_save_path, "FR_b_rw_multi.RData"))
 
 # Result table to generate metrics
 results_b_rw_FR <- compute_all_nowcasts_tables(out_b_rw_FR_multi, D, "day", models_to_use)
 # Average metrics
 metrics_1_b_rw_FR_avg <- average_nowcasts_metrics(
   results_all   = results_b_rw_FR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_rw_FR_avg
@@ -247,30 +248,31 @@ print(exp_b_plot_b_rw)
 ### Model fitting
 ```{r}
 out_b_rw_NFR_multi <- list()
-for (i in 1:num_sims) {
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_b_rw_NFR_multi[[i]] <- 
-    nowcasting_moving_window(b_rw_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
-                          case_true = b_rw_NFR_multi[[i]]$case_true,
-                          start_date = first_date,
-                          D = D,
-                          methods =models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_rw","NFR")
-                          )
-}
-
-save(out_b_rw_NFR_multi, file = file.path(data_save_path, "NFR_b_rw_multi.RData"))
-#load( file.path(data_save_path, "NFR_b_rw_multi.RData"))
+# for (i in 1:num_sims) {
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_b_rw_NFR_multi[[i]] <- 
+#     nowcasting_moving_window(b_rw_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
+#                           case_true = b_rw_NFR_multi[[i]]$case_true,
+#                           start_date = first_date,
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_rw","NFR")
+#                           )
+# }
+# 
+# save(out_b_rw_NFR_multi, file = file.path(data_save_path, "NFR_b_rw_multi.RData"))
+load( file.path(data_save_path, "NFR_b_rw_multi.RData"))
 
 # Result table to generate metrics
 results_b_rw_NFR <- compute_all_nowcasts_tables(out_b_rw_NFR_multi, D, "day", models_to_use)
 # Average metrics
 metrics_1_b_rw_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_b_rw_NFR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_rw_NFR_avg
@@ -296,7 +298,7 @@ plots_b_rw_NFR
 ### Metrics table
 ```{r}
 highlight_metrics(metrics_1_b_rw_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), date_labels = scoreRange,
-                  table_caption = "Fully Reported + Randow Walk b (All Time Window)")
+                  table_caption = "Fully Reported + Randow Walk b (All nowcast window)")
 
 highlight_metrics(metrics_1_b_rw_FR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
                   table_caption = "Fully Reported + Randow Walk b (Last 5 days)")
@@ -304,7 +306,7 @@ highlight_metrics(metrics_1_b_rw_FR_avg_incomp, method_names = c("Constant q", "
 
 ```{r}
 highlight_metrics(metrics_1_b_rw_NFR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
-                  table_caption = "Not Fully Reported + Randow Walk b (All Time Window)")
+                  table_caption = "Not Fully Reported + Randow Walk b (All nowcast window)")
 highlight_metrics(metrics_1_b_rw_NFR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
                   table_caption = "Not Fully Reported + Randow Walk b (Last 5 days)")
 ```
@@ -326,4 +328,6 @@ plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR, D = D, report_unit = "day", me
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "NFR_b_rw.png"),
        plot = plots_b_rw_NFR,
        width = 10, height = 16, dpi = 300)
+
+
 ```

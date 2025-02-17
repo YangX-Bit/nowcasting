@@ -140,30 +140,31 @@ print(exp_b_plot_b_constant)
 ### Model fitting
 ```{r}
 out_b_constant_FR_multi <- list()
-for (i in 1:num_sims) {
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_b_constant_FR_multi[[i]] <- 
-    nowcasting_moving_window(b_constant_FR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
-                          case_true = b_constant_FR_multi[[i]]$case_true,
-                          start_date = first_date,
-                          D = D,
-                          methods =models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_constant","FR")
-                          )
-}
-
-save(out_b_constant_FR_multi, file = file.path(data_save_path, "FR_b_constant_multi.RData"))
-#load( file.path(data_save_path, "FR_b_constant_multi.RData"))
+# for (i in 1:num_sims) {
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_b_constant_FR_multi[[i]] <- 
+#     nowcasting_moving_window(b_constant_FR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
+#                           case_true = b_constant_FR_multi[[i]]$case_true,
+#                           start_date = first_date,
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_constant","FR")
+#                           )
+# }
+# 
+# save(out_b_constant_FR_multi, file = file.path(data_save_path, "FR_b_constant_multi.RData"))
+load( file.path(data_save_path, "FR_b_constant_multi.RData"))
 
 # Result table to generate metrics
 results_b_constant_FR <- compute_all_nowcasts_tables(out_b_constant_FR_multi, D, "day", models_to_use)
 # Average metrics
 metrics_1_b_constant_FR_avg <- average_nowcasts_metrics(
   results_all   = results_b_constant_FR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_constant_FR_avg
@@ -238,30 +239,31 @@ print(exp_b_plot_b_constant)
 ### Model fitting
 ```{r}
 out_b_constant_NFR_multi <- list()
-for (i in 1:num_sims) {
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_b_constant_NFR_multi[[i]] <- 
-    nowcasting_moving_window(b_constant_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
-                          case_true = b_constant_NFR_multi[[i]]$case_true,
-                          start_date = first_date,
-                          D = D,
-                          methods =models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_constant","NFR")
-                          )
-}
-
-save(out_b_constant_NFR_multi, file = file.path(data_save_path, "NFR_b_constant_multi.RData"))
-#load( file.path(data_save_path, "NFR_b_constant_multi.RData"))
+# for (i in 1:num_sims) {
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_b_constant_NFR_multi[[i]] <- 
+#     nowcasting_moving_window(b_constant_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
+#                           case_true = b_constant_NFR_multi[[i]]$case_true,
+#                           start_date = first_date,
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_constant","NFR")
+#                           )
+# }
+# 
+# save(out_b_constant_NFR_multi, file = file.path(data_save_path, "NFR_b_constant_multi.RData"))
+load( file.path(data_save_path, "NFR_b_constant_multi.RData"))
 
 # Result table to generate metrics
 results_b_constant_NFR <- compute_all_nowcasts_tables(out_b_constant_NFR_multi, D, "day", models_to_use)
 # Average metrics
 metrics_1_b_constant_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_b_constant_NFR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_constant_NFR_avg
@@ -289,7 +291,7 @@ plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR
 ### Metrics table
 ```{r}
 highlight_metrics(metrics_1_b_constant_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), date_labels = scoreRange,
-                  table_caption = "Fully Reported + Constant b (All Time Window)")
+                  table_caption = "Fully Reported + Constant b (All nowcast window)")
 
 highlight_metrics(metrics_1_b_constant_FR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
                   table_caption = "Fully Reported + Constant b (Last 5 days)")
@@ -297,7 +299,7 @@ highlight_metrics(metrics_1_b_constant_FR_avg_incomp, method_names = c("Constant
 
 ```{r}
 highlight_metrics(metrics_1_b_constant_NFR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
-                  table_caption = "Not Fully Reported + Constant b (All Time Window)")
+                  table_caption = "Not Fully Reported + Constant b (All nowcast window)")
 highlight_metrics(metrics_1_b_constant_NFR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
                   table_caption = "Not Fully Reported + Constant b (Last 5 days)")
 ```
@@ -322,10 +324,11 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constan
        plot = plots_b_constant_NFR,
        width = 10, height = 16, dpi = 300)
 
+plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant_separate.png"),
-       plot = plots_b_constant_NFR_separated[[5]],
-       width = 10, height = 18, dpi = 300)
+       plot = plots_b_constant_NFR_separated,
+       width = 26, height = 20, dpi = 300)
 ```
 
 

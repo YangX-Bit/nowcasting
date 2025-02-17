@@ -45,10 +45,10 @@ set_week_start("Sunday")
 #SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 # mac
-posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "HusO104")
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "HusO104")
 
 #Windows
-#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "HusO104")
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData","HusO104")
 ```
 
 ```{r}
@@ -136,7 +136,7 @@ auto.arima(fit_ar1_husO104$b)
 
 ```{r}
 # scoreRange_husO104 <- seq(first(husO104$date) + days(D),last(husO104$date),by="7 day")
-scoreRange_husO104 <- seq(as.Date("2011-05-27"), as.Date("2011-07-04"),by="7 day")
+scoreRange_husO104 <- seq(as.Date("2011-05-27"), as.Date("2011-07-04"),by="12 day")
 
 out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104,
                                 case_true = case_true_husO104,
@@ -150,7 +150,7 @@ out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_
                                 posterior_draws_path = posterior_draws_path
                                 )
 
-save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110529_to_110619_nine.RData"))
+save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110527_to_110702_four.RData"))
 #out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
@@ -174,7 +174,7 @@ for(i in 1:length(results_husO104)){
 }
 list_husO104
 highlight_metrics(list_husO104, method_names = c("Constant q", "Constant b", "Random Walk b","OU b"), date_labels = scoreRange_husO104,
-                  table_caption = "Metrics of Nowcast last 5 days for HusO104 data (D = 15)")
+                  table_caption = "Metrics of Nowcast last 5 days for HusO104 data (D = 5)")
 ```
 
 ```{r}

@@ -170,7 +170,8 @@ results_b_ou_FR <- compute_all_nowcasts_tables(out_b_ou_FR_multi, D, "day", mode
 # Average metrics
 metrics_1_b_ou_FR_avg <- average_nowcasts_metrics(
   results_all   = results_b_ou_FR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_ou_FR_avg
@@ -274,7 +275,8 @@ results_b_ou_NFR <- compute_all_nowcasts_tables(out_b_ou_NFR_multi, D, "day", mo
 # Average metrics
 metrics_1_b_ou_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_b_ou_NFR,
-  methods       =  models_to_use
+  methods       =  models_to_use,
+  filter_length = 15 #nowcasting length
 )
 
 metrics_1_b_ou_NFR_avg
@@ -327,14 +329,14 @@ plots_b_ou_NFR
 
 ### Metrics table
 ```{r}
-highlight_metrics(metrics_1_b_ou_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), date_labels = scoreRange, table_caption = "Fully Reported + OU b (All Time Window)")
+highlight_metrics(metrics_1_b_ou_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), date_labels = scoreRange, table_caption = "Fully Reported + OU b (All nowcast window)")
 
 highlight_metrics(metrics_1_b_ou_FR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange, table_caption = "Fully Reported + OU b (Last 5 days)")
 ```
 
 ```{r}
 highlight_metrics(metrics_1_b_ou_NFR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
-                  table_caption = "Not Fully Reported + OU b (All Time Window)")
+                  table_caption = "Not Fully Reported + OU b (All nowcast window)")
 highlight_metrics(metrics_1_b_ou_NFR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
                   table_caption = "Not Fully Reported + OU b (Last 5 days)")
 ```

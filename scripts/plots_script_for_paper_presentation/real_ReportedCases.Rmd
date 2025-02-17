@@ -27,7 +27,7 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 
 # source from other paper
 source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
-out <- load(file.path(path_proj, "data", "fitted_model","SARI_090705_to_100606_seven.RData"))
+out <- load(file.path(path_proj, "data", "fitted_model","SARI_090715_to_901015_D=26.RData"))
 ```
 
 

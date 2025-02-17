@@ -42,10 +42,10 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 
 # mac
-posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
+#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
 
 #Windows
-#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
+posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
 
 ```
 
@@ -98,7 +98,7 @@ scoreRange <- seq(as.Date("2009-07-05"),as.Date("2010-07-05"),by="56 day")
 # case_true <- as.matrix(data_41002[, c("Notifications")])
 # rownames(case_true) <- as.character(data_41002$date)
 # case_true from the last col
-case_true <- as.matrix(data_41002[, c("Notifications_within_26w")])
+case_true <- as.matrix(data_41002[, c("Notifications")])
 rownames(case_true) <- as.character(data_41002$date)
 ```
 
@@ -114,6 +114,7 @@ exp_plot <- fit_exp_plot(data41002_exp_plot,ncol = 4, nrow = 4, page = c(1:page_
 
 exp_plot
 ```
+
 
 ```{r}
 exp_data <- data.frame( date = as.Date(rownames(data41002_exp_plot)),
@@ -173,6 +174,7 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_pl
 
 results_SARI_plots
 ```
+
 ```{r}
 # for(i in 1:length(results_SARI)){
 #   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
@@ -197,6 +199,28 @@ for(i in 1:length(results_SARI)){
                           methods = models_to_use)
 }
 list_sari_d5
-highlight_metrics(list_sari_d26, method_names = c("Fixed q", "Fixed b", "OU b"), date_labels = scoreRange_SARI,
+highlight_metrics(list_sari_d5, method_names = c("Constant q", "Constant b", "Random Walk b","OU b"), date_labels = scoreRange_SARI,
                   table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 5)")
+```
+
+
+```{r}
+data_41002_ts_plot <-  data_41002 %>% 
+  filter(date >= min(scoreRange_SARI) & date <= max(scoreRange_SARI))
+
+# Assuming 'Date' is the time variable in 'data_41002_ts_plot'
+plot(data_41002_ts_plot$date, data_41002_ts_plot$Notifications, 
+     type = "l", col = "red", lwd = 2, 
+     xlab = "Date", ylab = "Cases", 
+     main = NULL)
+
+# Add the second line for 'd26' (Reported cases)
+lines(data_41002_ts_plot$date, data_41002_ts_plot$d26, 
+      col = "black", lwd = 2)
+
+# Add a legend in the top-right corner
+legend("topright", legend = c("Real cases", "Reported cases"), 
+       col = c("red", "black"), lwd = 2, bty = "n")
+
+
 ```
