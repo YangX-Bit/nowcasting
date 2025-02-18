@@ -159,7 +159,11 @@ out_b_constant_FR_multi <- list()
 load( file.path(data_save_path, "FR_b_constant_multi.RData"))
 
 # Result table to generate metrics
-results_b_constant_FR <- compute_all_nowcasts_tables(out_b_constant_FR_multi, D, "day", models_to_use)
+# results_b_constant_FR <- compute_all_nowcasts_tables(out_b_constant_FR_multi, D, "day", models_to_use)
+# 
+# save(results_b_constant_FR, file = file.path(data_save_path, "FR_b_constant_multi_result.RData"))
+load( file.path(data_save_path, "FR_b_constant_multi_result.RData"))
+
 # Average metrics
 metrics_1_b_constant_FR_avg <- average_nowcasts_metrics(
   results_all   = results_b_constant_FR,
@@ -258,7 +262,11 @@ out_b_constant_NFR_multi <- list()
 load( file.path(data_save_path, "NFR_b_constant_multi.RData"))
 
 # Result table to generate metrics
-results_b_constant_NFR <- compute_all_nowcasts_tables(out_b_constant_NFR_multi, D, "day", models_to_use)
+# results_b_constant_NFR <- compute_all_nowcasts_tables(out_b_constant_NFR_multi, D, "day", models_to_use)
+# 
+# save(results_b_constant_NFR, file = file.path(data_save_path, "NFR_b_constant_multi_result.RData"))
+load( file.path(data_save_path, "NFR_b_constant_multi_result.RData"))
+
 # Average metrics
 metrics_1_b_constant_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_b_constant_NFR,
@@ -283,7 +291,6 @@ results_b_constant_NFR_1 <- nowcasts_table(out_b_constant_NFR_multi[[1]], D = D,
 plots_b_constant_NFR <- nowcasts_plot(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use)
 plots_b_constant_NFR
 
-plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use)
 ```   
 
 ## Result generate
@@ -306,7 +313,7 @@ highlight_metrics(metrics_1_b_constant_NFR_avg_incomp, method_names = c("Constan
 
 ### Plots
 ```{r}
-plots_b_constant_FR <- nowcasts_plot(results_b_constant_FR, D = D, report_unit = "day", methods = models_to_use,
+plots_b_constant_FR <- nowcasts_plot(results_b_constant_FR_1, D = D, report_unit = "day", methods = models_to_use,
                                   combine_plots = T, ncol=1, nrow = 5)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant.png"),
@@ -314,6 +321,11 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constan
        width = 10, height = 18, dpi = 300)
 
 
+plots_b_constant_FR_separated <- nowcasts_plot_separated(results_b_constant_FR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant_separated.png"),
+       plot = plots_b_constant_FR_separated,
+       width = 30, height = 22, dpi = 300)
 ```
 
 ```{r}
@@ -324,11 +336,11 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constan
        plot = plots_b_constant_NFR,
        width = 10, height = 16, dpi = 300)
 
-plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use)
+plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant_separate.png"),
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "NFR_b_constant_separated.png"),
        plot = plots_b_constant_NFR_separated,
-       width = 26, height = 20, dpi = 300)
+       width = 30, height = 22, dpi = 300)
 ```
 
 

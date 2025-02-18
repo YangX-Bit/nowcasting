@@ -517,7 +517,8 @@ nowcasts_plot_separated <- function(nowcasts_list,
         theme(
           legend.position = "none",
           axis.text       = element_text(size = 12),
-          axis.title      = element_text(size = 12)
+          axis.title      = element_text(size = 12),
+          axis.text.x     = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels
         )
       
       # Store subplot

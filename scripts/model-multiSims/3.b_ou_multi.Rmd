@@ -252,23 +252,23 @@ print(exp_b_plot_b_ou)
 ### Model fitting
 ```{r}
 out_b_ou_NFR_multi <- list()
-for (i in 1:num_sims) {
-  print(paste0("Now is working on ",i,"th simulation."))
-  out_b_ou_NFR_multi[[i]] <- 
-    nowcasting_moving_window(b_ou_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
-                          case_true = b_ou_NFR_multi[[i]]$case_true,
-                          start_date = first_date,
-                          D = D,
-                          methods =models_to_use,
-                          compiled_models = compiled_models,
-                          iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                          num_chains = 3, suppress_output = T,
-                          posterior_draws_path = file.path(posterior_draws_path, "b_ou","NFR")
-                          )
-}
-
-save(out_b_ou_NFR_multi, file = file.path(data_save_path, "NFR_b_ou_multi.RData"))
-#load( file.path(data_save_path, "NFR_b_ou_multi.RData"))
+# for (i in 1:num_sims) {
+#   print(paste0("Now is working on ",i,"th simulation."))
+#   out_b_ou_NFR_multi[[i]] <- 
+#     nowcasting_moving_window(b_ou_NFR_multi[[i]]$case_reported_cumulated, scoreRange =  scoreRange,
+#                           case_true = b_ou_NFR_multi[[i]]$case_true,
+#                           start_date = first_date,
+#                           D = D,
+#                           methods =models_to_use,
+#                           compiled_models = compiled_models,
+#                           iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
+#                           num_chains = 3, suppress_output = T,
+#                           posterior_draws_path = file.path(posterior_draws_path, "b_ou","NFR")
+#                           )
+# }
+# 
+# save(out_b_ou_NFR_multi, file = file.path(data_save_path, "NFR_b_ou_multi.RData"))
+load( file.path(data_save_path, "NFR_b_ou_multi.RData"))
 
 # Result table to generate metrics
 results_b_ou_NFR <- compute_all_nowcasts_tables(out_b_ou_NFR_multi, D, "day", models_to_use)
