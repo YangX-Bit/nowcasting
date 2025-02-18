@@ -163,7 +163,10 @@ out_b_rw_FR_multi <- list()
 load( file.path(data_save_path, "FR_b_rw_multi.RData"))
 
 # Result table to generate metrics
-results_b_rw_FR <- compute_all_nowcasts_tables(out_b_rw_FR_multi, D, "day", models_to_use)
+#results_b_rw_FR <- compute_all_nowcasts_tables(out_b_rw_FR_multi, D, "day", models_to_use)
+
+#save(results_b_rw_FR, file = file.path(data_save_path, "FR_b_rw_multi_result.RData"))
+load( file.path(data_save_path, "FR_b_rw_multi_result.RData"))
 # Average metrics
 metrics_1_b_rw_FR_avg <- average_nowcasts_metrics(
   results_all   = results_b_rw_FR,
@@ -267,7 +270,11 @@ out_b_rw_NFR_multi <- list()
 load( file.path(data_save_path, "NFR_b_rw_multi.RData"))
 
 # Result table to generate metrics
-results_b_rw_NFR <- compute_all_nowcasts_tables(out_b_rw_NFR_multi, D, "day", models_to_use)
+#results_b_rw_NFR <- compute_all_nowcasts_tables(out_b_rw_NFR_multi, D, "day", models_to_use)
+
+#save(results_b_rw_NFR, file = file.path(data_save_path, "NFR_b_rw_multi_result.RData"))
+load( file.path(data_save_path, "NFR_b_rw_multi_result.RData"))
+
 # Average metrics
 metrics_1_b_rw_NFR_avg <- average_nowcasts_metrics(
   results_all   = results_b_rw_NFR,
@@ -319,6 +326,12 @@ plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR, D = D, report_unit = "day", meth
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "FR_b_rw.png"),
        plot = plots_b_rw_FR,
        width = 10, height = 16, dpi = 300)
+
+plots_b_rw_FR_separated <- nowcasts_plot_separated(results_b_rw_FR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "FR_b_rw_separated.png"),
+       plot = plots_b_rw_FR_separated,
+       width = 30, height = 22, dpi = 300)
 ```
 
 ```{r}
@@ -329,5 +342,9 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "N
        plot = plots_b_rw_NFR,
        width = 10, height = 16, dpi = 300)
 
+plots_b_rw_NFR_separated <- nowcasts_plot_separated(results_b_rw_NFR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
 
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "NFR_b_rw_separated.png"),
+       plot = plots_b_rw_NFR_separated,
+       width = 30, height = 22, dpi = 300)
 ```
