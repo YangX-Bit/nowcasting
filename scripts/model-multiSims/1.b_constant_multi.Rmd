@@ -319,34 +319,34 @@ highlight_metrics(metrics_1_b_constant_NFR_avg_incomp,
 
 ### Plots
 ```{r}
-plots_b_constant_FR <- nowcasts_plot(results_b_constant_FR_1, D = D, report_unit = "day", methods = models_to_use,
-                                  combine_plots = T, ncol=1, nrow = 5)
-
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant.png"),
-       plot = plots_b_constant_FR,
-       width = 10, height = 18, dpi = 300)
+# plots_b_constant_FR <- nowcasts_plot(results_b_constant_FR_1, D = D, report_unit = "day", methods = models_to_use,
+#                                   combine_plots = T, ncol=1, nrow = 5)
+# 
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant.png"),
+#        plot = plots_b_constant_FR,
+#        width = 10, height = 18, dpi = 300)
 
 
 plots_b_constant_FR_separated <- nowcasts_plot_separated(results_b_constant_FR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "FR_b_constant_separated.png"),
        plot = plots_b_constant_FR_separated,
-       width = 30, height = 22, dpi = 300)
+       width = 40, height = 28, dpi = 300)
 ```
 
 ```{r}
-plots_b_constant_NFR <- nowcasts_plot(results_b_constant_NFR, D = D, report_unit = "day", methods = models_to_use,
-                                  combine_plots = T, ncol=1, nrow = 5)
-
-ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "NFR_b_constant.png"),
-       plot = plots_b_constant_NFR,
-       width = 10, height = 16, dpi = 300)
+# plots_b_constant_NFR <- nowcasts_plot(results_b_constant_NFR, D = D, report_unit = "day", methods = models_to_use,
+#                                   combine_plots = T, ncol=1, nrow = 5)
+# 
+# ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "NFR_b_constant.png"),
+#        plot = plots_b_constant_NFR,
+#        width = 10, height = 16, dpi = 300)
 
 plots_b_constant_NFR_separated <- nowcasts_plot_separated(results_b_constant_NFR_1, D = D, report_unit = "day", methods = models_to_use, combine_plots = T)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_constant", "NFR_b_constant_separated.png"),
        plot = plots_b_constant_NFR_separated,
-       width = 30, height = 22, dpi = 300)
+       width = 40, height = 28, dpi = 300)
 ```
 
 

@@ -396,17 +396,12 @@ nowcasts_plot_separated <- function(nowcasts_list,
                                     x_lab = NULL,
                                     y_lab = "Cases / Nowcast",
                                     combine_plots = TRUE) {
-  # --------------------------------------------------------
-  # Libraries
-  # --------------------------------------------------------
   library(ggplot2)
   library(lubridate)
   library(dplyr)
   library(patchwork)
   
-  # --------------------------------------------------------
   # Basic checks
-  # --------------------------------------------------------
   if (is.null(D)) {
     stop("Parameter 'D' must be provided.")
   }
@@ -414,34 +409,25 @@ nowcasts_plot_separated <- function(nowcasts_list,
     stop("report_unit must be 'week' or 'day'.")
   }
   
-  # Define a factor for weekly or daily usage (if needed)
   factor_loc <- if (report_unit == "week") 7 else 1
   
-  # --------------------------------------------------------
-  # 1) Define the color mapping
-  # --------------------------------------------------------
-  # The 4 model colors:
+  # Define colors
   method_colors <- c(
     "q_constant" = "#228B22",  # green
     "b_constant" = "#ffff80",  # light yellow
     "b_rw"       = "#8446c6",  # purple
     "b_ou"       = "#4682B4"   # steel blue
   )
-  
-  # Real / Reported + 4 models
   model_colors <- c("Real Cases" = "red",
                     "Reported Cases" = "black",
                     method_colors)
   
-  # Define the exact legend items and labels
   legend_breaks <- c("Real Cases", "Reported Cases", names(method_colors))
   legend_labels <- c("Real Cases", 
                      "Reported Cases", 
                      "q-Constant", "b-Constant", "b-Random walk", "b-OU process")
   
-  # --------------------------------------------------------
-  # 2) Create subplots (no legends in them)
-  # --------------------------------------------------------
+  # Generate all subplots (no legend)
   p_out <- list()
   n_runs <- length(nowcasts_list)
   
@@ -449,14 +435,11 @@ nowcasts_plot_separated <- function(nowcasts_list,
   for (i in seq_len(n_runs)) {
     nowcasts_df <- nowcasts_list[[i]]
     
-    # You might extract these from the data frame if needed
     now <- unique(nowcasts_df$now)
     earliest <- unique(nowcasts_df$earliest)
     last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
     
-    # For each of the 4 models, create a subplot
     for (model_name in methods) {
-      # Subset data for the chosen model
       sub_data <- data.frame(
         date  = nowcasts_df$date,
         mean  = nowcasts_df[[paste0("mean_", model_name)]],
@@ -465,33 +448,25 @@ nowcasts_plot_separated <- function(nowcasts_list,
         model = model_name
       )
       
-      # Build the subplot
       p_sub <- ggplot() +
-        # Real Cases and Reported Cases
         geom_line(data = nowcasts_df,
                   aes(x = date, y = case_true), 
                   color = "red", linewidth = 1.2) +
         geom_line(data = nowcasts_df,
                   aes(x = date, y = case_reported),
                   color = "black", linewidth = 1.2) +
-        
-        # Model ribbons and lines
         geom_ribbon(data = sub_data,
                     aes(x = date, ymin = lower, ymax = upper),
                     fill = method_colors[model_name], alpha = 0.3) +
         geom_line(data = sub_data,
                   aes(x = date, y = mean),
                   color = method_colors[model_name], linewidth = 1) +
-        
-        # Mark the "now" point
         annotate("text", x = now, y = -1, 
                  label = paste0("now: ", now), 
                  hjust = 1, vjust = 2, color = "red") +
         geom_point(data = data.frame(x = now, y = 0),
                    aes(x = x, y = y),
                    shape = 17, size = 2, color = "red") +
-        
-        # Optional: draw vertical line for last_date_for_delay
         {
           if (last_date_for_delay >= earliest) {
             list(
@@ -505,51 +480,77 @@ nowcasts_plot_separated <- function(nowcasts_list,
             NULL
           }
         } +
-        
-        # Axis labels and theme
         labs(
           title = title,
           x     = x_lab,
           y     = y_lab
         ) +
         theme_minimal() +
-        # Remove legends from each subplot
         theme(
           legend.position = "none",
           axis.text       = element_text(size = 12),
           axis.title      = element_text(size = 12),
-          axis.text.x     = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels
+          axis.text.x     = element_text(angle = 45, hjust = 1)
         )
       
-      # Store subplot
       p_out[[idx]] <- p_sub
       idx <- idx + 1
     }
   }
   
-  # --------------------------------------------------------
-  # 3) If combine_plots = TRUE, wrap subplots + create separate legend
-  # --------------------------------------------------------
+  # -- OPTIONAL STEP: unify y-axis for each row of 4 plots
+  # If each row has exactly 4 subplots, we do the following:
+  # We have n_runs rows, each row = 4 subplots => total = n_runs * 4
+  # For row i in 1..n_runs, we unify p_out[ row_range ]
+  
+  for (row_i in seq_len(n_runs)) {
+    # The subplots for row row_i are indices: (row_i - 1)*4 + 1  to  row_i*4
+    idx_start <- (row_i - 1)*4 + 1
+    idx_end   <- row_i*4
+    # gather data from these 4 subplots
+    sub_list  <- p_out[idx_start:idx_end]
+    
+    # Build each ggplot to get the data
+    builds <- lapply(sub_list, ggplot_build)
+    
+    # Extract all y-values from the data frames (lines, ribbons, etc.)
+    # We combine all layers
+    all_y <- c()
+    for (b in builds) {
+      for (lyr in b$data) {
+        # gather columns that might represent y, ymin, ymax
+        ycols <- intersect(c("y", "ymin", "ymax"), names(lyr))
+        all_y <- c(all_y, unlist(lyr[ycols]))
+      }
+    }
+    # compute global range
+    y_min <- min(all_y, na.rm = TRUE)
+    y_max <- max(all_y, na.rm = TRUE)
+    
+    # Add a small margin if needed, or just use exact
+    # unify for each of the 4 subplots
+    for (k in seq_along(sub_list)) {
+      sub_list[[k]] <- sub_list[[k]] + 
+        scale_y_continuous(limits = c(y_min, y_max))
+    }
+    # put updated plots back to p_out
+    p_out[idx_start:idx_end] <- sub_list
+  }
+  
+  # Combine if requested
   if (combine_plots) {
+    total_plots <- length(p_out)
+    # for your layout usage:
+    # ncol = 4, nrow = n_runs (since each row has 4 subplots)
     
-    # 计算最佳的 ncol 和 nrow
-    total_plots <- length(p_out)  # 计算子图总数
-    max_cols <- min(length(methods), ceiling(sqrt(total_plots)))  # 取 methods 或 sqrt(total_plots)
-    max_rows <- ceiling(total_plots / max_cols)  # 计算 nrow，确保足够放下所有图
+    subplots <- wrap_plots(p_out, ncol = 4, nrow = n_runs)
     
-    # 用 wrap_plots 组织子图
-    subplots <- wrap_plots(p_out, ncol = max_cols, nrow = max_rows)
-    
-    # 选项：如果提供了全局标题，则添加
     if (!is.null(title)) {
       subplots <- subplots + plot_annotation(title = title)
     }
     
-    # --------------------------------------------------------
-    # 创建一个单独的 "图例" 作为单独的 ggplot
-    # --------------------------------------------------------
+    # Create separate legend
     legend_items <- factor(legend_breaks, levels = legend_breaks)
-    
     df_legend <- data.frame(
       group = rep(legend_items, each = 2),
       x     = rep(c(1, 2), times = length(legend_items)),
@@ -562,21 +563,19 @@ nowcasts_plot_separated <- function(nowcasts_list,
         values = model_colors,
         breaks = legend_breaks,
         labels = legend_labels,
-        name = "Legend"
+        name   = "Legend"
       ) +
       theme_void() +
       theme(
-        legend.position = "right",
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 12),
+        legend.position   = "right",
+        legend.text       = element_text(size = 12),
+        legend.title      = element_text(size = 12),
         legend.background = element_rect(fill = "white", color = "black")
       ) +
       guides(color = guide_legend(override.aes = list(shape = NA)))
     
-    # --------------------------------------------------------
-    # 最终合并：子图 + 图例
-    # --------------------------------------------------------
-    # 手动安排 5×5 的布局
+    # Here you could do your custom row/col layout
+    # For simplicity, we just do side-by-side: subplots | legend_plot
     final_combined <- (
       # 第一行：前 4 个子图 + 图例
       p_out[[1]] + p_out[[2]] + p_out[[3]] + p_out[[4]] + plot_spacer() + 
@@ -593,11 +592,10 @@ nowcasts_plot_separated <- function(nowcasts_list,
         # 第五行：4 个子图 + 空白
         p_out[[17]] + p_out[[18]] + p_out[[19]] + p_out[[20]] + plot_spacer()
     ) + 
-      plot_layout(ncol = 5, widths = c(1, 1, 1, 1, 0.00001))  # 最后一列略小
-    
+      plot_layout(ncol = 5, widths = c(1, 1, 1, 1, 0.00001))  # use a small number to hide the last column
     return(final_combined)
+    
   } else {
-    # If not combining, simply return the list of subplots
     return(p_out)
   }
 }
