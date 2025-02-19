@@ -304,7 +304,9 @@ average_nowcasts_metrics <- function(
 
 
 
-highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2, table_caption = "Metrics comparison") {
+highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2, 
+                              table_caption = "Metrics comparison", 
+                              report_unit = "day", D = NULL, first_date = NULL) {
   # If no date labels are provided, use default numeric labels
   if (is.null(date_labels)) {
     date_labels <- paste0("Scenario ", 1:4)
@@ -315,11 +317,22 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
     method_names <- c("Method 1", "Method 2", "Method 3", "Method 4", "Method 5")
   }
   
+  # Ensure D and first_date are provided
+  if (is.null(D) || is.null(first_date)) {
+    stop("Both 'D' (report delay) and 'first_date' must be provided.")
+  }
+  
+  # Convert first_date and date_labels to Date objects
+  first_date <- as.Date(first_date)
+  date_labels <- as.Date(date_labels)
+  
+  # Factor to convert report_unit to days
+  factor_loc <- if (report_unit == "week") 7 else 1
+  
   # Combine tables and add scenario column and custom method names
   combined_df <- do.call(rbind, lapply(seq_along(tables), function(i) {
     df <- tables[[i]]
     df$Scenario <- i
-    # Replace the Method column with custom method names
     df$Method <- method_names[1:nrow(df)]
     return(df)
   }))
@@ -334,7 +347,6 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
                   ~ ifelse(. == min(.), 
                            paste0("\\textcolor{red}{", formatC(., format = "f", digits = digits), "}"),
                            formatC(., format = "f", digits = digits)))) %>%
-    # Special handling for Coverage Rate (highlight the maximum value)
     mutate(`Coverage_Rate` = 
              ifelse(`Coverage_Rate` == max(`Coverage_Rate`), 
                     paste0("\\textcolor{red}{", formatC(`Coverage_Rate`, format = "f", digits = digits), "}"),
@@ -348,16 +360,29 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
   latex_table <- paste0(latex_table, "\\hline\n")
   
   # Add data for each scenario
-  for(i in seq_along(unique(highlighted_df$Scenario))) {
+  for (i in seq_along(unique(highlighted_df$Scenario))) {
     scenario <- unique(highlighted_df$Scenario)[i]
     scenario_data <- highlighted_df[highlighted_df$Scenario == scenario,]
     
-    # Add date row
-    latex_table <- paste0(latex_table, "\\multicolumn{8}{l}{\\textbf{Now is ", date_labels[i], "}} \\\\\n")
+    # Calculate total days of data used
+    total_days <- as.numeric((date_labels[i] - first_date) / factor_loc) + 1 # Convert to correct unit
+    
+    # Compute a (completed) and b (incomplete) days
+    if (total_days <= D) {
+      a <- 0
+      b <- total_days
+    } else {
+      b <- D
+      a <- total_days - b
+    }
+    
+    # Add date row with additional reporting information
+    latex_table <- paste0(latex_table, "\\multicolumn{8}{l}{\\textbf{Now is ", date_labels[i], 
+                          ", with ", a, " ", report_unit, " completed, ", b, " ", report_unit, " incomplete.}} \\\\\n")
     latex_table <- paste0(latex_table, "\\hline\n")
     
     # Add data rows for the current scenario
-    for(j in 1:nrow(scenario_data)) {
+    for (j in 1:nrow(scenario_data)) {
       row <- scenario_data[j,]
       row_str <- paste(
         "", # First column left blank
@@ -378,7 +403,7 @@ highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, d
   }
   
   latex_table <- paste0(latex_table, "\\end{tabular}\n")
-  latex_table <- paste0(latex_table, paste0("\\caption{", table_caption,"}\n"))
+  latex_table <- paste0(latex_table, "\\caption{", table_caption,"}\n")
   latex_table <- paste0(latex_table, "\\end{table}")
   
   return(cat(latex_table))

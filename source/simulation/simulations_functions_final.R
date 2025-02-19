@@ -192,7 +192,6 @@ generateQ <- function(method, params, T, D) {
     for (i in seq_len(T)) {
       q[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
     }
-    print("here we go")
 
   } else if (method == "sin_b") {
     #-------------------------------------------------------------

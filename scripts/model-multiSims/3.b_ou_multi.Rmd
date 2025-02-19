@@ -334,15 +334,21 @@ plots_b_ou_NFR
 
 ### Metrics table
 ```{r}
-highlight_metrics(metrics_1_b_ou_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), date_labels = scoreRange, table_caption = "Fully Reported + OU b (All nowcast window)")
+highlight_metrics(metrics_1_b_ou_FR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b","OU b"), 
+                  D = D, first_date = first_date, date_labels = scoreRange, 
+                  table_caption = "Fully Reported + OU b (All nowcast window)")
 
-highlight_metrics(metrics_1_b_ou_FR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange, table_caption = "Fully Reported + OU b (Last 5 days)")
+highlight_metrics(metrics_1_b_ou_FR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"),
+                  D = D, first_date = first_date, date_labels = scoreRange, 
+                  table_caption = "Fully Reported + OU b (Last 5 days)")
 ```
 
 ```{r}
-highlight_metrics(metrics_1_b_ou_NFR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
+highlight_metrics(metrics_1_b_ou_NFR_avg, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), 
+                  D = D, first_date = first_date, date_labels = scoreRange,
                   table_caption = "Not Fully Reported + OU b (All nowcast window)")
-highlight_metrics(metrics_1_b_ou_NFR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"), date_labels = scoreRange,
+highlight_metrics(metrics_1_b_ou_NFR_avg_incomp, method_names = c("Constant q", "Constant b", "Randow Walk b", "OU b"),
+                  D = D, first_date = first_date, date_labels = scoreRange,
                   table_caption = "Not Fully Reported + OU b (Last 5 days)")
 ```
 
