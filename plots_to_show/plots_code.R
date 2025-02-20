@@ -75,7 +75,7 @@ scenarios <- list(
   "FR RW" = list(method = "b_rw", params = list(mu_logb = log(0.7), sigma_logb = 0.1, mu_logitphi = 1, sigma_logitphi = 0.1)),
   "FR OU" = list(method = "b_ou", params = list(theta_logb = 0.3, mu_logb = log(0.7), init_logb = log(0.7), sigma_logb = 0.2,
                                                 theta_logitphi = 0.3, mu_logitphi = 1, init_logitphi = 1, sigma_logitphi = 0.2)),
-  "NFR Constant" = list(method = "q_constant", params = list(b = 0.7, phi = 0.9)),
+  "NFR Constant" = list(method = "q_constant", params = list(b = 0.2, phi = 0.9)),
   "NFR RW" = list(method = "b_rw", params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5, sigma_logitphi = 0.1)),
   "NFR OU" = list(method = "b_ou", params = list(theta_logb = 0.2, mu_logb = log(0.2), init_logb = log(0.2), sigma_logb = 0.15,
                                                  theta_logitphi = 0.2, mu_logitphi = 1.5, init_logitphi = 1.5, sigma_logitphi = 0.15))
