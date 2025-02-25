@@ -488,8 +488,8 @@ nowcasts_plot_separated <- function(nowcasts_list,
         theme_minimal() +
         theme(
           legend.position = "none",
-          axis.text       = element_text(size = 12),
-          axis.title      = element_text(size = 12),
+          axis.text       = element_text(size = 20),
+          axis.title      = element_text(size = 22),
           axis.text.x     = element_text(angle = 45, hjust = 1)
         )
       
@@ -568,8 +568,8 @@ nowcasts_plot_separated <- function(nowcasts_list,
       theme_void() +
       theme(
         legend.position   = "right",
-        legend.text       = element_text(size = 12),
-        legend.title      = element_text(size = 12),
+        legend.text       = element_text(size = 20),
+        legend.title      = element_text(size = 22),
         legend.background = element_rect(fill = "white", color = "black")
       ) +
       guides(color = guide_legend(override.aes = list(shape = NA)))
@@ -577,19 +577,19 @@ nowcasts_plot_separated <- function(nowcasts_list,
     # Here you could do your custom row/col layout
     # For simplicity, we just do side-by-side: subplots | legend_plot
     final_combined <- (
-      # 第一行：前 4 个子图 + 图例
+      # first row
       p_out[[1]] + p_out[[2]] + p_out[[3]] + p_out[[4]] + plot_spacer() + 
         
-        # 第二行：4 个子图 + 空白
+        # second row, put legend
         p_out[[5]] + p_out[[6]] + p_out[[7]] + p_out[[8]] + legend_plot +
         
-        # 第三行：4 个子图 + 空白
+        #
         p_out[[9]] + p_out[[10]] + p_out[[11]] + p_out[[12]] + plot_spacer() +
         
-        # 第四行：4 个子图 + 空白
+        # 
         p_out[[13]] + p_out[[14]] + p_out[[15]] + p_out[[16]] + plot_spacer() +
         
-        # 第五行：4 个子图 + 空白
+        # 
         p_out[[17]] + p_out[[18]] + p_out[[19]] + p_out[[20]] + plot_spacer()
     ) + 
       plot_layout(ncol = 5, widths = c(1, 1, 1, 1, 0.00001))  # use a small number to hide the last column

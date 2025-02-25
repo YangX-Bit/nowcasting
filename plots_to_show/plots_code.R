@@ -51,6 +51,7 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "exp_curve.png"),
 
 
 ############### qtd for each scenarios ##################
+set.seed(1)
 # Load necessary libraries
 library(ggplot2)
 library(dplyr)
@@ -141,9 +142,9 @@ qtd <- ggplot(plot_data, aes(x = d, y = q_td, group = t, color = scenario)) +
   scale_y_continuous(limits = c(0,1)) +
   scale_color_manual(values = c("red", "blue", "green", "purple", "orange", "brown")) +  
   labs(
-    title = "Evolution of q over Delay (D)",
+    title = NULL,
     x = "Delay (d)", 
-    y = "q_{t,d}",
+    y = expression(q[t](d)),
     color = "Scenario"
   ) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE)) +  # Force legend to match row-wise order
@@ -153,6 +154,7 @@ qtd <- ggplot(plot_data, aes(x = d, y = q_td, group = t, color = scenario)) +
     legend.text = element_text(size = 10),
     strip.text = element_text(size = 12)
   )
+qtd
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "sims_scenarios.png"),
        plot = qtd,

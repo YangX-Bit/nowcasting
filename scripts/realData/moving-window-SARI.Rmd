@@ -164,6 +164,7 @@ save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090715_t
 ```
 
 
+
 ```{r}
 
 results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "day", 
@@ -237,4 +238,161 @@ plot(data_41002$date, data_41002$Notifications,
      xlab = "Date", ylab = "Cases", 
      main = "Number of SARI cases in a region in Paraná")
 ```
+
+
+# fit curve
+```{r}
+# Define the time lengths for T1 to T5
+time_lengths <- c(4, 7, 10, 12, 15)
+
+# Manually define the desired number of rows and columns for each T plot
+plot_rows <- c(2, 2, 2, 3, 3)
+plot_cols <- c(2, 4, 5, 4, 5)
+
+# Loop over T1 to T5
+for(t in 1:5) {
+  
+  # Current number of subplots for the current T
+  T_length <- time_lengths[t]
+  
+  # Select the time period based on the current T using the corresponding scoreRange_SARI value
+  period_T <- which(as.Date(rownames(data_41002_input)) >= first_date &
+                      as.Date(rownames(data_41002_input)) <= scoreRange_SARI[t])
+  
+  # Compute the true curve (each row corresponds to a time point, columns for delay d = 0:26)
+  actual_curve <- round(data_41002_input[period_T, ] / case_true[period_T, ], 2)
+  
+  # Define the x-axis: delay values from 0 to 26
+  x <- 0:D
+  
+  ## Model curves calculations using the current T's model outputs:
+  # 1. q-Constant model
+  q_draws <- out_SARI$q_constant[[t]]$draws("q")
+  q_const_curves <- round(apply(as.array(q_draws), 3, mean), 2)
+  
+  # 2. b-Constant model
+  b_draws_constant <- out_SARI$b_constant[[t]]$draws("b")
+  b_means_constant <- apply(as.array(b_draws_constant), 3, mean)
+  phi_draws_constant <- out_SARI$b_constant[[t]]$draws("phi")
+  phi_means_constant <- apply(as.array(phi_draws_constant), 3, mean)
+  b_const_curves <- round(1 - phi_means_constant * exp(-b_means_constant * x), 2)
+  
+  # 3. b-Random walk model
+  b_draws_rw <- out_SARI$b_rw[[t]]$draws("b")
+  b_means_rw <- apply(as.array(b_draws_rw), 3, mean)
+  phi_draws_rw <- out_SARI$b_rw[[t]]$draws("phi")
+  phi_means_rw <- apply(as.array(phi_draws_rw), 3, mean)
+  b_rw_curves <- round(1 - phi_means_rw * exp(-b_means_rw %o% x), 2)
+  
+  # 4. b-OU process model
+  b_draws_ou <- out_SARI$b_ou[[t]]$draws("b")
+  b_means_ou <- apply(as.array(b_draws_ou), 3, mean)
+  phi_draws_ou <- out_SARI$b_ou[[t]]$draws("phi")
+  phi_means_ou <- apply(as.array(phi_draws_ou), 3, mean)
+  b_ou_curves <- round(1 - phi_means_ou * exp(-b_means_ou %o% x), 2)
+  
+  ## Construct the long-format dataframe for plotting
+  df_list <- list()
+  
+  for(i in seq_len(T_length)) {
+    # Actual curve for each time point
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = actual_curve[i, ],
+      method = "Actual curve"
+    )
+    
+    # q-Constant: same curve for all time points
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = q_const_curves,
+      method = "q-Constant"
+    )
+    
+    # b-Constant: same curve for all time points
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_const_curves,
+      method = "b-Constant"
+    )
+    
+    # b-Random walk: distinct curve for each time point
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_rw_curves[i, ],
+      method = "b-Random walk"
+    )
+    
+    # b-OU process: distinct curve for each time point
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_ou_curves[i, ],
+      method = "b-OU process"
+    )
+  }
+  
+  # Combine all mini data frames into one long-format data frame
+  df_long <- dplyr::bind_rows(df_list)
+  
+  # Set factor levels for 'method' to control legend order
+  df_long$method <- factor(df_long$method, levels = c(
+    "Actual curve",
+    "q-Constant",
+    "b-Constant",
+    "b-Random walk",
+    "b-OU process"
+  ))
+  
+  # Define colors for each method
+  method_colors <- c(
+    "q-Constant"     = "#228B22",  # green
+    "b-Constant"     = "#FFA500",  # orange
+    "b-Random walk"  = "#8446c6",  # purple
+    "b-OU process"   = "#4682B4",  # steel blue
+    "Actual curve"   = "black"     # actual data in black
+  )
+  
+  ## Plotting using ggplot2 with manual facet settings:
+  qtd_curves <- ggplot(df_long, aes(x = d, y = q, color = method)) +
+    geom_line(size = 0.8) +
+    facet_wrap(
+      ~ time, 
+      nrow = plot_rows[t], 
+      ncol = plot_cols[t],
+      labeller = labeller(time = function(x) paste0(x, " weeks"))
+    ) +
+    scale_color_manual(values = method_colors) +
+    labs(
+      x = "Delay d",
+      y = expression(q[t](d)),
+      color = "Method"
+    ) +
+    theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 20),  # Increase facet strip text size
+    axis.title = element_text(size = 22),                 # Increase axis title size
+    axis.text = element_text(size = 20),                  # Increase axis text size
+    legend.title = element_text(size = 22),               # Increase legend title size
+    legend.text = element_text(size = 20)                 # Increase legend text size
+  )
+  
+  # Print the current plot
+  print(qtd_curves)
+  
+  ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd_fit_curve_SARI_T",t,".png")),
+       plot = qtd_curves,
+       width = 20, height = 15, dpi = 300)
+  # Optionally save the plot, for example:
+  # ggsave(paste0("plot_T", t, ".png"), p, width = 12, height = 6)
+}
+```
+
+
+
 
