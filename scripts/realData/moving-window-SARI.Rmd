@@ -42,10 +42,10 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 
 # mac
-#posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
+posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
 
 #Windows
-posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
+#posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
 
 ```
 
@@ -77,6 +77,8 @@ source(file.path(path_source, "functions", "table_function.R"))
 
 # setting: delay,  number of days
 seed <- 123
+
+set.seed(seed)
  D <- 26
 #D <- 15
 N_obs <- 200
