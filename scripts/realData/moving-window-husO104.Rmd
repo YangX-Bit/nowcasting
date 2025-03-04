@@ -141,20 +141,20 @@ scoreRange_husO104 <- seq(as.Date("2011-05-27"), as.Date("2011-07-04"),by="8 day
 scoreRange_husO104
 
 first_date <- as.Date("2011-05-07")
-out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104,
-                                case_true = case_true_husO104,
-                                start_date = first_date,
-                                #start_date = scoreRange[1] - weeks(20),
-                                D = D,
-                                methods =  models_to_use,
-                                compiled_models = compiled_models,
-                                iter_sampling = 2000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T,
-                                posterior_draws_path = posterior_draws_path
-                                )
-
-save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110527_to_110628_five.RData"))
-#out <- load(file.path(path_proj, "data", "fitted_model","husO104_110507_to_110704_nine.RData"))
+# out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104,
+#                                 case_true = case_true_husO104,
+#                                 start_date = first_date,
+#                                 #start_date = scoreRange[1] - weeks(20),
+#                                 D = D,
+#                                 methods =  models_to_use,
+#                                 compiled_models = compiled_models,
+#                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
+#                                 num_chains = 3, suppress_output = T,
+#                                 posterior_draws_path = posterior_draws_path
+#                                 )
+# 
+# save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110527_to_110628_five.RData"))
+out <- load(file.path(path_proj, "data", "fitted_model","husO104_110527_to_110628_five.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
                           methods = models_to_use)
@@ -167,7 +167,7 @@ results_husO104_plots <- nowcasts_plot_separated(results_husO104, D = D, report_
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots.png"),
        plot = results_husO104_plots,
-       width = 40, height = 28, dpi = 300)
+       width = 32, height = 16, dpi = 300)
 
 results_husO104_plots
 ```
@@ -354,9 +354,100 @@ for(t in 1:5) {
 }
 ```
 
+# plot for each day emp
 ```{r}
-b_draws_rw <- out_husO104$b_rw[[5]]$draws("b")
-b_means_rw <- apply(as.array(b_draws_rw), 3, mean)
-b_means_rw
+D <- 15
+date_start <- as.Date("2011-05-07")
+
+#date_end <- as.Date("2011-06-28")
+date_end <- as.Date("2011-06-05")
+# Uncomment the following line if you need an alternative date range
+# date_start <- as.Date("2009-10-25"); date_end <- as.Date("2010-02-07")
+
+# Select rows within the specified date range
+rows_use <- which(as.Date(rownames(husO104_input)) >= date_start &
+                    as.Date(rownames(husO104_input)) <= date_end)
+rows_use_case_true <- which(as.Date(rownames(case_true_husO104)) >= date_start &
+                              as.Date(rownames(case_true_husO104)) <= date_end)
+
+library(tidyr)
+library(dplyr)
+library(cowplot)
+library(ggplot2)
+library(patchwork)
+
+data_matrix <- husO104_input[rows_use, ]
+case_true_emp_plot <- case_true_husO104[rows_use_case_true]
+time_labels <- rownames(data_matrix)
+
+# Convert to long-format data:
+# 1. Compute the cumulative reporting proportion by dividing data_matrix by case_true_emp_plot.
+# 2. Create a 'Time' column from the row names.
+# 3. Add a sequential RowID.
+# 4. Pivot the delay columns (e.g., d1, d2, …) into long format.
+df <- round(as.data.frame(data_matrix) / case_true_emp_plot, 2)
+df[is.na(df)] <- 0
+df$Time <- time_labels  
+df <- df %>%
+  mutate(RowID = row_number()) %>%
+  pivot_longer(cols = starts_with("delay"), names_to = "X", values_to = "Y") %>%
+  mutate(X = as.numeric(sub("delay", "", X)))
+
+# For each reporting date, determine the number of available delay weeks.
+# The available delay is computed as: floor((date_end - ReportDate) / 7 + 1)
+# This ensures that for the latest date we only have 1 observation, for the day before we have 2, and so on.
+df <- df %>%
+  mutate(
+    ReportDate = as.Date(Time),
+    available_delay = as.numeric(date_end - ReportDate) + 1
+  ) %>%
+  # Only keep delay weeks that have been observed (i.e. less than or equal to available_delay)
+  filter(X <= available_delay)
+
+# Create subplots for each reporting date
+plots <- df %>%
+  group_by(RowID) %>%
+  group_split() %>%
+  lapply(function(d) {
+    ggplot(d, aes(x = X, y = Y)) +
+      geom_line(color = "darkblue", size = 1) + 
+      scale_y_continuous(limits = c(0, 1)) +
+      scale_x_continuous(limits = c(0, 15), breaks = seq(0, 15, by = 3)) +  # 
+      labs(title = NULL, x = unique(d$Time), y = NULL) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 16),  # 
+        axis.text.y = element_text(size = 16)
+      )
+    
+  })
+
+# Combine subplots into a 5 x 6 grid
+final_plot <- wrap_plots(plots, ncol = 6, nrow = 5) +  
+  plot_annotation(
+    title = NULL,
+    theme = theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
+      plot.caption = element_text(hjust = 0.5, size = 10),
+      plot.margin = margin(10, 10, 10, 50)  # Leave more margin to the left
+    )
+  ) &
+  theme(
+    axis.title.x = element_text(size = 16, face = "bold")
+  )  + 
+  labs(x = "Delay D", y = NULL)
+
+# Add left-side Y-axis title
+emp_11_06_05_hus <- ggdraw(final_plot) +
+  draw_label("Cumulative reporting proportion", 
+             x = 0.02, y = 0.5, angle = 90,  
+             size = 20, fontface = "bold")
+
+emp_11_06_05_hus
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_11_06_05_hus.png")),
+       plot = emp_11_06_05_hus,
+       width = 20, height = 15, dpi = 300)
+
 ```
 

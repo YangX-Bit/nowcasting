@@ -106,7 +106,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
       y = as.numeric(matrix_data[i, ])
     )
     tryCatch({
-      model_fit <- nls(y ~ (1 - (1 - phi)*exp(-b * x)), data = data_fit, start = list(b = 0.2, phi = 0.2))
+      model_fit <- nls(y ~ (1 - phi*exp(-b * x)), data = data_fit, start = list(b = 0.2, phi = 0.9))
       coef_saved[i, 1] <- coef(model_fit)["b"]
       coef_saved[i, 2] <- coef(model_fit)["phi"]
     }, error = function(e) {
@@ -118,7 +118,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
   x_vals <- c(0:D)
   plot_data <- data.frame()
   for (i in 1:n_rows) {
-    y_vals <- (1 - (1 - coef_saved$phi[i]) * exp(-coef_saved$b[i] * x_vals))
+    y_vals <- (1 - coef_saved$phi[i] * exp(-coef_saved$b[i] * x_vals))
     temp_data <- data.frame(
       x = x_vals,
       y = as.numeric(matrix_data[i, ]),
@@ -394,7 +394,7 @@ nowcasts_plot_separated <- function(nowcasts_list,
                                     methods = c("q_constant", "b_constant", "b_rw", "b_ou"),
                                     title = NULL,
                                     x_lab = NULL,
-                                    y_lab = "Cases / Nowcast",
+                                    y_lab = "Number of Cases",
                                     combine_plots = TRUE) {
   library(ggplot2)
   library(lubridate)
@@ -414,7 +414,7 @@ nowcasts_plot_separated <- function(nowcasts_list,
   # Define colors
   method_colors <- c(
     "q_constant" = "#228B22",  # green
-    "b_constant" = "#ffff80",  # light yellow
+    "b_constant" = "#b35806",  # light yellow
     "b_rw"       = "#8446c6",  # purple
     "b_ou"       = "#4682B4"   # steel blue
   )
@@ -461,9 +461,10 @@ nowcasts_plot_separated <- function(nowcasts_list,
         geom_line(data = sub_data,
                   aes(x = date, y = mean),
                   color = method_colors[model_name], linewidth = 1) +
-        annotate("text", x = now, y = -1, 
-                 label = paste0("now: ", now), 
-                 hjust = 1, vjust = 2, color = "red") +
+        # annotate("text", x = now, y = -1, 
+        #          label = paste0("now: ", now), 
+        #          hjust = 1, vjust = 2, color = "red",
+        #          size = 6) +
         geom_point(data = data.frame(x = now, y = 0),
                    aes(x = x, y = y),
                    shape = 17, size = 2, color = "red") +
@@ -471,10 +472,10 @@ nowcasts_plot_separated <- function(nowcasts_list,
           if (last_date_for_delay >= earliest) {
             list(
               geom_vline(xintercept = last_date_for_delay, 
-                         color = "orange", linetype = "dashed", size = 1),
+                         color = "black", linetype = "dashed", size = 1),
               annotate("text", x = last_date_for_delay, y = -1,
                        label = as.character(last_date_for_delay),
-                       vjust = 2, color = "orange")
+                       vjust = 2, color = "black")
             )
           } else {
             NULL

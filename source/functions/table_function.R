@@ -302,109 +302,263 @@ average_nowcasts_metrics <- function(
 }
 
 
-
-
-highlight_metrics <- function(tables, method_names = NULL, date_labels = NULL, digits = 2, 
+highlight_metrics <- function(tables, 
+                              model_names = NULL, 
+                              date_labels = NULL, 
+                              scenario_names = NULL,
+                              digits = 2, 
                               table_caption = "Metrics comparison", 
-                              report_unit = "day", D = NULL, first_date = NULL) {
-  # If no date labels are provided, use default numeric labels
+                              report_unit = "day", 
+                              D = NULL, 
+                              first_date = NULL,
+                              report_scenario = "fr",       # e.g., "fr" for fully reported, "nfr" for not fully reported
+                              model_origin = "constant"     # e.g., "constant", "random_walks", "ou_processes"
+) {
+  # Check required parameters
   if (is.null(date_labels)) {
-    date_labels <- paste0("Scenario ", 1:4)
+    stop("Please provide date_labels (a vector of dates).")
   }
-  
-  # If no method names are provided, use default names
-  if (is.null(method_names)) {
-    method_names <- c("Method 1", "Method 2", "Method 3", "Method 4", "Method 5")
+  if (is.null(model_names)) {
+    stop("Please provide model_names (a vector of model names) with length matching the number of rows in each table.")
   }
-  
-  # Ensure D and first_date are provided
+  if (is.null(scenario_names)) {
+    scenario_names <- paste0("Scenario ", 1:length(tables))
+  }
   if (is.null(D) || is.null(first_date)) {
-    stop("Both 'D' (report delay) and 'first_date' must be provided.")
+    stop("Please provide both 'D' (report delay) and 'first_date'.")
   }
   
   # Convert first_date and date_labels to Date objects
   first_date <- as.Date(first_date)
   date_labels <- as.Date(date_labels)
   
-  # Factor to convert report_unit to days
+  # Determine conversion factor based on report_unit (default is day)
   factor_loc <- if (report_unit == "week") 7 else 1
   
-  # Combine tables and add scenario column and custom method names
+  # Define unit label and header text for time column
+  unit_label <- if (report_unit == "week") "week" else "day"
+  time_header <- if (report_unit == "week") "Time (in weeks)" else "Time (in days)"
+  
+  # Combine data from each table and add scenario numbers and model names
   combined_df <- do.call(rbind, lapply(seq_along(tables), function(i) {
     df <- tables[[i]]
     df$Scenario <- i
-    df$Method <- method_names[1:nrow(df)]
+    df$Method <- model_names[1:nrow(df)]
     return(df)
   }))
   
-  # Define columns to be highlighted
+  # Columns to be highlighted
   cols_to_process <- c("RMSE", "RMSPE", "MAE", "MAPE", "Interval_Width")
   
-  # Process each column
   highlighted_df <- combined_df %>%
     group_by(Scenario) %>%
     mutate(across(all_of(cols_to_process), 
                   ~ ifelse(. == min(.), 
                            paste0("\\textcolor{red}{", formatC(., format = "f", digits = digits), "}"),
                            formatC(., format = "f", digits = digits)))) %>%
-    mutate(`Coverage_Rate` = 
-             ifelse(`Coverage_Rate` == max(`Coverage_Rate`), 
-                    paste0("\\textcolor{red}{", formatC(`Coverage_Rate`, format = "f", digits = digits), "}"),
-                    formatC(`Coverage_Rate`, format = "f", digits = digits)))
+    mutate(Coverage_Rate = 
+             ifelse(Coverage_Rate == max(Coverage_Rate), 
+                    paste0("\\textcolor{red}{", formatC(Coverage_Rate, format = "f", digits = digits), "}"),
+                    formatC(Coverage_Rate, format = "f", digits = digits))) %>%
+    ungroup()
   
-  # Generate LaTeX table
-  latex_table <- "\\begin{table}[htbp]\n\\centering\n"
-  latex_table <- paste0(latex_table, "\\begin{tabular}{c|c|c|c|c|c|c|c}\n")
+  # Construct LaTeX table string
+  latex_table <- "\\begin{table}[H]\n\\footnotesize\n\\centering\n"
+  # Use auto-adjust width (left aligned) for the first column and update header with time unit
+  latex_table <- paste0(latex_table, "\\begin{tabular}{l|c|c|c|c|c|c|l}\n")
   latex_table <- paste0(latex_table, "\\hline\n")
-  latex_table <- paste0(latex_table, "Scenario & RMSE & RMSPE & MAE & MAPE & Interval Width & Coverage Rate & Method \\\\\n")
+  latex_table <- paste0(latex_table, time_header, " & RMSE & RMSPE & MAE & MAPE & MCIW & MCR & Method \\\\\n")
   latex_table <- paste0(latex_table, "\\hline\n")
   
-  # Add data for each scenario
+  # Output 4 rows of data for each scenario
   for (i in seq_along(unique(highlighted_df$Scenario))) {
     scenario <- unique(highlighted_df$Scenario)[i]
-    scenario_data <- highlighted_df[highlighted_df$Scenario == scenario,]
+    scenario_data <- highlighted_df[highlighted_df$Scenario == scenario, ]
     
-    # Calculate total days of data used
-    total_days <- as.numeric((date_labels[i] - first_date) / factor_loc) + 1 # Convert to correct unit
+    # Calculate total time units (days or weeks)
+    total_units <- as.numeric((date_labels[i] - first_date) / factor_loc) + 1
     
-    # Compute a (completed) and b (incomplete) days
-    if (total_days <= D) {
+    # Calculate completed and incomplete time units
+    if (total_units <= D) {
       a <- 0
-      b <- total_days
+      b <- total_units
     } else {
       b <- D
-      a <- total_days - b
+      a <- total_units - b
     }
+    total_units <- floor(total_units)
+    a <- floor(a); b <- floor(b)
     
-    # Add date row with additional reporting information
-    latex_table <- paste0(latex_table, "\\multicolumn{8}{l}{\\textbf{Now is ", date_labels[i], 
-                          ", with ", a, " ", report_unit, " completed, ", b, " ", report_unit, " incomplete.}} \\\\\n")
-    latex_table <- paste0(latex_table, "\\hline\n")
+    # First row: Use scenario_names with numbering (e.g., "(1) Initial")
+    row1 <- scenario_data[1, ]
+    label1 <- paste0("(", i, ") ", scenario_names[i])
+    row1_str <- paste(label1,
+                      row1$RMSE,
+                      row1$RMSPE,
+                      row1$MAE,
+                      row1$MAPE,
+                      row1$Interval_Width,
+                      row1$Coverage_Rate,
+                      row1$Method,
+                      sep = " & ")
+    latex_table <- paste0(latex_table, row1_str, " \\\\\n")
     
-    # Add data rows for the current scenario
-    for (j in 1:nrow(scenario_data)) {
-      row <- scenario_data[j,]
-      row_str <- paste(
-        "", # First column left blank
-        row$RMSE,
-        row$RMSPE,
-        row$MAE,
-        row$MAPE,
-        row$`Interval_Width`,
-        row$`Coverage_Rate`,
-        row$Method,
-        sep = " & "
-      )
-      latex_table <- paste0(latex_table, row_str, " \\\\\n")
-    }
+    # Second row: Now time (total units)
+    row2 <- scenario_data[2, ]
+    label2 <- paste0("Now: $t=", total_units, "$")
+    row2_str <- paste(label2,
+                      row2$RMSE,
+                      row2$RMSPE,
+                      row2$MAE,
+                      row2$MAPE,
+                      row2$Interval_Width,
+                      row2$Coverage_Rate,
+                      row2$Method,
+                      sep = " & ")
+    latex_table <- paste0(latex_table, row2_str, " \\\\\n")
     
-    # Add a separator line between scenarios
+    # Third row: Completed units
+    row3 <- scenario_data[3, ]
+    label3 <- paste0("Completed ", unit_label, "s: ", a)
+    row3_str <- paste(label3,
+                      row3$RMSE,
+                      row3$RMSPE,
+                      row3$MAE,
+                      row3$MAPE,
+                      row3$Interval_Width,
+                      row3$Coverage_Rate,
+                      row3$Method,
+                      sep = " & ")
+    latex_table <- paste0(latex_table, row3_str, " \\\\\n")
+    
+    # Fourth row: Incomplete units
+    row4 <- scenario_data[4, ]
+    label4 <- paste0("Incomplete ", unit_label, "s: ", b)
+    row4_str <- paste(label4,
+                      row4$RMSE,
+                      row4$RMSPE,
+                      row4$MAE,
+                      row4$MAPE,
+                      row4$Interval_Width,
+                      row4$Coverage_Rate,
+                      row4$Method,
+                      sep = " & ")
+    latex_table <- paste0(latex_table, row4_str, " \\\\\n")
+    
     latex_table <- paste0(latex_table, "\\hline\n")
   }
   
   latex_table <- paste0(latex_table, "\\end{tabular}\n")
-  latex_table <- paste0(latex_table, "\\caption{", table_caption,"}\n")
+  latex_table <- paste0(latex_table, "\\caption{", table_caption, "}\n")
+  # Create label based on report_scenario and model_origin parameters
+  latex_table <- paste0(latex_table, "\\label{tab:", report_scenario, "_", model_origin, "}\n")
   latex_table <- paste0(latex_table, "\\end{table}")
   
   return(cat(latex_table))
 }
+
+
+# highlight_metrics <- function(tables, model_names = NULL, date_labels = NULL, digits = 2, 
+#                               table_caption = "Metrics comparison", 
+#                               report_unit = "day", D = NULL, first_date = NULL) {
+#   # If no date labels are provided, use default numeric labels
+#   if (is.null(date_labels)) {
+#     date_labels <- paste0("Scenario ", 1:4)
+#   }
+#   
+#   # If no method names are provided, use default names
+#   if (is.null(model_names)) {
+#     model_names <- c("Method 1", "Method 2", "Method 3", "Method 4", "Method 5")
+#   }
+#   
+#   # Ensure D and first_date are provided
+#   if (is.null(D) || is.null(first_date)) {
+#     stop("Both 'D' (report delay) and 'first_date' must be provided.")
+#   }
+#   
+#   # Convert first_date and date_labels to Date objects
+#   first_date <- as.Date(first_date)
+#   date_labels <- as.Date(date_labels)
+#   
+#   # Factor to convert report_unit to days
+#   factor_loc <- if (report_unit == "week") 7 else 1
+#   
+#   # Combine tables and add scenario column and custom method names
+#   combined_df <- do.call(rbind, lapply(seq_along(tables), function(i) {
+#     df <- tables[[i]]
+#     df$Scenario <- i
+#     df$Method <- model_names[1:nrow(df)]
+#     return(df)
+#   }))
+#   
+#   # Define columns to be highlighted
+#   cols_to_process <- c("RMSE", "RMSPE", "MAE", "MAPE", "Interval_Width")
+#   
+#   # Process each column
+#   highlighted_df <- combined_df %>%
+#     group_by(Scenario) %>%
+#     mutate(across(all_of(cols_to_process), 
+#                   ~ ifelse(. == min(.), 
+#                            paste0("\\textcolor{red}{", formatC(., format = "f", digits = digits), "}"),
+#                            formatC(., format = "f", digits = digits)))) %>%
+#     mutate(`Coverage_Rate` = 
+#              ifelse(`Coverage_Rate` == max(`Coverage_Rate`), 
+#                     paste0("\\textcolor{red}{", formatC(`Coverage_Rate`, format = "f", digits = digits), "}"),
+#                     formatC(`Coverage_Rate`, format = "f", digits = digits)))
+#   
+#   # Generate LaTeX table
+#   latex_table <- "\\begin{table}[htbp]\n\\centering\n"
+#   latex_table <- paste0(latex_table, "\\begin{tabular}{c|c|c|c|c|c|c|c}\n")
+#   latex_table <- paste0(latex_table, "\\hline\n")
+#   latex_table <- paste0(latex_table, "Scenario & RMSE & RMSPE & MAE & MAPE & Interval Width & Coverage Rate & Method \\\\\n")
+#   latex_table <- paste0(latex_table, "\\hline\n")
+#   
+#   # Add data for each scenario
+#   for (i in seq_along(unique(highlighted_df$Scenario))) {
+#     scenario <- unique(highlighted_df$Scenario)[i]
+#     scenario_data <- highlighted_df[highlighted_df$Scenario == scenario,]
+#     
+#     # Calculate total days of data used
+#     total_days <- as.numeric((date_labels[i] - first_date) / factor_loc) + 1 # Convert to correct unit
+#     
+#     # Compute a (completed) and b (incomplete) days
+#     if (total_days <= D) {
+#       a <- 0
+#       b <- total_days
+#     } else {
+#       b <- D
+#       a <- total_days - b
+#     }
+#     
+#     # Add date row with additional reporting information
+#     latex_table <- paste0(latex_table, "\\multicolumn{8}{l}{\\textbf{Now is ", date_labels[i], 
+#                           ", with ", a, " ", report_unit, " completed, ", b, " ", report_unit, " incomplete.}} \\\\\n")
+#     latex_table <- paste0(latex_table, "\\hline\n")
+#     
+#     # Add data rows for the current scenario
+#     for (j in 1:nrow(scenario_data)) {
+#       row <- scenario_data[j,]
+#       row_str <- paste(
+#         "", # First column left blank
+#         row$RMSE,
+#         row$RMSPE,
+#         row$MAE,
+#         row$MAPE,
+#         row$`Interval_Width`,
+#         row$`Coverage_Rate`,
+#         row$Method,
+#         sep = " & "
+#       )
+#       latex_table <- paste0(latex_table, row_str, " \\\\\n")
+#     }
+#     
+#     # Add a separator line between scenarios
+#     latex_table <- paste0(latex_table, "\\hline\n")
+#   }
+#   
+#   latex_table <- paste0(latex_table, "\\end{tabular}\n")
+#   latex_table <- paste0(latex_table, "\\caption{", table_caption,"}\n")
+#   latex_table <- paste0(latex_table, "\\end{table}")
+#   
+#   return(cat(latex_table))
+# }
