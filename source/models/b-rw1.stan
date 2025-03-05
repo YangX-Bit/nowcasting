@@ -1,7 +1,13 @@
 data {
+  // Data
   int<lower=0> T;                       // number of time points
   int<lower=0> D;                       // maximum delay
   array[T, D+1] int<lower=0> Y;         // reported cases (t x (d+1) matrix)
+  // Hyperparameters
+  real mean_logit_phi;
+  real<lower=0> sd_logit_phi;
+  real mean_log_b;
+  real<lower=0> sd_log_b;
 }
 
 transformed data {
@@ -22,7 +28,7 @@ transformed parameters {
   matrix[T, D+1] q;                                      // accumulated reporting probability
   for (d in 0:D)
     for (t in 1:(T-d))
-      q[t, d+1] = 1 - phi[t] * exp(-b[t] * d);
+      q[t, d+1] = 1 - (1 - phi[t]) * exp(-b[t] * d);
 }
 
 model {
@@ -32,8 +38,8 @@ model {
   sigma_logit_phi ~ lognormal(-2, 1);
 
   // First-order random walks
-  log_b[1] ~ normal(0, sqrt(1^2 + sigma_log_b^2 * factor));             // log(0.7)
-  logit_phi[1] ~ normal(0, sqrt(1^2 + sigma_logit_phi^2 * factor));
+  log_b[1] ~ normal(mean_log_b, sqrt(sd_log_b^2 + sigma_log_b^2 * factor));
+  logit_phi[1] ~ normal(mean_logit_phi, sqrt(sd_logit_phi^2 + sigma_logit_phi^2 * factor));
   for (t in 2:T) {
     log_b[t] ~ normal(log_b[t-1], sigma_log_b);
     logit_phi[t] ~ normal(logit_phi[t-1], sigma_logit_phi);

@@ -1,7 +1,13 @@
 data {
+  // Data
   int<lower=0> T;                       // number of time points
   int<lower=0> D;                       // maximum delay
   array[T, D+1] int<lower=0> Y;         // reported cases (t x (d+1) matrix)
+  // Hyperparameters
+  real<lower=0> alpha_phi;
+  real<lower=0> beta_phi;
+  real mean_log_b;
+  real<lower=0> sd_log_b;
 }
 
 parameters {
@@ -12,16 +18,16 @@ parameters {
 
 transformed parameters {
   vector<lower=0, upper=1>[D+1] q;      // accumulated reporting probability
-  q[1] = 1 - phi;
+  q[1] = phi;
   for (d in 1:D)
-    q[d+1] = 1 - phi * exp(- b * d);
+    q[d+1] = 1 - (1-phi) * exp(- b * d);
 }
 
 model {
   // Priors
   lambda ~ lognormal(0, 2.5);
-  b ~ lognormal(0, 1);
-  phi ~ uniform(0, 1);
+  phi ~ beta(alpha_phi, beta_phi);
+  b ~ lognormal(mean_log_b, sd_log_b);
 
   // Likelihood
   for (d in 0:D)
