@@ -8,8 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
 
-library(rstan)
-# library(cmdstanr)
 library(splines)
 library(ggplot2)
 library(reshape2)
@@ -33,6 +31,8 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 
 # source from other paper
 source(file.path(path_source, "funcs_german_paper", "plotReportingTriangle.R"))
+source(file.path(path_source, "functions", "prior_function.R"))
+
 # data import
 SARI <- as.data.frame(read.csv(file.path(path_proj, "data", "raw", "clean_data_srag_epiweek_delay_table_PR.csv"),))
 
@@ -42,7 +42,8 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 
 # mac
-posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
+# posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
+posterior_draws_path = file.path("data", "draws", "SARI")
 
 #Windows
 #posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
@@ -51,14 +52,10 @@ posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
 
 ```{r}
 #models
-q_constant <- file.path(path_proj, "source", "models", 
-                      "q-constant.stan")
-b_constant <- file.path(path_proj, "source", "models", 
-                     "b-constant.stan")
-b_rw <- file.path(path_proj, "source", "models", 
-                     "b-rw1.stan")
-b_ou <-  file.path(path_proj, "source", "models", 
-                      "b-ou.stan")
+q_constant <- file.path(path_proj, "source", "models", "q-constant.stan")
+b_constant <- file.path(path_proj, "source", "models", "b-constant.stan")
+b_rw <- file.path(path_proj, "source", "models", "b-rw1.stan")
+b_ou <-  file.path(path_proj, "source", "models", "b-ou.stan")
 
 compiled_models <- list(
   q_constant = cmdstan_model(q_constant),
@@ -147,19 +144,21 @@ exp_phi_plot
 
 ```{r}
 # scoreRange_SARI <- seq(as.Date("2009-08-15"),as.Date("2009-12-30"),by="30 day")
-scoreRange_SARI <- c("2009-08-15","2009-09-01", "2009-09-15","2009-10-30","2009-12-15")
+scoreRange_SARI <- seq(as.Date("2009-08-02"),as.Date("2009-11-22"), by = "4 week")
 scoreRange_SARI
+first_date <- as.Date("2009-06-14")
 
-first_date <- as.Date("2009-06-15")
-# out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
-#                                 case_true = case_true,
-#                                 start_date = first_date,
-#                                 D = D, 
-#                                 methods = models_to_use,
-#                                 compiled_models = compiled_models,
-#                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
-#                                 num_chains = 3, suppress_output = T,
-#                                 posterior_draws_path = posterior_draws_path)
+hypers <- hypers_q(phi_ref = 0.2, D_ref = 26, type = "exponential", alpha_phi = 1.4, sd_log_b = 0.5, delay_seq = 0:26)
+
+out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
+                                case_true = case_true,
+                                start_date = first_date,
+                                D = D, 
+                                methods = models_to_use,
+                                compiled_models = compiled_models,
+                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path, hypers = hypers)
 
 # save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090930_to_901230_D=26.RData"))
 load( file.path(path_proj, "data", "fitted_model","SARI_090930_to_901230_D=26.RData"))

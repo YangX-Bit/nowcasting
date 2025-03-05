@@ -41,7 +41,7 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
                                      iter_sampling = 2000, iter_warmup = 1000, refresh = 500,
                                      num_chains = 3, thin = 2,suppress_output = TRUE,
                                     posterior_draws_path = file.path(path_proj, "source", "models",
-                                                                     "posterior_draws")
+                                                                     "posterior_draws"), hypers = NULL
                                      ){
   if(is.null(case_true)){
     stop("You must input true cases.")
@@ -90,8 +90,7 @@ nowcasting_moving_window <- function(data, scoreRange, case_true = NULL,
       warning("The number of rows of the input data is smaller than number of max delay D, which might cause inaccuracy." )
     }
     
-    stan_data_trunc <- list(T = N_obs_local, D = D, Y = data_trunc,
-                            N = nrow(indices_data_trunc), obs_index = indices_data_trunc)
+    stan_data_trunc <- c(list(T = N_obs_local, D = D, Y = data_trunc), hypers)
 
     # return(stan_data_trunc)
     # Fit models based on what is selected 

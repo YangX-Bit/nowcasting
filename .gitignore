@@ -1,4 +1,5 @@
 scripts/model-testing/*.html
+/data/draws/SARI
 
 source/models/*.exe
 source/models/q-constant
