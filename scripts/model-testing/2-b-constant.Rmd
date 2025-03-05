@@ -22,6 +22,7 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
+source(file.path(path_source, "functions", "prior_function.R"))
 posterior_draws_path = file.path(path_proj, "data", "draws", "testEach")
 ```
 
@@ -90,7 +91,10 @@ print(exp_b_plot_b_constant)
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = b_constant_FR$case_reported_cumulated[1:ind, ])
+hypers = hypers_q(phi_ref = 0.2, D_ref = 15, type = "exponential", alpha_phi = 1.4, sd_log_b = 1, delay_seq = 0:15)
+stan_data <- c(list(T = ind, D = 15, Y = b_constant_FR$case_reported_cumulated[1:ind, ]),
+    hypers)
+
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
@@ -174,7 +178,9 @@ print(exp_b_plot_b_constant)
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = b_constant_NFR$case_reported_cumulated[1:ind, ])
+hypers = hypers_q(phi_ref = 0.2, D_ref = 15, type = "exponential", alpha_phi = 1.4, sd_log_b = 1, delay_seq = 0:15)
+stan_data <- c(list(T = ind, D = 15, Y = b_constant_NFR$case_reported_cumulated[1:ind, ]), hypers)
+
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,

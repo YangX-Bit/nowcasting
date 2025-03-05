@@ -22,6 +22,7 @@ source(file.path(path_source, "simulation", "simulations_functions_final.R"))
 source(file.path(path_source, "functions", "plot_function.R"))
 source(file.path(path_source, "functions", "fit_function.R"))
 source(file.path(path_source, "functions", "table_function.R"))
+source(file.path(path_source, "functions", "prior_function.R"))
 posterior_draws_path = file.path(path_proj, "data", "draws", "testEach")
 ```
 
@@ -96,7 +97,9 @@ print(exp_b_plot_ou)
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = b_ou_FR$case_reported_cumulated[1:ind, ])
+hypers = hypers_q(phi_ref = 0.2, D_ref = 15, type = "exponential", alpha_phi = 1.4, sd_log_b = 1, delay_seq = 0:15)
+stan_data <- c(list(T = ind, D = 15, Y = b_ou_FR$case_reported_cumulated[1:ind, ]), hypers)
+
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
@@ -124,7 +127,7 @@ mcmc_areas(test$draws("b"), prob_outer = 0.95) +
 
 param_true = tibble(
     parameter = grep("^phi\\[.+\\]$", varnames, value = TRUE),
-    x = b_ou_FR$phi[1:ind]
+    x = 1 - b_ou_FR$phi[1:ind]
 )
 mcmc_areas(test$draws("phi"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
@@ -204,7 +207,9 @@ print(exp_b_plot_rw_b)
 
 ```{r}
 ind = 40
-stan_data <- list(T = ind, D = 15, Y = b_ou_NFR$case_reported_cumulated[1:ind, ])
+hypers = hypers_q(phi_ref = 0.2, D_ref = 15, type = "exponential", alpha_phi = 1.4, sd_log_b = 1, delay_seq = 0:15)
+stan_data <- c(list(T = ind, D = 15, Y = b_ou_NFR$case_reported_cumulated[1:ind, ]), hypers)
+
 test = model$sample(
     data = stan_data,
     iter_sampling = 3000,
