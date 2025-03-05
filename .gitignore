@@ -5,6 +5,9 @@ source/models/q-constant
 source/models/b-constant
 source/models/b-rw1
 source/models/b-ou
+source/models/b-constant-gompertz
+source/models/b-rw1-gompertz
+source/models/b-ou-gompertz
 
 # History files
 .Rhistory
