@@ -1,0 +1,103 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(aweek)
+library(lubridate)
+library(patchwork)
+library(latex2exp)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+
+# data import
+sari <- as.data.frame(read.csv(file.path(path_proj, "data", "raw", "clean_data_srag_epiweek_delay_table_PR.csv"),))
+husO104 <- as.data.frame(read.csv(file.path(path_proj, "data", "cleaned", "husO104_tri_cumu.csv"),))
+
+# set week
+set_week_start("Sunday")
+sari$date <- get_date(week = sari$epiweek, year = sari$epiyear)
+```
+
+```{r, warning=FALSE}
+# region 41002
+data_41002 <- sari %>% filter(regionalsaude == 41002) %>%
+  select(-c("epiweek","epiyear","regionalsaude")) %>%
+  relocate(Notifications, .after = last_col())
+rownames(data_41002) <- data_41002$date
+
+#transfer to cumu matrix
+data_41002[,c(1:27)] <- cumulative_matrix(as.matrix(data_41002[,c(1:27)]))
+
+data41002_exp_plot <- data_41002 %>%
+  filter(date >= as.Date("2009-07-05") & date <= as.Date("2010-07-05")) %>%
+  select(-Notifications_within_26w, -Notifications, -date) %>%
+  as.matrix()
+```
+
+```{r}
+# husO104
+
+colnames(husO104)[1] <- "date"
+husO104$date <- as.Date(husO104$date)
+
+husO104_exp_plot <- husO104 %>% select(-date) %>%
+  as.matrix()
+rownames(husO104_exp_plot) <- as.character(husO104$date)
+```
+
+```{r}
+# fit sari
+sari_fit <- data.frame(
+    delay = 0:26,
+    y = data41002_exp_plot[which(rownames(data41002_exp_plot) == "2009-08-30"),]
+)
+
+sari_fit2 <- data.frame(delay = seq(0, 26, length = 100))
+
+nls_sari <- nls(y ~ exp(logN) * (1 - phi_c*exp(-b * delay)), data = sari_fit, start = list(b = 0.2, phi_c = 0.9, logN = log(787)))
+b_fit <- coef(nls_sari)["b"]; phi_c_fit <- coef(nls_sari)["phi_c"]
+sari_fit$q_empirical <- sari_fit$y / exp(coef(nls_sari)["logN"])
+sari_fit2$q_fit <- 1 - coef(nls_sari)["phi_c"] * exp(-coef(nls_sari)["b"] *
+    sari_fit2$delay)
+
+# fit hus0104
+hus0104_fit <- data.frame(
+    delay = 0:15,
+    y = as.numeric(husO104_exp_plot[which(rownames(husO104_exp_plot) == "2011-05-22"),])
+)
+
+hus0104_fit2 <- data.frame(delay = seq(0, 15, length = 100))
+
+nls_hus0104 <- nls(y ~ exp(logN) * exp(logphi*exp(-b * delay)), data = hus0104_fit,
+    start = list(b = 0.1, logphi = log(0.01), logN = log(50)))
+hus0104_fit$q_empirical <- hus0104_fit$y / exp(coef(nls_hus0104)["logN"])
+hus0104_fit2$q_fit <- exp(coef(nls_hus0104)["logphi"] * exp(-coef(nls_hus0104)["b"] * hus0104_fit2$delay))
+
+# visualize
+mylabs <- c("(a) SARI: Exponential", "(b) HUS-O104: Gompertz")
+data_fit <- rbind(mutate(sari_fit, model = mylabs[1]), mutate(hus0104_fit, model = mylabs[2]))
+data_fit2 <- rbind(mutate(sari_fit2, model = mylabs[1]), mutate(hus0104_fit2, model = mylabs[2]))
+p <- ggplot(data_fit, aes(x = delay)) +
+    geom_line(aes(x = delay, y = q_fit, color = "Theoretical"), data_fit2, linewidth = rel(0.4), linetype = "dashed") +
+    geom_point(aes(y = q_empirical, color = "Empirical"), size = rel(0.5)) +
+    facet_wrap(~ model, scales = "free") +
+    labs(title = NULL, y = TeX("$q(d)$"), x = TeX("$d$"), color = NULL) +
+    scale_y_continuous(limits = c(0, 1)) +
+    scale_colour_manual(values = c("darkblue", "red")) +
+    theme_classic(9) +
+    theme(
+        legend.position = c(0.9, 0.15),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold")
+)
+p
+
+ggsave(filename = file.path(path_proj, "plots_to_show", paste0("qd_emp_fit.png")),
+       plot = p,
+       width = 20 * 8/ 20, height = 8 * 8 / 20, dpi = 300)
+```
