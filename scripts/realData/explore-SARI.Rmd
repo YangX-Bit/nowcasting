@@ -88,7 +88,7 @@ p <- ggplot(data_fit, aes(x = delay)) +
     facet_wrap(~ model, scales = "free") +
     labs(title = NULL, y = TeX("$q(d)$"), x = TeX("$d$"), color = NULL) +
     scale_y_continuous(limits = c(0, 1)) +
-    scale_colour_manual(values = c("darkblue", "red")) +
+    scale_colour_manual(values = c("gray30", "red")) +
     theme_classic(9) +
     theme(
         legend.position = c(0.9, 0.15),
@@ -97,7 +97,7 @@ p <- ggplot(data_fit, aes(x = delay)) +
 )
 p
 
-ggsave(filename = file.path(path_proj, "plots_to_show", paste0("qd_emp_fit.png")),
+ggsave(filename = file.path(path_proj, "plots_to_show", "qd_emp_fit.png"),
        plot = p,
        width = 20 * 8/ 20, height = 8 * 8 / 20, dpi = 300)
 ```

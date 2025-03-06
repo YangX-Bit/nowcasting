@@ -5,63 +5,53 @@ path_source = file.path(path_proj, "source")
 ######### exp curve ######### 
 library(ggplot2)
 library(latex2exp)
+library(tidyr)
 
 # Define function for q_{t,d}
-q_func <- function(d, phi, b) {
-  return(1 - phi * exp(-b * d))
-}
+q_exp <- function(d, phi, b) { return(1 - (1 - phi) * exp(-b * d)) }
+q_gom <- function(d, phi, b) { return(exp(log(phi) * exp(-b * d))) }
 
 # Define parameter values
-phi_values <- c(0.5, 0.9)    # Two phi values: 0.5 and 0.9
-b_values <- c(0.2, 0.4, 2)     # Three b values
+phi_values <- c(0.01, 0.25)    # Two phi values: 0.5 and 0.9
+b_values <- c(0.3, 0.6, 1.2)     # Three b values
 d_values <- seq(0, 10, length.out = 100)  # Define d range
 
 # Create data frame for plotting
 plot_data <- expand.grid(d = d_values, phi = phi_values, b = b_values)
-plot_data$q_td <- mapply(q_func, plot_data$d, plot_data$phi, plot_data$b)
+plot_data$Exponential <- mapply(q_exp, plot_data$d, plot_data$phi, plot_data$b)
+plot_data$Gompertz <- mapply(q_gom, plot_data$d, plot_data$phi, plot_data$b)
+plot_data <- pivot_longer(plot_data, Exponential:Gompertz, names_to = "model", values_to = "q_td")
 
 # Convert phi and b to factor with appropriate labels.
 # For phi, use strings that can be parsed into plotmath expressions.
 plot_data$phi <- factor(plot_data$phi, levels = phi_values, 
-                        labels = c("phi == 0.5", "phi == 0.9"))
+                        labels = c("phi == 0.01", "phi == 0.25"))
 plot_data$b <- factor(plot_data$b, levels = b_values, 
-                      labels = c("b = 0.2", "b = 0.4", "b = 2"))
+                      labels = c("b = 0.3", "b = 0.6", "b = 1.2"))
+plot_data$group <- paste0(plot_data$model, ":~~", plot_data$phi)
+
 
 # Generate plot with facets for phi values
-exp_curve <- ggplot(plot_data, aes(x = d, y = q_td, color = factor(b), linetype = factor(b))) +
-  geom_line(size = 1) +  
-  labs(
-    title = NULL,
-    x = "Delay (d)", 
-    y = TeX("$q_{t}(d)$"),  # 
-    color = "Values of b",
-    linetype = "Values of b"
-  ) +
-  facet_wrap(~ phi, labeller = label_parsed) +  # print by diff phi
-  scale_color_manual(values = c("darkblue", "red", "black")) +  # 
-  scale_linetype_manual(values = c("solid", "dashed", "dotted")) +  # distinguish diff b values
-  theme_classic() +
+exp_curve <- ggplot(plot_data, aes(x = d, y = q_td, linetype = factor(b))) +
+  geom_line(size = 1, linewidth = rel(0.4), color = "red") +
+  labs(title = NULL, x = TeX("$d$"), y = TeX("$q(d)$"), color = NULL, linetype = NULL) +
+  facet_wrap(~ group, labeller = label_parsed, scales = "free", nrow = 1) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_color_manual(values = c("darkblue", "red", "black")) +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted")) +
+  theme_classic(9) +
   theme(
-    legend.position = "bottom", 
-    legend.title = element_text(size = 20, face = "bold"), 
-    legend.text = element_text(size = 18),  
-    plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),  
-    axis.title.x = element_text(size = 18, face = "bold"),  # X title
-    axis.title.y = element_text(size = 18, face = "bold"),  # Y title
-    axis.text.x = element_text(size = 18),  # X axis
-    axis.text.y = element_text(size = 18),  # Y axis
-    axis.text = element_text(size = 18),
-    strip.text = element_text(size = 20, face = "bold"),  #  subplot title
-    plot.margin = margin(10, 10, 10, 10)  #
+    legend.position = c(0.95, 0.3),
+    legend.key.height = unit(0.3, 'cm'),
+    legend.key.width = unit(0.5, 'cm'),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold")
   )
-    
-
-    
 exp_curve
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "exp_curve.png"),
+ggsave(filename = file.path(path_proj, "plots_to_show", "qd_models.png"),
        plot = exp_curve,
-       width = 20, height = 8, dpi = 300)
+       width = 8, height = 2.2, dpi = 300)
 
 ########################### 
 
