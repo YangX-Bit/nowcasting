@@ -43,7 +43,7 @@ SARI$date <- get_date(week = SARI$epiweek, year = SARI$epiyear)
 
 # mac
 # posterior_draws_path = file.path(Sys.getenv("HOME"), "Desktop", "draws", "SARI")
-posterior_draws_path = file.path("data", "draws", "SARI")
+posterior_draws_path = file.path(path_proj, "data", "draws", "SARI")
 
 #Windows
 #posterior_draws_path = file.path(Sys.getenv("USERPROFILE"), "Desktop", "draws", "realData", "SARI")
@@ -150,18 +150,17 @@ first_date <- as.Date("2009-06-14")
 
 hypers <- hypers_q(phi_ref = 0.2, D_ref = 26, type = "exponential", alpha_phi = 1.4, sd_log_b = 0.5, delay_seq = 0:26)
 
-out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
-                                case_true = case_true,
-                                start_date = first_date,
-                                D = D, 
-                                methods = models_to_use,
-                                compiled_models = compiled_models,
-                                iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
-                                num_chains = 3, suppress_output = T,
-                                posterior_draws_path = posterior_draws_path, hypers = hypers)
-
-# save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090930_to_901230_D=26.RData"))
-load( file.path(path_proj, "data", "fitted_model","SARI_090930_to_901230_D=26.RData"))
+# out_SARI <- nowcasting_moving_window(data_41002_input,  scoreRange = scoreRange_SARI, 
+#                                 case_true = case_true,
+#                                 start_date = first_date,
+#                                 D = D, 
+#                                 methods = models_to_use,
+#                                 compiled_models = compiled_models,
+#                                 iter_sampling = 10000, iter_warmup = 5000, refresh = 0,
+#                                 num_chains = 3, suppress_output = T,
+#                                 posterior_draws_path = posterior_draws_path, hypers = hypers)
+# save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090802_to_901122_D=26.RData"))
+load( file.path(path_proj, "data", "fitted_model","SARI_090802_to_901122_D=26.RData"))
 #case_true - as.numeric(data_41002_input[,26])
 ```
 
@@ -186,8 +185,8 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_pl
 # for(i in 1:length(results_SARI)){
 #   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
 # }
-model_names <- c("M1: Non-paramatric $q_d$", 
-                 "M2: Paramatric $q(d)$", 
+model_names <- c("M1: Non-parametric $q_d$", 
+                 "M2: Parametric $q(d)$", 
                  "M3: Time-varying $q_t(d)$ - RW", 
                  "M4: Time-varying $q_t(d)$ - OU")
 
@@ -371,8 +370,7 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_fit.
 
 # emp_change_overtime
 ```{r}
-date_start <- as.Date("2009-07-05"); date_end <- as.Date("2009-10-25")
-date_start <- as.Date("2015-01-01"); date_end <- as.Date("2015-12-31")
+date_start <- as.Date("2009-08-02"); date_end <- as.Date("2009-09-20")
 
 data_41002_exp <- data_41002 %>% select(-Notifications, -date, -Notifications_within_26w) %>%
   as.matrix()
@@ -400,58 +398,73 @@ df <- df %>%
   mutate(X = as.numeric(sub("d", "", X)))  
 
 
-plots_per_page <- 20 
-total_pages <- ceiling(length(plots) / plots_per_page)  # calc the total pages
-
-for (i in seq_len(total_pages)) {
-  start_idx <- (i - 1) * plots_per_page + 1
-  end_idx <- min(i * plots_per_page, length(plots))
-  page_plots <- plots[start_idx:end_idx]  # 取当前页的子图
-  
-
-  final_plot <- wrap_plots(page_plots, ncol = 5, nrow = 4) +  
-    plot_annotation(
-      title = paste("Cumulative Reporting Proportion - Page", i, "of", total_pages),
-      theme = theme(
-        plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
-        plot.caption = element_text(hjust = 0.5, size = 10),
-        plot.margin = margin(10, 10, 10, 50)  
+plots <- df %>%
+  group_by(RowID) %>%
+  group_split() %>%
+  lapply(function(d) {
+    ggplot(d, aes(x = X, y = Y)) +
+      geom_line(color = "darkblue", size = 1) + 
+      scale_y_continuous(limits = c(0, 1), breaks = c(0,0.2,0.4,0.6,0.8,1)) +
+      scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +  # 
+      labs(title =  unique(d$Time), x = NULL, y = NULL) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),  # ⬅️ Title centered & bold
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 16),  
+        axis.text.y = element_text(size = 16)
       )
-    ) &
-    theme(
-      axis.title.x = element_text(size = 16, face = "bold")
-    )  + 
-    labs(x = "Delay D", y = NULL)
-  
-  final_plot_with_y <- ggdraw(final_plot) +
-    draw_label("Cumulative reporting proportion", 
-               x = 0.02, y = 0.5, angle = 90,  
-               size = 20, fontface = "bold")
-  
+    
+  })
 
-  print(final_plot_with_y)
+# Combine subplots into a 4*4 grid
+final_plot <- wrap_plots(plots, ncol = 4, nrow = 2) +  
+  plot_annotation(
+    title = NULL,
+    theme = theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
+      plot.caption = element_text(hjust = 0.5, size = 10),
+      plot.margin = margin(10, 10, 30, 50)  # Leave more margin to the left
+    )
+  ) &
+  theme(
+    axis.title.x = element_text(size = 16, face = "bold")
+  )  + 
+  labs(x = "Delay D", y = NULL)
+
+# Add left-side Y-axis title
+emp_09_12_15_the_5th <- ggdraw(final_plot) +
+  draw_label("Accumulated number of reported proportion", 
+             x = 0.02, y = 0.53, angle = 90,  
+             size = 14, fontface = "bold") +
+  draw_label("Delay", 
+             x = 0.53, y = 0.02, angle = 0,  # ⬅️ Horizontal placement
+             size = 14, fontface = "bold")
   
-ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("plot_page_", i, ".png")),
-       plot = final_plot_with_y,
-       width = 20, height = 16, dpi = 300)
-}
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("empirical_plots.png")),
+       plot = emp_09_12_15_the_5th,
+       width = 14, height = 8, dpi = 300)
+
+
 
 ```
 
 
 # fit curve
 ```{r}
+scoreRange_SARI <- seq(as.Date("2009-08-02"),as.Date("2009-11-22"), by = "4 week")
+scoreRange_SARI
+first_date <- as.Date("2009-06-14")
+
 # Define the time lengths for T1 to T5
-time_lengths <- c(9, 12, 14, 20, 26)
+time_lengths <- c(7, 11, 15, 19, 23)
 
 # Manually define the desired number of rows and columns for each T plot
 plot_rows <- c(3, 3, 3, 4, 5)
 plot_cols <- c(3, 4, 5, 5, 6)
-t=1
+
 # Loop over T1 to T5
 for(t in 1:5) {
   
-  # Current number of subplots for the current T
   T_length <- time_lengths[t]
   
   # Select the time period based on the current T using the corresponding scoreRange_SARI value
@@ -459,9 +472,9 @@ for(t in 1:5) {
                       as.Date(rownames(data_41002_input)) <= scoreRange_SARI[t])
   
   # Compute the true curve (each row corresponds to a time point, columns for delay d = 0:26)
-  actual_curve <- round(data_41002_input[period_T, ] / case_true[period_T, ], 2)
+  actual_curve <- round(data_41002_input[period_T, ] / last_reported[period_T, ], 2)
   
-  # Define the x-axis: delay values from 0 to 26
+  # Define the x-axis for model curves: delay values from 0 to D
   x <- 0:D
   
   ## Model curves calculations using the current T's model outputs:
@@ -494,11 +507,15 @@ for(t in 1:5) {
   df_list <- list()
   
   for(i in seq_len(T_length)) {
-    # Actual curve for each time point
+  
+    #  larger i, less d (less information when time is more recent)
+    d_max <- which.min(T_length - i , D)      #  i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
+    x_actual <- 0:d_max        # 
+    
     df_list[[ length(df_list) + 1 ]] <- data.frame(
       time   = i,
-      d      = x,
-      q      = actual_curve[i, ],
+      d      = x_actual,
+      q      = actual_curve[i, 1:(d_max + 1)],   #
       method = "Actual curve"
     )
     
@@ -538,6 +555,7 @@ for(t in 1:5) {
   # Combine all mini data frames into one long-format data frame
   df_long <- dplyr::bind_rows(df_list)
   
+  
   # Set factor levels for 'method' to control legend order
   df_long$method <- factor(df_long$method, levels = c(
     "Actual curve",
@@ -556,47 +574,66 @@ for(t in 1:5) {
     "Actual curve"   = "black"     # actual data in black
   )
   
+  total_length_t <- max(df_long$time)
+  
   ## Plotting using ggplot2 with manual facet settings:
-  qtd_curves <- ggplot(df_long, aes(x = d, y = q, color = method)) +
-    geom_line(size = 0.8) +
+  qtd_curves <- ggplot() +
+    # Actual curve
+    geom_line(data = subset(df_long, method == "Actual curve"),
+              aes(x = d, y = q, color = method), size = 1.2) +
+    geom_point(data = subset(df_long, method == "Actual curve"),
+               aes(x = d, y = q, color = method), size = 3) +
+    # other lines
+    geom_line(data = subset(df_long, method != "Actual curve"),
+              aes(x = d, y = q, color = method), size = 0.8) +
     facet_wrap(
       ~ time, 
       nrow = plot_rows[t], 
       ncol = plot_cols[t],
-      labeller = labeller(time = function(x) paste0(x, " weeks"))
+      labeller = labeller(time = function(x) {
+        # ，scoreRange_SARI[t] is the latest date，
+        # time_lengths[t] indicates the number of time window
+        # the earliest date should be: scoreRange_SARI[t] - (time_lengths[t]-1)*7 天
+        date_range <- seq(from = scoreRange_SARI[t] - (time_lengths[t] - 1) * 7,
+                          by = 7,
+                          length.out = time_lengths[t])
+        sapply(as.integer(x), function(i) format(date_range[i], "%Y-%m-%d"))
+      })
     ) +
     scale_color_manual(values = method_colors) +
     labs(
       x = "Delay d",
-      y = expression(q[t](d)),
+      y = "Cumulative reporting proportion/probability",
       color = "Method"
     ) +
     theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "bottom",
-    strip.text = element_text(face = "bold", size = 20),  # Increase facet strip text size
-    axis.title = element_text(size = 22),                 # Increase axis title size
-    axis.text = element_text(size = 20),                  # Increase axis text size
-    legend.title = element_text(size = 22),               # Increase legend title size
-    legend.text = element_text(size = 20)                 # Increase legend text size
-  )
+    theme(
+      legend.position = "bottom",
+      strip.text = element_text(face = "bold", size = 20),
+      axis.title = element_text(size = 22),
+      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 20)),
+      axis.text = element_text(size = 20),
+      legend.title = element_text(size = 22),
+      legend.text = element_text(size = 20)
+    )
   
   # Print the current plot
   print(qtd_curves)
   
   ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd_fit_curve_SARI_T",t,".png")),
-       plot = qtd_curves,
-       width = 20, height = 15, dpi = 300)
+         plot = qtd_curves,
+         width = 20, height = 15, dpi = 300)
   # Optionally save the plot, for example:
   # ggsave(paste0("plot_T", t, ".png"), p, width = 12, height = 6)
 }
+
 ```
 
 
 # plot for each day emp
 ```{r}
-date_start <- as.Date("2009-06-15")
-date_end <- as.Date("2009-12-15")
+date_start <- as.Date("2009-06-14")
+date_end <- as.Date("2009-11-22")
 # Uncomment the following line if you need an alternative date range
 # date_start <- as.Date("2009-10-25"); date_end <- as.Date("2010-02-07")
 
@@ -621,7 +658,9 @@ time_labels <- rownames(data_matrix)
 # 2. Create a 'Time' column from the row names.
 # 3. Add a sequential RowID.
 # 4. Pivot the delay columns (e.g., d1, d2, …) into long format.
-df <- round(as.data.frame(data_matrix) / case_true_emp_plot, 2)
+
+# df <- round(as.data.frame(data_matrix) / case_true_emp_plot, 2)
+df <- as.data.frame(data_matrix)
 df$Time <- time_labels  
 df <- df %>%
   mutate(RowID = row_number()) %>%
@@ -634,7 +673,7 @@ df <- df %>%
 df <- df %>%
   mutate(
     ReportDate = as.Date(Time),
-    available_delay = floor(as.numeric(date_end - ReportDate) / 7 + 1)
+    available_delay = floor(as.numeric(date_end - ReportDate) / 7 )
   ) %>%
   # Only keep delay weeks that have been observed (i.e. less than or equal to available_delay)
   filter(X <= available_delay)
@@ -645,12 +684,14 @@ plots <- df %>%
   group_split() %>%
   lapply(function(d) {
     ggplot(d, aes(x = X, y = Y)) +
-      geom_line(color = "darkblue", size = 1) + 
-      scale_y_continuous(limits = c(0, 1)) +
+      geom_line(color = "darkblue", size = 1.5) + 
+      geom_point(color = "darkblue", size = 2, alpha = 0.8, shape = 16) +
+      scale_y_continuous(expand = c(0, 0)) +
       scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +  # 
-      labs(title = NULL, x = unique(d$Time), y = NULL) +
+      labs(title =  unique(d$Time), x = NULL, y = NULL) +
       theme_minimal() +
       theme(
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1, size = 16),  # 
         axis.text.y = element_text(size = 16)
       )
@@ -658,13 +699,13 @@ plots <- df %>%
   })
 
 # Combine subplots into a 5*6 grid
-final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +  
+final_plot <- wrap_plots(plots, ncol = 6, nrow = 4) +  
   plot_annotation(
     title = NULL,
     theme = theme(
       plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
       plot.caption = element_text(hjust = 0.5, size = 10),
-      plot.margin = margin(10, 10, 10, 50)  # Leave more margin to the left
+      plot.margin = margin(10, 10, 50, 50)  # Leave more margin to the left
     )
   ) &
   theme(
@@ -674,16 +715,18 @@ final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +
 
 # Add left-side Y-axis title
 emp_09_12_15_the_5th <- ggdraw(final_plot) +
-  draw_label("Cumulative reporting proportion", 
+  draw_label("Accumulated number of reported cases", 
              x = 0.02, y = 0.5, angle = 90,  
+             size = 20, fontface = "bold") +
+  draw_label("Delay", 
+             x = 0.53, y = 0.02, angle = 0,  # ⬅️ Horizontal placement
              size = 20, fontface = "bold")
 
 emp_09_12_15_the_5th
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_09_12_15_the_5th.png")),
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_09_11_22_the_5th.png")),
        plot = emp_09_12_15_the_5th,
-       width = 25, height = 15, dpi = 300)
-
+       width = 20, height = 12, dpi = 300)
 ```
 
 ```{r}
