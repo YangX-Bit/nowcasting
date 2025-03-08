@@ -148,30 +148,26 @@ plot_data$fr <- factor(plot_data$fr, levels = c("FR", "NFR"),
 plot_data$model <- factor(plot_data$model, levels = c("Constant", "RW", "OU"),
     labels = c("Constant", "Random walks (RW)", "Ornstein-Uhlenbeck (OU) processes"))
 
-df_labs <- data.frame(label = paste0("(S", 1:6, ")"), x = rep(0.1, 6), y = rep(0.99, 6),
-    fr = rep(c("Fully reported (FR)", "Non-fully reported (NFR)"), each = 3),
-    model = rep(c("Constant", "Random walks (RW)", "Ornstein-Uhlenbeck (OU) processes"), 2)
+
+df_labs <- data.frame(label = paste0("(", unique(plot_data$label), ")"),
+    fr = rep(unique(plot_data$fr), each = 3),
+    model = rep(unique(plot_data$model), 2),
+    x = rep(0.1, 6), y = rep(0.99, 6)
 )
+
 
 # ---- PLOT q_td ----
 qtd <- ggplot(plot_data, aes(x = d, y = q_td)) +
   geom_line(aes(color = scenario, group = t), alpha = 0.3, linewidth = rel(0.6)) +
   geom_text(aes(x, y, label = label), df_labs, vjust = 1, hjust = 0, size = 3, fontface = "bold") +
   facet_grid(fr ~ model, scale = "free") + 
-  # facet_wrap(~scenario, nrow = 2, scales = "free") + 
   scale_y_continuous(limits = c(0,1)) +
   scale_color_manual(values = c("black", "darkblue", "red3", "seagreen4", "mediumpurple4", "darkgoldenrod3")) +  
   labs(title = NULL, x = TeX("$d$"), y = TeX("$q_t(d)$"), color = "Scenario") +
   guides(color = guide_legend(nrow = 2, byrow = TRUE)) +  
-  # theme_classic(9) +  
   theme_bw(9) +
   theme(
     legend.position = "none",  
-    # axis.title.x = element_text(size = 20, face = "bold"), 
-    # axis.title.y = element_text(size = 20, face = "bold"),
-    # strip.text = element_text(size = 20, face = "bold"), 
-    # axis.text.x = element_text(size = 20),  
-    # axis.text.y = element_text(size = 20) 
     strip.background = element_blank(),
     strip.text = element_text(face = "bold"),
     panel.grid.minor = element_blank()
