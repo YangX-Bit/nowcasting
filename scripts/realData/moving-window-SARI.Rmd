@@ -13,6 +13,7 @@ library(ggplot2)
 library(reshape2)
 library(aweek)
 library(lubridate)
+library(latex2exp)
 
 #remotes::install_github("stan-dev/cmdstanr")
 library(cmdstanr)
@@ -397,13 +398,34 @@ df <- df %>%
   pivot_longer(cols = starts_with("d"), names_to = "X", values_to = "Y") %>%
   mutate(X = as.numeric(sub("d", "", X)))  
 
+myplot <- mutate(df, as.Date(Time)) |>
+    ggplot() +
+    geom_line(aes(X, Y), color = "gray30", linewidth = rel(0.4)) +
+    geom_point(aes(X, Y), color = "gray30", size = rel(0.5)) +
+    labs(x = TeX("Delay (weeks)"), y = TeX("Cumulative reported proportion")) +
+    facet_wrap(~ Time, scales = "free", nrow = 2) +
+    scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.25)) +
+    scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +
+    # theme_bw(9) +
+    theme_classic(9) +
+    theme(
+        # legend.position = c(0.9, 0.15),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold"),
+        panel.grid.major = element_line()
+    )
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd-empirical.png")),
+       plot = myplot,
+       width = 8, height = 4, dpi = 300)
 
 plots <- df %>%
   group_by(RowID) %>%
   group_split() %>%
   lapply(function(d) {
     ggplot(d, aes(x = X, y = Y)) +
-      geom_line(color = "darkblue", size = 1) + 
+      # geom_line(color = "darkblue", size = 1) + 
+      geom_line(color = "gray30", size = 1) + 
       scale_y_continuous(limits = c(0, 1), breaks = c(0,0.2,0.4,0.6,0.8,1)) +
       scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +  # 
       labs(title =  unique(d$Time), x = NULL, y = NULL) +
@@ -413,7 +435,6 @@ plots <- df %>%
         axis.text.x = element_text(angle = 45, hjust = 1, size = 16),  
         axis.text.y = element_text(size = 16)
       )
-    
   })
 
 # Combine subplots into a 4*4 grid

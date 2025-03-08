@@ -94,7 +94,7 @@ p <- ggplot(data_fit, aes(x = delay)) +
         legend.position = c(0.9, 0.15),
         strip.background = element_blank(),
         strip.text = element_text(face = "bold")
-)
+    )
 p
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "qd_emp_fit.png"),
