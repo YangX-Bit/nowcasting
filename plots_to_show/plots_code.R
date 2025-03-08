@@ -78,13 +78,13 @@ D <- 15
 
 # ---- SCENARIOS ----
 scenarios <- list(
-  "S1: FR-Constant" = list(method = "q_constant", params = list(b = 0.7, phi = 0.9)),
-  "S2: FR-RW" = list(method = "b_rw", params = list(mu_logb = log(0.7), sigma_logb = 0.1, mu_logitphi = 1, sigma_logitphi = 0.1)),
-  "S3: FR-OU" = list(method = "b_ou", params = list(theta_logb = 0.3, mu_logb = log(0.7), init_logb = log(0.7), sigma_logb = 0.2,
+  "S1: FR - Constant" = list(method = "q_constant", params = list(b = 0.7, phi = 0.9)),
+  "S2: FR - RW" = list(method = "b_rw", params = list(mu_logb = log(0.7), sigma_logb = 0.1, mu_logitphi = 1, sigma_logitphi = 0.1)),
+  "S3: FR - OU" = list(method = "b_ou", params = list(theta_logb = 0.3, mu_logb = log(0.7), init_logb = log(0.7), sigma_logb = 0.2,
                                                 theta_logitphi = 0.3, mu_logitphi = 1, init_logitphi = 1, sigma_logitphi = 0.2)),
-  "S4: NFR-Constant" = list(method = "q_constant", params = list(b = 0.2, phi = 0.9)),
-  "S5: NFR-RW" = list(method = "b_rw", params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5, sigma_logitphi = 0.1)),
-  "S6: NFR-OU" = list(method = "b_ou", params = list(theta_logb = 0.2, mu_logb = log(0.2), init_logb = log(0.2), sigma_logb = 0.15,
+  "S4: NFR - Constant" = list(method = "q_constant", params = list(b = 0.2, phi = 0.9)),
+  "S5: NFR - RW" = list(method = "b_rw", params = list(mu_logb = log(0.2), sigma_logb = 0.1, mu_logitphi = 1.5, sigma_logitphi = 0.1)),
+  "S6: NFR - OU" = list(method = "b_ou", params = list(theta_logb = 0.2, mu_logb = log(0.2), init_logb = log(0.2), sigma_logb = 0.15,
                                                  theta_logitphi = 0.2, mu_logitphi = 1.5, init_logitphi = 1.5, sigma_logitphi = 0.15))
 )
 
@@ -134,40 +134,53 @@ for (scenario_name in names(scenarios)) {
 
 # Define correct row-wise scenario order
 scenario_order <- c(
-  "S1: FR-Constant", "S2: FR-RW", "S3: FR-OU",  
-  "S4: NFR-Constant", "S5: NFR-RW", "S6: NFR-OU"
+  "S1: FR - Constant", "S2: FR - RW", "S3: FR - OU",  
+  "S4: NFR - Constant", "S5: NFR - RW", "S6: NFR - OU"
 )
 
 # Apply correct factor order to both facets and legend
 plot_data$scenario <- factor(plot_data$scenario, levels = scenario_order)
 
+plot_data <- separate_wider_regex(plot_data, scenario, cols_remove = FALSE,
+    c(label = ".*", ": ", fr = ".*", " - ", model = ".*"))
+plot_data$fr <- factor(plot_data$fr, levels = c("FR", "NFR"),
+    labels = c("Fully reported (FR)", "Non-fully reported (NFR)"))
+plot_data$model <- factor(plot_data$model, levels = c("Constant", "RW", "OU"),
+    labels = c("Constant", "Random walks (RW)", "Ornstein-Uhlenbeck (OU) processes"))
+
+df_labs <- data.frame(label = paste0("(S", 1:6, ")"), x = rep(0.1, 6), y = rep(0.99, 6),
+    fr = rep(c("Fully reported (FR)", "Non-fully reported (NFR)"), each = 3),
+    model = rep(c("Constant", "Random walks (RW)", "Ornstein-Uhlenbeck (OU) processes"), 2)
+)
+
 # ---- PLOT q_td ----
-qtd <- ggplot(plot_data, aes(x = d, y = q_td, group = t, color = scenario)) +
-  geom_line(alpha = 0.7, size = 0.8) +
-  facet_wrap(~scenario, nrow = 2) + 
+qtd <- ggplot(plot_data, aes(x = d, y = q_td)) +
+  geom_line(aes(color = scenario, group = t), alpha = 0.3, linewidth = rel(0.6)) +
+  geom_text(aes(x, y, label = label), df_labs, vjust = 1, hjust = 0, size = 3, fontface = "bold") +
+  facet_grid(fr ~ model, scale = "free") + 
+  # facet_wrap(~scenario, nrow = 2, scales = "free") + 
   scale_y_continuous(limits = c(0,1)) +
   scale_color_manual(values = c("black", "darkblue", "red3", "seagreen4", "mediumpurple4", "darkgoldenrod3")) +  
-  labs(
-    title = NULL,
-    x = "Delay (d)", 
-    y = expression(q[t](d)),
-    color = "Scenario"
-  ) +
+  labs(title = NULL, x = TeX("$d$"), y = TeX("$q_t(d)$"), color = "Scenario") +
   guides(color = guide_legend(nrow = 2, byrow = TRUE)) +  
-  theme_classic() +  
+  # theme_classic(9) +  
+  theme_bw(9) +
   theme(
     legend.position = "none",  
-    axis.title.x = element_text(size = 20, face = "bold"), 
-    axis.title.y = element_text(size = 20, face = "bold"),
-    strip.text = element_text(size = 20, face = "bold"), 
-    axis.text.x = element_text(size = 20),  
-    axis.text.y = element_text(size = 20) 
+    # axis.title.x = element_text(size = 20, face = "bold"), 
+    # axis.title.y = element_text(size = 20, face = "bold"),
+    # strip.text = element_text(size = 20, face = "bold"), 
+    # axis.text.x = element_text(size = 20),  
+    # axis.text.y = element_text(size = 20) 
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
   )
 qtd
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "sims_scenarios.png"),
        plot = qtd,
-       width = 20, height = 12, dpi = 300)
+       width = 8, height = 4.5, dpi = 300)
 
 ###################################################### 
 # b shape#
