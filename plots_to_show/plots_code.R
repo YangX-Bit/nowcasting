@@ -144,9 +144,11 @@ plot_data$scenario <- factor(plot_data$scenario, levels = scenario_order)
 plot_data <- separate_wider_regex(plot_data, scenario, cols_remove = FALSE,
     c(label = ".*", ": ", fr = ".*", " - ", model = ".*"))
 plot_data$fr <- factor(plot_data$fr, levels = c("FR", "NFR"),
-    labels = c("Fully~reported~(FR)", "Non~fully~reported~(NFR)"))
+    labels = c("bold(Fully~reported~(FR))", "bold(Non~fully~reported~(NFR))"))
 plot_data$model <- factor(plot_data$model, levels = c("Constant", "RW", "OU"),
-    labels = c(TeX("Invariant $q(d)$"), TeX("$q_t(d)$ with random walks"), TeX("$q_t(d)$ with OU processes")))
+    labels = c(TeX("Invariant $q(d)$", bold = TRUE),
+        TeX("$q_t(d)$ with random walks", bold = TRUE),
+        TeX("$q_t(d)$ with OU processes", bold = TRUE)))
 
 df_labs <- data.frame(label = paste0("(", unique(plot_data$label), ")"),
     fr = rep(unique(plot_data$fr), each = 3),
