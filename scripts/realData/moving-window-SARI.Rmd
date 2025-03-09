@@ -163,6 +163,10 @@ hypers <- hypers_q(phi_ref = 0.2, D_ref = 26, type = "exponential", alpha_phi = 
 # save(out_SARI, file = file.path(path_proj, "data", "fitted_model","SARI_090802_to_901122_D=26.RData"))
 load( file.path(path_proj, "data", "fitted_model","SARI_090802_to_901122_D=26.RData"))
 #case_true - as.numeric(data_41002_input[,26])
+
+mat_y <- normalize_matrix_columns(data41002_exp_plot)
+last_reported <- as.matrix(data_41002[, c("Notifications_within_26w")])
+rownames(last_reported) <- as.character(data_41002$date)
 ```
 
 
@@ -172,13 +176,13 @@ load( file.path(path_proj, "data", "fitted_model","SARI_090802_to_901122_D=26.RD
 results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "week", 
                           methods = models_to_use)
 
-results_SARI_plots <- nowcasts_plot_separated(results_SARI, D = D, report_unit = "week", methods = models_to_use,
-                                    combine_plots = T)
+results_SARI_plots <- nowcasts_plot_separated(results_SARI, scoreRange_SARI, first_date,
+                   report_unit = "week", D=26)
 results_SARI_plots
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_plots_D=26.png"),
        plot = results_SARI_plots,
-       width = 32, height = 16, dpi = 300)
+       width = 14, height = 8, dpi = 300)
 
 ```
 
@@ -207,23 +211,6 @@ highlight_metrics(list_sari_d26, model_names = model_names,
 
 ```
 
-```{r}
-# for(i in 1:length(results_SARI)){
-#   print(calculate_metrics(results_SARI[[i]], methods = models_to_use))
-# }
-list_sari_d5 <- list()
-for(i in 1:length(results_SARI)){
-  list_sari_d5[[i]] <- calculate_metrics(data.table::last(results_SARI[[i]],5),
-                          methods = models_to_use)
-}
-list_sari_d5
-highlight_metrics(list_sari_d5, model_names = c("Constant q", "Constant b", "Random Walk b","OU b"), 
-                  date_labels = scoreRange_SARI,
-                  scenario_names = c("Initial","Increasing","Peak","Decreasing","Final"),
-                  table_caption = "Metrics of Nowcast last 5 weeks for SARI data (D = 5)")
-
-
-```
 
 
 ```{r}
@@ -279,9 +266,6 @@ ggplot(ts_SARI, aes(x = date, y = cases)) +
 
 # emprical & fit plot
 ```{r}
-mat_y <- normalize_matrix_columns(data41002_exp_plot)
-last_reported <- as.matrix(data_41002[, c("Notifications_within_26w")])
-rownames(last_reported) <- as.character(data_41002$date)
 
 x = c(0:26)
 y = data41002_exp_plot[which(rownames(data41002_exp_plot) == "2009-08-30"),]
@@ -472,6 +456,7 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("empirica
 
 # fit curve
 ```{r}
+D=26
 scoreRange_SARI <- seq(as.Date("2009-08-02"),as.Date("2009-11-22"), by = "4 week")
 scoreRange_SARI
 first_date <- as.Date("2009-06-14")
@@ -480,7 +465,7 @@ first_date <- as.Date("2009-06-14")
 time_lengths <- c(7, 11, 15, 19, 23)
 
 # Manually define the desired number of rows and columns for each T plot
-plot_rows <- c(3, 3, 3, 4, 5)
+plot_rows <- c(3, 3, 3, 4, 4)
 plot_cols <- c(3, 4, 5, 5, 6)
 
 # Loop over T1 to T5
@@ -530,7 +515,7 @@ for(t in 1:5) {
   for(i in seq_len(T_length)) {
   
     #  larger i, less d (less information when time is more recent)
-    d_max <- which.min(T_length - i , D)      #  i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
+    d_max <- min(T_length - i , D)      #  i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
     x_actual <- 0:d_max        # 
     
     df_list[[ length(df_list) + 1 ]] <- data.frame(
@@ -589,10 +574,10 @@ for(t in 1:5) {
   # Define colors for each method
   method_colors <- c(
     "q-Constant"     = "#228B22",  # green
-    "b-Constant"     = "#FFA500",  # orange
+    "b-Constant"     = "#b35806",  # orange
     "b-Random walk"  = "#8446c6",  # purple
     "b-OU process"   = "#4682B4",  # steel blue
-    "Actual curve"   = "black"     # actual data in black
+    "Actual curve"   = "gray30"     # actual data in black
   )
   
   total_length_t <- max(df_long$time)
@@ -601,12 +586,12 @@ for(t in 1:5) {
   qtd_curves <- ggplot() +
     # Actual curve
     geom_line(data = subset(df_long, method == "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1.2) +
+              aes(x = d, y = q, color = method), size = 1) +
     geom_point(data = subset(df_long, method == "Actual curve"),
-               aes(x = d, y = q, color = method), size = 3) +
+               aes(x = d, y = q, color = method), size = 1.5) +
     # other lines
     geom_line(data = subset(df_long, method != "Actual curve"),
-              aes(x = d, y = q, color = method), size = 0.8) +
+              aes(x = d, y = q, color = method), size = 1) +
     facet_wrap(
       ~ time, 
       nrow = plot_rows[t], 
@@ -623,19 +608,19 @@ for(t in 1:5) {
     ) +
     scale_color_manual(values = method_colors) +
     labs(
-      x = "Delay d",
+      x = "Delay (weeks)",
       y = "Cumulative reporting proportion/probability",
       color = "Method"
     ) +
-    theme_minimal(base_size = 14) +
+    theme_minimal(base_size = 10) +
     theme(
       legend.position = "bottom",
-      strip.text = element_text(face = "bold", size = 20),
-      axis.title = element_text(size = 22),
-      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 20)),
-      axis.text = element_text(size = 20),
-      legend.title = element_text(size = 22),
-      legend.text = element_text(size = 20)
+      strip.text = element_text(face = "bold", size = 14),         # Smaller facet label size
+      axis.title = element_text(size = 14),                          # Smaller axis title
+      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 10)),
+      axis.text = element_text(size = 14),                           # Smaller axis text
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 14)
     )
   
   # Print the current plot
@@ -643,7 +628,7 @@ for(t in 1:5) {
   
   ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd_fit_curve_SARI_T",t,".png")),
          plot = qtd_curves,
-         width = 20, height = 15, dpi = 300)
+         width = 14, height = 10, dpi = 300)
   # Optionally save the plot, for example:
   # ggsave(paste0("plot_T", t, ".png"), p, width = 12, height = 6)
 }
@@ -705,8 +690,8 @@ plots <- df %>%
   group_split() %>%
   lapply(function(d) {
     ggplot(d, aes(x = X, y = Y)) +
-      geom_line(color = "darkblue", size = 1.5) + 
-      geom_point(color = "darkblue", size = 2, alpha = 0.8, shape = 16) +
+      geom_line(color = "gray30", size = 1) + 
+      geom_point(color = "gray30", size = 1.4, alpha = 0.8, shape = 16) +
       scale_y_continuous(expand = c(0, 0)) +
       scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +  # 
       labs(title =  unique(d$Time), x = NULL, y = NULL) +
@@ -726,7 +711,7 @@ final_plot <- wrap_plots(plots, ncol = 6, nrow = 4) +
     theme = theme(
       plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
       plot.caption = element_text(hjust = 0.5, size = 10),
-      plot.margin = margin(10, 10, 50, 50)  # Leave more margin to the left
+      plot.margin = margin(10, 10, 30, 50)  # Leave more margin to the left
     )
   ) &
   theme(
@@ -736,18 +721,18 @@ final_plot <- wrap_plots(plots, ncol = 6, nrow = 4) +
 
 # Add left-side Y-axis title
 emp_09_12_15_the_5th <- ggdraw(final_plot) +
-  draw_label("Accumulated number of reported cases", 
+  draw_label("Number of reported cases", 
              x = 0.02, y = 0.5, angle = 90,  
-             size = 20, fontface = "bold") +
-  draw_label("Delay", 
-             x = 0.53, y = 0.02, angle = 0,  # ⬅️ Horizontal placement
-             size = 20, fontface = "bold")
+             size = 14, fontface = "bold") +
+  draw_label("Delay (weeks)", 
+             x = 0.53, y = 0.02, angle = 0,  # ⬅ Horizontal placement
+             size = 14, fontface = "bold")
 
 emp_09_12_15_the_5th
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_09_11_22_the_5th.png")),
        plot = emp_09_12_15_the_5th,
-       width = 20, height = 12, dpi = 300)
+       width = 14, height = 10, dpi = 300)
 ```
 
 ```{r}

@@ -319,228 +319,365 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
 #   }
 # }
 
-nowcasts_plot_separated <- function(nowcasts_list,
-                                    D = NULL,
-                                    report_unit = "week",
-                                    # Preset methods (4 models)
-                                    methods = c("q_constant", "b_constant", "b_rw", "b_ou"),
-                                    title = NULL,
-                                    x_lab = NULL,
-                                    y_lab = NULL,
-                                    lab_comb = "Number of cases",
-                                    combine_plots = TRUE) {
+# nowcasts_plot_separated <- function(nowcasts_list,
+#                                     D = NULL,
+#                                     report_unit = "week",
+#                                     # Preset methods (4 models)
+#                                     methods = c("q_constant", "b_constant", "b_rw", "b_ou"),
+#                                     title = NULL,
+#                                     x_lab = NULL,
+#                                     y_lab = NULL,
+#                                     lab_comb = "Number of cases",
+#                                     combine_plots = TRUE) {
+#   library(ggplot2)
+#   library(lubridate)
+#   library(dplyr)
+#   library(patchwork)
+#   
+#   # Basic checks
+#   if (is.null(D)) {
+#     stop("Parameter 'D' must be provided.")
+#   }
+#   if (!report_unit %in% c("week", "day")) {
+#     stop("report_unit must be 'week' or 'day'.")
+#   }
+#   
+#   factor_loc <- if (report_unit == "week") 7 else 1
+#   
+#   # Define colors
+#   method_colors <- c(
+#     "q_constant" = "#228B22",  # green
+#     "b_constant" = "#b35806",  # light yellow
+#     "b_rw"       = "#8446c6",  # purple
+#     "b_ou"       = "#4682B4"   # steel blue
+#   )
+#   model_colors <- c("Actual Cases" = "red",
+#                     "Reported Cases" = "black",
+#                     method_colors)
+#   
+#   legend_breaks <- c("Actual Cases", "Reported Cases", names(method_colors))
+#   legend_labels <- c("Actual Cases", 
+#                      "Reported Cases", 
+#                      "q-Constant", "b-Constant", "b-Random walk", "b-OU process")
+#   
+#   # Generate all subplots (no legend)
+#   p_out <- list()
+#   n_runs <- length(nowcasts_list)
+#   
+#   idx <- 1
+#   for (i in seq_len(n_runs)) {
+#     nowcasts_df <- nowcasts_list[[i]]
+#     
+#     now <- unique(nowcasts_df$now)
+#     earliest <- unique(nowcasts_df$earliest)
+#     last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
+#     
+#     for (model_name in methods) {
+#       sub_data <- data.frame(
+#         date  = nowcasts_df$date,
+#         mean  = nowcasts_df[[paste0("mean_", model_name)]],
+#         lower = nowcasts_df[[paste0("lower_", model_name)]],
+#         upper = nowcasts_df[[paste0("upper_", model_name)]],
+#         model = model_name
+#       )
+#       
+#       p_sub <- ggplot() +
+#         geom_line(data = nowcasts_df,
+#                   aes(x = date, y = case_true), 
+#                   color = "red", linewidth = 1.2) +
+#         geom_line(data = nowcasts_df,
+#                   aes(x = date, y = case_reported),
+#                   color = "black", linewidth = 1.2) +
+#         geom_ribbon(data = sub_data,
+#                     aes(x = date, ymin = lower, ymax = upper),
+#                     fill = method_colors[model_name], alpha = 0.3) +
+#         geom_line(data = sub_data,
+#                   aes(x = date, y = mean),
+#                   color = method_colors[model_name], linewidth = 1) +
+#         # annotate("text", x = now, y = -1, 
+#         #          label = paste0("now: ", now), 
+#         #          hjust = 1, vjust = 2, color = "red",
+#         #          size = 6) +
+#         geom_point(data = data.frame(x = now, y = 0),
+#                    aes(x = x, y = y),
+#                    shape = 17, size = 2, color = "red") +
+#         {
+#           if (last_date_for_delay >= earliest) {
+#             list(
+#               geom_vline(xintercept = last_date_for_delay, 
+#                          color = "black", linetype = "dashed", size = 1),
+#               annotate("text", x = last_date_for_delay, y = -1,
+#                        label = as.character(last_date_for_delay),
+#                        vjust = 2, color = "black")
+#             )
+#           } else {
+#             NULL
+#           }
+#         } +
+#         labs(
+#           title = title,
+#           x     = x_lab,
+#           y     = y_lab
+#         ) +
+#         theme_minimal() +
+#         theme(
+#           legend.position = "none",
+#           axis.text       = element_text(size = 20),
+#           axis.title      = element_text(size = 22),
+#           axis.text.x     = element_text(angle = 45, hjust = 1)
+#         )
+#       
+#       p_out[[idx]] <- p_sub
+#       idx <- idx + 1
+#     }
+#   }
+#   
+#   # -- OPTIONAL STEP: unify y-axis for each row of 4 plots
+#   # If each row has exactly 4 subplots, we do the following:
+#   # We have n_runs rows, each row = 4 subplots => total = n_runs * 4
+#   # For row i in 1..n_runs, we unify p_out[ row_range ]
+#   
+#   for (row_i in seq_len(n_runs)) {
+#     # The subplots for row row_i are indices: (row_i - 1)*4 + 1  to  row_i*4
+#     idx_start <- (row_i - 1)*4 + 1
+#     idx_end   <- row_i*4
+#     # gather data from these 4 subplots
+#     sub_list  <- p_out[idx_start:idx_end]
+#     
+#     # Build each ggplot to get the data
+#     builds <- lapply(sub_list, ggplot_build)
+#     
+#     # Extract all y-values from the data frames (lines, ribbons, etc.)
+#     # We combine all layers
+#     all_y <- c()
+#     for (b in builds) {
+#       for (lyr in b$data) {
+#         # gather columns that might represent y, ymin, ymax
+#         ycols <- intersect(c("y", "ymin", "ymax"), names(lyr))
+#         all_y <- c(all_y, unlist(lyr[ycols]))
+#       }
+#     }
+#     # compute global range
+#     y_min <- min(all_y, na.rm = TRUE)
+#     y_max <- max(all_y, na.rm = TRUE)
+#     
+#     # Add a small margin if needed, or just use exact
+#     # unify for each of the 4 subplots
+#     for (k in seq_along(sub_list)) {
+#       sub_list[[k]] <- sub_list[[k]] + 
+#         scale_y_continuous(limits = c(y_min, y_max))
+#     }
+#     # put updated plots back to p_out
+#     p_out[idx_start:idx_end] <- sub_list
+#   }
+#   
+#   # Combine if requested
+#   if (combine_plots) {
+#     total_plots <- length(p_out)
+#     # for your layout usage:
+#     # ncol = 4, nrow = n_runs (since each row has 4 subplots)
+#     
+#     subplots <- wrap_plots(p_out, ncol = 4, nrow = n_runs)
+#     
+#     if (!is.null(title)) {
+#       subplots <- subplots + plot_annotation(title = title)
+#     }
+#     
+#     # Create separate legend
+#     legend_items <- factor(legend_breaks, levels = legend_breaks)
+#     df_legend <- data.frame(
+#       group = rep(legend_items, each = 2),
+#       x     = rep(c(1, 2), times = length(legend_items)),
+#       y     = rep(seq(1, length(legend_items)), each = 2)
+#     )
+#     
+#     legend_plot <- ggplot(df_legend, aes(x = x, y = y, color = group)) +
+#       geom_line(aes(group = group), size = 1, alpha = 1) + 
+#       scale_color_manual(
+#         values = model_colors,
+#         breaks = legend_breaks,
+#         labels = legend_labels,
+#         name   = NULL,
+#       ) +
+#       theme_void() +
+#       theme(
+#         legend.position   = "right",
+#         legend.text       = element_text(size = 20),
+#         legend.title      = element_text(size = 22),
+#         legend.background = element_rect(fill = "white", color = NA)
+#       ) +
+#       guides(color = guide_legend(override.aes = list(shape = NA)))
+#     
+#     
+#     # Here you could do your custom row/col layout
+#     # For simplicity, we just do side-by-side: subplots | legend_plot
+#     final_combined <- (
+#       # first row
+#       plot_spacer() + p_out[[1]] + p_out[[2]] + p_out[[3]] + p_out[[4]] + plot_spacer() + 
+#         
+#         # second row, put legend
+#         plot_spacer() + p_out[[5]] + p_out[[6]] + p_out[[7]] + p_out[[8]] + legend_plot +
+#         
+#         #
+#         plot_spacer() + p_out[[9]] + p_out[[10]] + p_out[[11]] + p_out[[12]] + plot_spacer() +
+#         
+#         # 
+#         plot_spacer() + p_out[[13]] + p_out[[14]] + p_out[[15]] + p_out[[16]] + plot_spacer() +
+#         
+#         # 
+#         plot_spacer() + p_out[[17]] + p_out[[18]] + p_out[[19]] + p_out[[20]] + plot_spacer()
+#     ) + 
+#       plot_layout(ncol = 6, widths = c(0.2,1, 1, 1, 1, 0.00001))  # use a small number to hide the last column
+#     # first col for title last col for legend
+#     
+#     final_with_ylab <- ggdraw(final_combined) +
+#       draw_label("Number of cases", 
+#                  x = 0.02, y = 0.5, angle = 90,  
+#                  size = 28, fontface = "bold")
+#     
+#     return(final_with_ylab)
+#     
+#   } else {
+#     return(p_out)
+#   }
+# }
+
+nowcasts_plot_separated <- function(results_list, scoreRange_SARI, first_date, report_unit = "week", D) {
+  # Load required packages
   library(ggplot2)
-  library(lubridate)
   library(dplyr)
   library(patchwork)
+  library(cowplot)
+  library(rlang)
   
-  # Basic checks
-  if (is.null(D)) {
-    stop("Parameter 'D' must be provided.")
-  }
-  if (!report_unit %in% c("week", "day")) {
-    stop("report_unit must be 'week' or 'day'.")
-  }
+  # Define model names and titles
+  models <- c("q_constant", "b_constant", "b_rw", "b_ou")
+  model_titles <- c("q-Constant", "b-Constant", "b-Random walk", "b-OU process")
   
-  factor_loc <- if (report_unit == "week") 7 else 1
-  
-  # Define colors
+  # Define model colors
   method_colors <- c(
     "q_constant" = "#228B22",  # green
     "b_constant" = "#b35806",  # light yellow
     "b_rw"       = "#8446c6",  # purple
     "b_ou"       = "#4682B4"   # steel blue
   )
-  model_colors <- c("Actual Cases" = "red",
-                    "Reported Cases" = "black",
-                    method_colors)
   
-  legend_breaks <- c("Actual Cases", "Reported Cases", names(method_colors))
-  legend_labels <- c("Actual Cases", 
-                     "Reported Cases", 
-                     "q-Constant", "b-Constant", "b-Random walk", "b-OU process")
+  n_rows <- length(results_list)  # e.g., 5
+  n_cols <- length(models)         # e.g., 4
   
-  # Generate all subplots (no legend)
-  p_out <- list()
-  n_runs <- length(nowcasts_list)
+  # Calculate offset (in days) for the vertical dashed line:
+  offset_days <- if (report_unit == "week") D * 7 else D
   
-  idx <- 1
-  for (i in seq_len(n_runs)) {
-    nowcasts_df <- nowcasts_list[[i]]
+  # List to store each row's combined plot
+  plot_list <- list()
+  
+  for (i in seq_along(results_list)) {
+    df <- results_list[[i]]
+    # For current row, X-axis range is from first_date to scoreRange_SARI[i]
+    x_min <- first_date
+    x_max <- scoreRange_SARI[i]
     
-    now <- unique(nowcasts_df$now)
-    earliest <- unique(nowcasts_df$earliest)
-    last_date_for_delay <- unique(nowcasts_df$last_date_for_delay)
+    # Calculate Y-axis upper limit for current row (based on actual and predicted upper values)
+    y_max <- max(c(df$case_true, df$case_reported,
+                   df$upper_q_constant, df$upper_b_constant, df$upper_b_rw, df$upper_b_ou),
+                 na.rm = TRUE)
     
-    for (model_name in methods) {
-      sub_data <- data.frame(
-        date  = nowcasts_df$date,
-        mean  = nowcasts_df[[paste0("mean_", model_name)]],
-        lower = nowcasts_df[[paste0("lower_", model_name)]],
-        upper = nowcasts_df[[paste0("upper_", model_name)]],
-        model = model_name
-      )
+    # Extract current "now" date (assumed constant within df)
+    current_now <- unique(df$now)
+    # Calculate vertical dashed line position
+    proposed_vline <- as.Date(current_now) - offset_days
+    # Only add the line if the computed date is not before x_min
+    vline_layer <- if (proposed_vline >= x_min) {
+      geom_vline(xintercept = proposed_vline, color = "black", linetype = "dashed", size = 1)
+    } else {
+      NULL
+    }
+    
+    # List to store subplots for each model (columns)
+    row_plots <- list()
+    for (j in seq_along(models)) {
+      mod <- models[j]
+      mean_col <- paste0("mean_", mod)
+      lower_col <- paste0("lower_", mod)
+      upper_col <- paste0("upper_", mod)
       
-      p_sub <- ggplot() +
-        geom_line(data = nowcasts_df,
-                  aes(x = date, y = case_true), 
-                  color = "red", linewidth = 1.2) +
-        geom_line(data = nowcasts_df,
-                  aes(x = date, y = case_reported),
-                  color = "black", linewidth = 1.2) +
-        geom_ribbon(data = sub_data,
-                    aes(x = date, ymin = lower, ymax = upper),
-                    fill = method_colors[model_name], alpha = 0.3) +
-        geom_line(data = sub_data,
-                  aes(x = date, y = mean),
-                  color = method_colors[model_name], linewidth = 1) +
-        # annotate("text", x = now, y = -1, 
-        #          label = paste0("now: ", now), 
-        #          hjust = 1, vjust = 2, color = "red",
-        #          size = 6) +
-        geom_point(data = data.frame(x = now, y = 0),
-                   aes(x = x, y = y),
-                   shape = 17, size = 2, color = "red") +
-        {
-          if (last_date_for_delay >= earliest) {
-            list(
-              geom_vline(xintercept = last_date_for_delay, 
-                         color = "black", linetype = "dashed", size = 1),
-              annotate("text", x = last_date_for_delay, y = -1,
-                       label = as.character(last_date_for_delay),
-                       vjust = 2, color = "black")
-            )
-          } else {
-            NULL
-          }
-        } +
-        labs(
-          title = title,
-          x     = x_lab,
-          y     = y_lab
-        ) +
-        theme_minimal() +
+      # Only the first row's subplots show model titles
+      current_title <- if (i == 1) model_titles[j] else NULL
+      
+      p <- ggplot(df, aes(x = date)) +
+        # Plot actual cases (red line)
+        geom_line(aes(y = case_true), color = "red", size = 1) +
+        # Plot reported cases (black line)
+        geom_line(aes(y = case_reported), color = "black", size = 1) +
+        # Plot the prediction ribbon for the current model
+        geom_ribbon(aes(ymin = !!sym(lower_col), ymax = !!sym(upper_col)),
+                    fill = method_colors[mod], alpha = 0.3) +
+        # Plot the model prediction (mean)
+        geom_line(aes(y = !!sym(mean_col)), color = method_colors[mod], size = 1) +
+        # Conditionally add the vertical dashed line
+        { vline_layer } +
+        scale_x_date(limits = c(x_min, x_max)) +
+        scale_y_continuous(limits = c(0, y_max)) +
+        labs(title = current_title, x = NULL, y = NULL) +
+        theme_minimal(base_size = 10) +
         theme(
-          legend.position = "none",
-          axis.text       = element_text(size = 20),
-          axis.title      = element_text(size = 22),
-          axis.text.x     = element_text(angle = 45, hjust = 1)
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold"),
+          axis.text = element_text(size = 8)
         )
       
-      p_out[[idx]] <- p_sub
-      idx <- idx + 1
+      row_plots[[j]] <- p
     }
+    
+    # Combine the 4 subplots horizontally for the current row
+    row_combined <- wrap_plots(row_plots, ncol = n_cols)
+    
+    # Create a right-side label plot to display the current date (scoreRange_SARI[i])
+    label_plot <- ggdraw() +
+      draw_label(label = as.character(scoreRange_SARI[i]),
+                 fontface = "bold", size = 12, angle = 270)
+    # Combine row plots with the right-side label (adjust relative widths as needed)
+    row_with_label <- plot_grid(row_combined, label_plot, ncol = 2, rel_widths = c(1, 0.01))
+    
+    plot_list[[i]] <- row_with_label
   }
   
-  # -- OPTIONAL STEP: unify y-axis for each row of 4 plots
-  # If each row has exactly 4 subplots, we do the following:
-  # We have n_runs rows, each row = 4 subplots => total = n_runs * 4
-  # For row i in 1..n_runs, we unify p_out[ row_range ]
+  # Combine all rows vertically
+  combined_plot <- wrap_plots(plot_list, ncol = 1)
   
-  for (row_i in seq_len(n_runs)) {
-    # The subplots for row row_i are indices: (row_i - 1)*4 + 1  to  row_i*4
-    idx_start <- (row_i - 1)*4 + 1
-    idx_end   <- row_i*4
-    # gather data from these 4 subplots
-    sub_list  <- p_out[idx_start:idx_end]
-    
-    # Build each ggplot to get the data
-    builds <- lapply(sub_list, ggplot_build)
-    
-    # Extract all y-values from the data frames (lines, ribbons, etc.)
-    # We combine all layers
-    all_y <- c()
-    for (b in builds) {
-      for (lyr in b$data) {
-        # gather columns that might represent y, ymin, ymax
-        ycols <- intersect(c("y", "ymin", "ymax"), names(lyr))
-        all_y <- c(all_y, unlist(lyr[ycols]))
-      }
-    }
-    # compute global range
-    y_min <- min(all_y, na.rm = TRUE)
-    y_max <- max(all_y, na.rm = TRUE)
-    
-    # Add a small margin if needed, or just use exact
-    # unify for each of the 4 subplots
-    for (k in seq_along(sub_list)) {
-      sub_list[[k]] <- sub_list[[k]] + 
-        scale_y_continuous(limits = c(y_min, y_max))
-    }
-    # put updated plots back to p_out
-    p_out[idx_start:idx_end] <- sub_list
-  }
+  dummy_data <- data.frame(
+    x = rep(1:2, 6),
+    y = rep(c(1,2), 6),
+    group = factor(rep(legend_breaks, each = 2), levels = legend_breaks)
+  )
   
-  # Combine if requested
-  if (combine_plots) {
-    total_plots <- length(p_out)
-    # for your layout usage:
-    # ncol = 4, nrow = n_runs (since each row has 4 subplots)
-    
-    subplots <- wrap_plots(p_out, ncol = 4, nrow = n_runs)
-    
-    if (!is.null(title)) {
-      subplots <- subplots + plot_annotation(title = title)
-    }
-    
-    # Create separate legend
-    legend_items <- factor(legend_breaks, levels = legend_breaks)
-    df_legend <- data.frame(
-      group = rep(legend_items, each = 2),
-      x     = rep(c(1, 2), times = length(legend_items)),
-      y     = rep(seq(1, length(legend_items)), each = 2)
-    )
-    
-    legend_plot <- ggplot(df_legend, aes(x = x, y = y, color = group)) +
-      geom_line(aes(group = group), size = 1, alpha = 1) + 
-      scale_color_manual(
-        values = model_colors,
-        breaks = legend_breaks,
-        labels = legend_labels,
-        name   = NULL,
-      ) +
-      theme_void() +
-      theme(
-        legend.position   = "right",
-        legend.text       = element_text(size = 20),
-        legend.title      = element_text(size = 22),
-        legend.background = element_rect(fill = "white", color = NA)
-      ) +
-      guides(color = guide_legend(override.aes = list(shape = NA)))
-    
-    
-    # Here you could do your custom row/col layout
-    # For simplicity, we just do side-by-side: subplots | legend_plot
-    final_combined <- (
-      # first row
-      plot_spacer() + p_out[[1]] + p_out[[2]] + p_out[[3]] + p_out[[4]] + plot_spacer() + 
-        
-        # second row, put legend
-        plot_spacer() + p_out[[5]] + p_out[[6]] + p_out[[7]] + p_out[[8]] + legend_plot +
-        
-        #
-        plot_spacer() + p_out[[9]] + p_out[[10]] + p_out[[11]] + p_out[[12]] + plot_spacer() +
-        
-        # 
-        plot_spacer() + p_out[[13]] + p_out[[14]] + p_out[[15]] + p_out[[16]] + plot_spacer() +
-        
-        # 
-        plot_spacer() + p_out[[17]] + p_out[[18]] + p_out[[19]] + p_out[[20]] + plot_spacer()
-    ) + 
-      plot_layout(ncol = 6, widths = c(0.2,1, 1, 1, 1, 0.00001))  # use a small number to hide the last column
-    # first col for title last col for legend
-    
-    final_with_ylab <- ggdraw(final_combined) +
-      draw_label("Number of cases", 
-                 x = 0.02, y = 0.5, angle = 90,  
-                 size = 28, fontface = "bold")
-    
-    return(final_with_ylab)
-    
-  } else {
-    return(p_out)
-  }
+  dummy_plot <- ggplot(dummy_data, aes(x = x, y = y, color = group)) +
+    geom_line(size = 1) +
+    scale_color_manual(
+      name = "Models",
+      breaks = legend_breaks,
+      labels = legend_labels,
+      values = model_colors
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+  
+  g <- ggplotGrob(dummy_plot) # get legend
+  legend <- g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
+  
+  # Add a left-side Y axis label with additional margin.
+  final_plot <- ggdraw(combined_plot) +
+    draw_label("Number of cases", x = -0.01, y = 0.5, angle = 90, size = 14, fontface = "bold")
+  
+  # Wrap the final plot with additional margin using plot_annotation
+  final_with_annotation <- final_plot + 
+    plot_annotation(theme = theme(plot.margin = margin(10, 10, 10, 20)))
+  
+  # Combine the final plot and legend (legend at bottom)
+  final_with_legend <- plot_grid(final_with_annotation, legend, ncol = 1, rel_heights = c(1, 0.1))
+  
+  return(final_with_legend)
 }
+
 
 nowcasts_plot_single <- function(nowcasts_list,
                                  D = NULL,
@@ -608,23 +745,20 @@ nowcasts_plot_single <- function(nowcasts_list,
     p_sub <- ggplot() +
       geom_line(data = nowcasts_df,
                 aes(x = date, y = case_reported, linetype = "Reported cases"),
-                color = "black", linewidth = 2.5) +
+                color = "black", linewidth = 1) +
       geom_line(data = nowcasts_df,
                 aes(x = date, y = case_true, linetype = "Final cumulative cases"), 
-                color = "red", linewidth = 2.5) +
+                color = "red", linewidth = 1) +
       geom_ribbon(data = sub_data,
                   aes(x = date, ymin = lower, ymax = upper, fill = model),
                   alpha = 0.3) +
       geom_line(data = sub_data,
                 aes(x = date, y = mean, color = model),
                 linewidth = 1) +
-      annotate("text", x = now, y = -0.1,
-               label = paste0("now: ", now),
-               hjust = 1, vjust = 2, color = "red",
-               size = 8, fontface = "bold") +
-      geom_point(data = data.frame(x = now, y = 0),
-                 aes(x = x, y = y),
-                 shape = 17, size = 3, color = "red") +
+      # Removed the annotate("text", ...) that displayed "now: ..."
+      # geom_point(data = data.frame(x = now, y = 0),
+      #            aes(x = x, y = y),
+      #            shape = 17, size = 1.5, color = "red") +
       {
         if (last_date_for_delay >= earliest) {
           list(
@@ -638,8 +772,9 @@ nowcasts_plot_single <- function(nowcasts_list,
           NULL
         }
       } +
-      scale_color_manual(values = method_colors, 
-                         name = "Model",
+      scale_color_manual(values = method_colors,
+                         #name = "Model",
+                         name = NULL,
                          breaks = names(method_colors),
                          labels = c("q-Constant", "b-Constant", "b-Random walk", "b-OU process")) +
       scale_fill_manual(values = method_colors, 
@@ -650,19 +785,19 @@ nowcasts_plot_single <- function(nowcasts_list,
       scale_linetype_manual(values = c("Final cumulative cases" = "dotted", "Reported cases" = "dashed"), 
                             name = "Case type") +
       labs(
-        title = title,
+        title = paste0(now),  # Updated title to include the current date
         x     = x_lab,
         y     = y_lab
       ) +
       theme_minimal() +
       theme(
         legend.position = if(show_legend) "right" else "none",
-        legend.text = element_text(size = 22, family = "serif"),
-        legend.title = element_text(size = 24, family = "serif", face = "bold"),
-        axis.text = element_text(size = 28, family = "serif"),
-        axis.title = element_text(size = 30, family = "serif", face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 28, family = "serif"),
-        plot.title = element_text(size = 32, family = "serif", face = "bold", hjust = 0.5),
+        legend.text = element_text(size = 14, family = "serif"),
+        legend.title = element_text(size = 14, family = "serif", face = "bold"),
+        axis.text = element_text(size = 14, family = "serif"),
+        axis.title = element_text(size = 14, family = "serif", face = "bold"),
+        axis.text.x = element_text( hjust = 1, size = 14, family = "serif"),
+        plot.title = element_text(size = 14, family = "serif", face = "bold", hjust = 0.5),
         plot.margin = margin(5, 5, 5, 15)
       )
     
@@ -703,7 +838,7 @@ nowcasts_plot_single <- function(nowcasts_list,
       combined_plots <- combined_plots + plot_annotation(
         title = title,
         plot.margin = margin(10, 10, 300, 50),
-        theme = theme(plot.title = element_text(size = 36, family = "serif", face = "bold", hjust = 0.5))
+        theme = theme(plot.title = element_text(size = 16, family = "serif", face = "bold", hjust = 0.5))
       )
     }
     
@@ -711,11 +846,12 @@ nowcasts_plot_single <- function(nowcasts_list,
     final_with_ylab <- ggdraw(combined_plots + plot_layout(guides = "collect")) +
       draw_label(lab_comb, 
                  x = -0.01, y = 0.5, angle = 90,  
-                 size = 28, fontface = "bold") +
+                 size = 14, fontface = "bold") +
       theme(plot.margin = margin(10, 10, 10, 30))
     
     return(final_with_ylab)
-  } else {
+  }
+  else {
     return(p_out)
   }
 }

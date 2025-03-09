@@ -165,19 +165,19 @@ results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day",
 # results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use,
 #                                        combine_plots = T, ncol=2, nrow = 3)
 
-results_husO104_plots <- nowcasts_plot_separated(results_husO104, D = D, report_unit = "day", methods = models_to_use,
-                                       combine_plots = T)
+results_husO104_plots <-  nowcasts_plot_separated(results_husO104, scoreRange_husO104, first_date,
+                   report_unit = "day", D = 15)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots.png"),
        plot = results_husO104_plots,
-       width = 32, height = 16, dpi = 300)
+       width = 14, height = 8, dpi = 300)
 
 results_husO104_plots_OU <- nowcasts_plot_single(results_husO104, D = D, report_unit = "day", method = c("b_ou"),
                      combine_plots = T)
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots_OU.png"),
        plot = results_husO104_plots_OU,
-       width = 32, height = 24, dpi = 300)
+       width = 14, height = 8, dpi = 300)
 
 
 ```
@@ -210,35 +210,32 @@ highlight_metrics(list_husO104, model_names = model_names,
 ```{r}
 first_date <- as.Date("2011-05-12")
 scoreRange_husO104 <- seq(as.Date("2011-05-25"), as.Date("2011-06-07"), by = "3 days")
-
+scoreRange_husO104 - first_date
 # Define the number of available time points for T1 to T5
-time_lengths <- c(5, 6, 7, 8, 9)
+time_lengths <- c(13, 16, 19, 22, 25)
 
-# Since we now want to plot 9 dates (subplots) for each T,
-# we set the layout to 3 rows x 3 columns for all T values.
-plot_rows <- c(2, 2, 2, 2, 3)
-plot_cols <- c(3, 3, 4, 4, 3)
+# Set up the subplot layout for each T
+plot_rows <- c(3, 4, 4, 4, 5)
+plot_cols <- c(5, 4, 5, 6, 5)
+
 # Loop over T1 to T5
 for(t in 1:5) {
   
-  # Total number of time points available for the current T
+  # Total number of time points for current T
   T_length <- time_lengths[t]
   
-  # Compute 9 evenly spaced indices from 1 to T_length
-  selected_indices <- unique(round(seq(1, T_length, length.out = 9)))
-  
-  # Select the time period based on the current T using the corresponding scoreRange_husO104 value
+  # Select the time period for current T using scoreRange_husO104[t]
   period_T <- which(as.Date(rownames(husO104_input)) >= first_date &
                       as.Date(rownames(husO104_input)) <= scoreRange_husO104[t])
   
-  # Compute the true curve (each row corresponds to a time point, columns for delay d = 0:26)
+  # Compute the actual curve (each row corresponds to one time point, columns for delay d = 0:D)
   actual_curve <- round(husO104_input[period_T, ] / case_true_husO104[period_T], 2)
   actual_curve[is.nan(actual_curve)] <- 0
   
-  # Define the x-axis: delay values from 0 to 26
+  # Define x-axis: delay values 0 to D
   x <- 0:D
   
-  ## Model curves calculations using the current T's model outputs:
+  ## Model curve calculations:
   # 1. q-Constant model
   q_draws <- out_husO104$q_constant[[t]]$draws("q")
   q_const_curves <- round(apply(as.array(q_draws), 3, mean), 2)
@@ -248,7 +245,6 @@ for(t in 1:5) {
   b_means_constant <- apply(as.array(b_draws_constant), 3, mean)
   phi_draws_constant <- out_husO104$b_constant[[t]]$draws("phi")
   phi_means_constant <- apply(as.array(phi_draws_constant), 3, mean)
-  # b_const_curves <- round(1 - phi_means_constant * exp(-b_means_constant * x), 2)
   b_const_curves <- round(exp(log(phi_means_constant) * exp(-b_means_constant * x)), 2)
   
   # 3. b-Random walk model
@@ -256,7 +252,6 @@ for(t in 1:5) {
   b_means_rw <- apply(as.array(b_draws_rw), 3, mean)
   phi_draws_rw <- out_husO104$b_rw[[t]]$draws("phi")
   phi_means_rw <- apply(as.array(phi_draws_rw), 3, mean)
-  #b_rw_curves <- round(1 - phi_means_rw * exp(-b_means_rw %o% x), 2)
   b_rw_curves <- round(exp(log(phi_means_rw) * exp(-b_means_rw %o% x)), 2)
   
   # 4. b-OU process model
@@ -264,17 +259,16 @@ for(t in 1:5) {
   b_means_ou <- apply(as.array(b_draws_ou), 3, mean)
   phi_draws_ou <- out_husO104$b_ou[[t]]$draws("phi")
   phi_means_ou <- apply(as.array(phi_draws_ou), 3, mean)
-  #b_ou_curves <- round(1 - phi_means_ou * exp(-b_means_ou %o% x), 2)
   b_ou_curves <- round(exp(log(phi_means_ou) * exp(-b_means_ou %o% x)), 2)
   
-  ## Construct the long-format dataframe for plotting
+  ## Construct long-format data frame for plotting
   df_list <- list()
   
-  # Loop over the selected time indices (9 evenly spaced dates)
-  for(i in selected_indices) {
-    # larger i, less d (less information when time is more recent)
-    d_max <- T_length - i      # i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
-    x_actual <- 0:d_max        # 
+  # Loop over all time points
+  for(i in 1:T_length) {
+    # Larger i corresponds to fewer delays available
+    d_max <- min(T_length - i, D)   # when i = T_length, d_max = 0; when i = 1, d_max = T_length - 1 (or D if smaller)
+    x_actual <- 0:d_max        
     
     df_list[[ length(df_list) + 1 ]] <- data.frame(
       time   = i,
@@ -319,7 +313,7 @@ for(t in 1:5) {
   # Combine all mini data frames into one long-format data frame
   df_long <- dplyr::bind_rows(df_list)
   
-  # Set factor levels for 'method' to control legend order
+  # Set factor levels to control legend order
   df_long$method <- factor(df_long$method, levels = c(
     "Actual curve",
     "q-Constant",
@@ -331,52 +325,57 @@ for(t in 1:5) {
   # Define colors for each method
   method_colors <- c(
     "q-Constant"     = "#228B22",  # green
-    "b-Constant"     = "#FFA500",  # orange
+    "b-Constant"     = "#b35806",  # orange
     "b-Random walk"  = "#8446c6",  # purple
     "b-OU process"   = "#4682B4",  # steel blue
-    "Actual curve"   = "black"     # actual data in black
+    "Actual curve"   = "gray30"     # actual data in black
   )
   
-  ## Plotting using ggplot2 with manual facet settings:
+  ## Create date labels for the facets based on scoreRange_husO104[t] and time length
+  date_range <- seq(from = scoreRange_husO104[t] - (T_length - 1), by = 1, length.out = T_length)
+  
+  ## Plotting using ggplot2 with facet labels in date format
   qtd_curves <- ggplot() +
     # Actual curve
     geom_line(data = subset(df_long, method == "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1.2) +
+              aes(x = d, y = q, color = method), size = 1) +
     geom_point(data = subset(df_long, method == "Actual curve"),
-               aes(x = d, y = q, color = method), size = 3) +
-    # Other lines
+               aes(x = d, y = q, color = method), size = 1.5) +
+    # Other curves
     geom_line(data = subset(df_long, method != "Actual curve"),
-              aes(x = d, y = q, color = method), size = 0.8) +
+              aes(x = d, y = q, color = method), size = 1) +
     facet_wrap(
       ~ time, 
       nrow = plot_rows[t], 
       ncol = plot_cols[t],
-      labeller = labeller(time = function(x) paste0(x, " weeks"))
+      labeller = labeller(time = function(x) {
+        sapply(as.integer(x), function(i) format(date_range[i], "%Y-%m-%d"))
+      })
     ) +
     scale_color_manual(values = method_colors) +
     labs(
-      x = "Delay d",
-      y = "Cumulative reporting proportion/probability",  # y-axis title
+      x = "Delay (days)",
+      y = "Cumulative reporting proportion/probability",
       color = "Method"
     ) +
-    theme_minimal(base_size = 14) +
+    theme_minimal(base_size = 10) +  # Reduced base font size
     theme(
       legend.position = "bottom",
-      strip.text = element_text(face = "bold", size = 20),  # Increase facet strip text size
-      axis.title = element_text(size = 22),                 # Increase axis title size
-      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 20)),  # Bold and left-adjust y-axis title
-      axis.text = element_text(size = 20),                  # Increase axis text size
-      legend.title = element_text(size = 22),               # Increase legend title size
-      legend.text = element_text(size = 20)                 # Increase legend text size
+      strip.text = element_text(face = "bold", size = 14),         # Smaller facet label size
+      axis.title = element_text(size = 14),                          # Smaller axis title
+      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 10)),
+      axis.text = element_text(size = 14),                           # Smaller axis text
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 14)
     )
   
-  # Print the current plot
+  # Display the current plot
   print(qtd_curves)
   
   # Save the plot as a 20x15 cm image with 300 dpi resolution
-  ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", paste0("qtd_fit_curve_husO104_T",t,".png")),
+  ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", paste0("qtd_fit_curve_husO104_T", t, ".png")),
          plot = qtd_curves,
-         width = 20, height = 15, units = "cm", dpi = 300)
+         width = 14, height = 10,  dpi = 300)
 }
 
 ```
@@ -438,13 +437,14 @@ plots <- df %>%
   lapply(function(d) {
     step <- ceiling(max(d$Y) / 5)
     ggplot(d, aes(x = X, y = Y)) +
-      geom_line(color = "darkblue", size = 1.5) + 
-      geom_point(color = "darkblue", size = 2, alpha = 0.8, shape = 16) +
+      geom_line(color = "gray30", size = 1) + 
+      geom_point(color = "gray30", size = 1.4, alpha = 0.8, shape = 16) +
       scale_y_continuous(breaks = seq(0, max(d$Y), by = step), expand = c(0, 0)) +
       scale_x_continuous(limits = c(0, 15), breaks = seq(0, 15, by = 3)) +
       labs(title = NULL, x = unique(d$Time), y = NULL) +
       theme_minimal() +
       theme(
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1, size = 16),
         axis.text.y = element_text(size = 16)
       )
@@ -457,7 +457,7 @@ final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +
     theme = theme(
       plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
       plot.caption = element_text(hjust = 0.5, size = 10),
-      plot.margin = margin(10, 10, 10, 50)  # Leave more margin to the left
+      plot.margin = margin(10, 10, 30, 50)  # Leave more margin to the left
     )
   ) &
   theme(
@@ -467,15 +467,17 @@ final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +
 
 # Add left-side Y-axis title
 emp_11_06_05_hus <- ggdraw(final_plot) +
-  draw_label("Accumulated number of reported cases", 
+  draw_label("Number of reported cases", 
              x = 0.02, y = 0.5, angle = 90,  
-             size = 20, fontface = "bold")
-
+             size = 14, fontface = "bold") +
+  draw_label("Delay (days)", 
+             x = 0.53, y = 0.02, angle = 0,  # ⬅ Horizontal placement
+             size = 14, fontface = "bold")
 emp_11_06_05_hus
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_11_06_05_hus.png")),
        plot = emp_11_06_05_hus,
-       width = 20, height = 12, dpi = 300)
+       width = 14, height = 10, dpi = 300)
 
 ```
 
