@@ -151,16 +151,59 @@ hypers <- hypers_q(phi_ref = 0.1, D_ref = 15, type = "gompertz", alpha_phi = 1.4
 #                                 D = D,
 #                                 methods =  models_to_use,
 #                                 compiled_models = compiled_models,
-#                                 iter_sampling = 10000, iter_warmup = 5000, refresh = 0,
+#                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
 #                                 num_chains = 3, suppress_output = T,
 #                                 posterior_draws_path = posterior_draws_path, hypers = hypers
 #                                 )
-# 
-# save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
-out <- load(file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
+
+# save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five_e.RData"))
+out <- load(file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five_e.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
                           methods = models_to_use)
+names(results_husO104) <- sapply(scoreRange_husO104, function(x) TeX(as.character(x), bold = TRUE))
+
+output <- bind_rows(results_husO104, .id = "time_point") |>
+  pivot_longer(
+    cols = mean_q_constant:upper_b_ou,
+    names_to = c(".value", "model"),
+    names_pattern = "([a-z]+)_(.+)"
+  ) |>
+  mutate(model = factor(model,
+    levels = c("q_constant", "b_constant", "b_rw", "b_ou"),
+    labels = c(
+      TeX("M1: Non-parametric $q_d$", bold = TRUE),
+      TeX("M2: Parametric $q(d)$", bold = TRUE),
+      TeX("M3: $q_t(d)$ with random walks", bold = TRUE),
+      TeX("M4: $q_t(d)$ with OU processes", bold = TRUE)))
+  )
+method_colors <- setNames(c("#008080", "#228B22", "#8446c6", "#4682B4", "gray40", "tomato"),
+  c(levels(output$model), "Current reported cases", "Latest reported cases"))
+
+results_husO104_plots <- ggplot(output) +
+  geom_ribbon(aes(x = date, ymin = lower, ymax = upper, fill = model), alpha = 0.4, show.legend = FALSE) +
+  geom_line(aes(date, mean, color = model), linewidth = rel(0.4), show.legend = FALSE) +
+  geom_line(aes(date, case_reported, color = "Current reported cases"), linewidth = rel(0.4)) +
+  geom_point(aes(date, case_reported, color = "Current reported cases"), size = rel(0.5)) +
+  geom_line(aes(date, case_true, color = "Latest reported cases"), linetype = 6) +
+  facet_grid(time_point ~ model, labeller = label_parsed, scales = "free") +
+  labs(fill = NULL, color = NULL, x = NULL, y = "Number of cases") +
+  theme_bw(9) +
+  theme(
+    legend.position = c(0.88, 0.94),
+    legend.key.height = unit(0.4, 'cm'),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_fill_manual(values = method_colors[1:4]) +
+  scale_color_manual(values = method_colors, breaks = names(method_colors)[5:6])
+ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104",
+    "results_HusO104_plots_simple.png"),
+       plot = results_husO104_plots,
+       width = 8, height = 6, dpi = 300)
+
+
 
 # results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use,
 #                                        combine_plots = T, ncol=2, nrow = 3)
@@ -172,12 +215,54 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO
        plot = results_husO104_plots,
        width = 14, height = 8, dpi = 300)
 
-results_husO104_plots_OU <- nowcasts_plot_single(results_husO104, D = D, report_unit = "day", method = c("b_ou"),
-                     combine_plots = T)
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots_OU.png"),
+output <- bind_rows(results_husO104, .id = "time_point") |>
+  pivot_longer(
+    cols = mean_q_constant:upper_b_ou,
+    names_to = c(".value", "model"),
+    names_pattern = "([a-z]+)_(.+)"
+  ) |>
+    filter(model == "b_ou")
+
+method_colors <- setNames(c("gray40", "tomato", "#4682B4"),
+  c("Current reported cases", "Latest reported cases", "Prediction with model M4"))
+auxdf <- data.frame(
+    time_point = names(results_husO104),
+    reference = scoreRange_husO104 - days(15)
+)
+
+results_husO104_plots_OU <- ggplot(output) +
+  geom_ribbon(aes(x = date, ymin = lower, ymax = upper, fill = "Prediction with model M4"), alpha = 0.4, show.legend = FALSE) +
+  geom_line(aes(date, mean, color = "Prediction with model M4"), linewidth = rel(0.4)) +
+  geom_line(aes(date, case_reported, color = "Current reported cases"), linewidth = rel(0.4)) +
+  geom_point(aes(date, case_reported, color = "Current reported cases"), size = rel(0.5)) +
+  geom_line(aes(date, case_true, color = "Latest reported cases"), linetype = 6) +
+  geom_vline(aes(xintercept = reference), data = auxdf, linetype = 2, color = "gray50") +
+  facet_wrap(~time_point , labeller = label_parsed, scales = "free_y", nrow = 2) +
+  labs(fill = NULL, color = NULL, x = NULL, y = "Number of cases") +
+  theme_bw(9) +
+  theme(
+    legend.position = c(0.8, 0.3),
+    legend.key.height = unit(0.4, 'cm'),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_fill_manual(values = method_colors[3], breaks = names(method_colors)[3]) +
+scale_color_manual(values = method_colors, breaks = names(method_colors))
+results_husO104_plots_OU
+
+ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots_simple_OU.png"),
        plot = results_husO104_plots_OU,
-       width = 14, height = 8, dpi = 300)
+       width = 8, height = 4, dpi = 300)
+
+
+# results_husO104_plots_OU <- nowcasts_plot_single(results_husO104, D = D, report_unit = "day", method = c("b_ou"),
+#                      combine_plots = T)
+#
+# ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots_OU.png"),
+#        plot = results_husO104_plots_OU,
+#        width = 14, height = 8, dpi = 300)
 
 
 ```
