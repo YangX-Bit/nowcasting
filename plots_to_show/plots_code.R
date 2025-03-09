@@ -144,10 +144,9 @@ plot_data$scenario <- factor(plot_data$scenario, levels = scenario_order)
 plot_data <- separate_wider_regex(plot_data, scenario, cols_remove = FALSE,
     c(label = ".*", ": ", fr = ".*", " - ", model = ".*"))
 plot_data$fr <- factor(plot_data$fr, levels = c("FR", "NFR"),
-    labels = c("Fully reported (FR)", "Non-fully reported (NFR)"))
+    labels = c("Fully~reported~(FR)", "Non~fully~reported~(NFR)"))
 plot_data$model <- factor(plot_data$model, levels = c("Constant", "RW", "OU"),
-    labels = c("Constant", "Random walks (RW)", "Ornstein-Uhlenbeck (OU) processes"))
-
+    labels = c(TeX("Invariant $q(d)$"), TeX("$q_t(d)$ with random walks"), TeX("$q_t(d)$ with OU processes")))
 
 df_labs <- data.frame(label = paste0("(", unique(plot_data$label), ")"),
     fr = rep(unique(plot_data$fr), each = 3),
@@ -160,7 +159,8 @@ df_labs <- data.frame(label = paste0("(", unique(plot_data$label), ")"),
 qtd <- ggplot(plot_data, aes(x = d, y = q_td)) +
   geom_line(aes(color = scenario, group = t), alpha = 0.3, linewidth = rel(0.6)) +
   geom_text(aes(x, y, label = label), df_labs, vjust = 1, hjust = 0, size = 3, fontface = "bold") +
-  facet_grid(fr ~ model, scale = "free") + 
+  facet_grid(fr ~ model, labeller = label_parsed, scale = "free") + 
+  # facet_wrap(~ group, labeller = label_parsed, scales = "free", nrow = 1) +
   scale_y_continuous(limits = c(0,1)) +
   scale_color_manual(values = c("black", "darkblue", "red3", "seagreen4", "mediumpurple4", "darkgoldenrod3")) +  
   labs(title = NULL, x = TeX("$d$"), y = TeX("$q_t(d)$"), color = "Scenario") +
@@ -175,8 +175,7 @@ qtd <- ggplot(plot_data, aes(x = d, y = q_td)) +
 qtd
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "sims_scenarios.png"),
-       plot = qtd,
-       width = 8, height = 4.5, dpi = 300)
+       plot = qtd, width = 8, height = 4.5, dpi = 300)
 
 ###################################################### 
 # b shape#
