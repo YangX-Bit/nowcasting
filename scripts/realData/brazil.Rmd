@@ -1,0 +1,63 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+
+library(splines)
+library(ggplot2)
+library(reshape2)
+library(aweek)
+library(lubridate)
+library(patchwork)
+library(latex2exp)
+library(dplyr)
+library(sf)
+```
+
+```{r}
+path_proj = here::here()
+path_source = file.path(path_proj, "source")
+```
+
+```{r}
+
+regsaud <- file.path(path_proj, "lsbastos-delay/Code/SARI/Data/PR_regsaud/41REGSAUD.shp") |>
+    st_read() |>
+    filter(CO_REGSAUD == 41002)
+
+st_crs(regsaud)
+
+br <- file.path(path_proj, "data", "raw", "gadm41_BRA.gpkg") |>
+    st_read(layer = "ADM_ADM_2") |>
+    filter(NAME_1 == "Paraná") |>
+    st_transform(st_crs(regsaud))
+    # mutate(div = substr(CC_2, 1, 4))
+
+plot(st_union(regsaud), reset = FALSE)
+plot(st_buffer(st_union(regsaud), dist = 2000), add = TRUE, border = 2)
+
+regsaud$DS_NOME
+
+ind <- which(st_within(br, st_buffer(st_union(regsaud), dist = 2000), sparse = FALSE))
+br2 <- br[ind,]
+
+ggplot(br2["NAME_2"]) +
+    geom_sf(data = st_union(regsaud), color = 2, linewidth = 3) +
+    geom_sf(color = 1, fill = 4)
+
+br2$NAME_2
+# 2ª RS Metropolitana
+#  [1] "Adrianópolis"          "Agudos do Sul"         "Almirante Tamandaré"
+#  [4] "Araucária"             "Balsa Nova"            "Bocaiúva do Sul"
+#  [7] "Campina Grande do Sul" "Campo do Tenente"      "Campo Largo"
+# [10] "Campo Magro"           "Cerro Azul"            "Colombo"
+# [13] "Contenda"              "Curitiba"              "Doutor Ulysses"
+# [16] "Fazenda Rio Grande"    "Itaperuçu"             "Lapa"
+# [19] "Mandirituba"           "Piên"                  "Pinhais"
+# [22] "Piraquara"             "Quatro Barras"         "Quitandinha"
+# [25] "Rio Branco do Sul"     "Rio Negro"             "São José dos Pinhais"
+
+# Adrianópolis, Agudos do Sul, Almirante Tamandaré, Araucária, Balsa Nova, Bocaiúva do Sul,
+# Campina Grande do Sul, Campo do Tenente, Campo Largo, Campo Magro, Cerro Azul, Colombo,
+# Contenda, Curitiba, Doutor Ulysses, Fazenda Rio Grande, Itaperuçu, Lapa, Mandirituba,
+# Piên, Pinhais, Piraquara, Quatro Barras, Quitandinha, Rio Branco do Sul, Rio Negro, and São José dos Pinhais.
+```
