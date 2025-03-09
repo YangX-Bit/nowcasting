@@ -430,54 +430,77 @@ df <- df %>%
   # Only keep delay weeks that have been observed (i.e. less than or equal to available_delay)
   filter(X <= available_delay)
 
-# Create subplots for each reporting date
-plots <- df %>%
-  group_by(RowID) %>%
-  group_split() %>%
-  lapply(function(d) {
-    step <- ceiling(max(d$Y) / 5)
-    ggplot(d, aes(x = X, y = Y)) +
-      geom_line(color = "gray30", size = 1) + 
-      geom_point(color = "gray30", size = 1.4, alpha = 0.8, shape = 16) +
-      scale_y_continuous(breaks = seq(0, max(d$Y), by = step), expand = c(0, 0)) +
-      scale_x_continuous(limits = c(0, 15), breaks = seq(0, 15, by = 3)) +
-      labs(title = NULL, x = unique(d$Time), y = NULL) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 16),
-        axis.text.y = element_text(size = 16)
-      )
-  })
-
-# Combine subplots into a 5 x 6 grid
-final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +  
-  plot_annotation(
-    title = NULL,
-    theme = theme(
-      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
-      plot.caption = element_text(hjust = 0.5, size = 10),
-      plot.margin = margin(10, 10, 30, 50)  # Leave more margin to the left
+myplot <- mutate(df, as.Date(Time)) |>
+    ggplot() +
+    geom_line(aes(X, Y), color = "gray40", linewidth = rel(0.4)) +
+    geom_point(aes(X, Y), color = "gray40", size = rel(0.5)) +
+    labs(x = TeX("Delay (days)"), y = TeX("Cumulative reported cases")) +
+    facet_wrap(~ Time, scales = "free", nrow = 4) +
+    scale_y_continuous(limits = c(0, NA)) +
+    scale_x_continuous(limits = c(0, 15), breaks = seq(0, 15, by = 5)) +
+    # theme_bw(9) +
+    theme_classic(9) +
+    theme(
+        # legend.position = c(0.9, 0.15),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold"),
+        panel.grid.major = element_line()
     )
-  ) &
-  theme(
-    axis.title.x = element_text(size = 16, face = "bold")
-  )  + 
-  labs(x = "Delay D", y = NULL)
+myplot
 
-# Add left-side Y-axis title
-emp_11_06_05_hus <- ggdraw(final_plot) +
-  draw_label("Number of reported cases", 
-             x = 0.02, y = 0.5, angle = 90,  
-             size = 14, fontface = "bold") +
-  draw_label("Delay (days)", 
-             x = 0.53, y = 0.02, angle = 0,  # ⬅ Horizontal placement
-             size = 14, fontface = "bold")
-emp_11_06_05_hus
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI",
+        paste0("emp_11_06_05_hus.png")),
+       plot = myplot,
+       width = 8, height = 4.5, dpi = 300)
 
-ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_11_06_05_hus.png")),
-       plot = emp_11_06_05_hus,
-       width = 14, height = 10, dpi = 300)
-
+# # Create subplots for each reporting date
+# plots <- df %>%
+#   group_by(RowID) %>%
+#   group_split() %>%
+#   lapply(function(d) {
+#     step <- ceiling(max(d$Y) / 5)
+#     ggplot(d, aes(x = X, y = Y)) +
+#       geom_line(color = "gray30", size = 1) + 
+#       geom_point(color = "gray30", size = 1.4, alpha = 0.8, shape = 16) +
+#       scale_y_continuous(breaks = seq(0, max(d$Y), by = step), expand = c(0, 0)) +
+#       scale_x_continuous(limits = c(0, 15), breaks = seq(0, 15, by = 3)) +
+#       labs(title = NULL, x = unique(d$Time), y = NULL) +
+#       theme_minimal() +
+#       theme(
+#         plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+#         axis.text.x = element_text(angle = 45, hjust = 1, size = 16),
+#         axis.text.y = element_text(size = 16)
+#       )
+#   })
+#
+# # Combine subplots into a 5 x 6 grid
+# final_plot <- wrap_plots(plots, ncol = 7, nrow = 4) +  
+#   plot_annotation(
+#     title = NULL,
+#     theme = theme(
+#       plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  
+#       plot.caption = element_text(hjust = 0.5, size = 10),
+#       plot.margin = margin(10, 10, 30, 50)  # Leave more margin to the left
+#     )
+#   ) &
+#   theme(
+#     axis.title.x = element_text(size = 16, face = "bold")
+#   )  + 
+#   labs(x = "Delay D", y = NULL)
+#
+# # Add left-side Y-axis title
+# emp_11_06_05_hus <- ggdraw(final_plot) +
+#   draw_label("Number of reported cases", 
+#              x = 0.02, y = 0.5, angle = 90,  
+#              size = 14, fontface = "bold") +
+#   draw_label("Delay (days)", 
+#              x = 0.53, y = 0.02, angle = 0,  # ⬅ Horizontal placement
+#              size = 14, fontface = "bold")
+# emp_11_06_05_hus
+#
+# ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_11_06_05_hus.png")),
+#        plot = emp_11_06_05_hus,
+#        width = 14, height = 10, dpi = 300)
+#
 ```
 
