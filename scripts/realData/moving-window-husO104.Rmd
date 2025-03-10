@@ -144,20 +144,20 @@ hypers <- hypers_q(phi_ref = 0.1, D_ref = 15, type = "gompertz", alpha_phi = 1.4
 
 # first_date <- as.Date("2011-05-07")
 
-# out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104,
-#                                 case_true = case_true_husO104,
-#                                 start_date = first_date,
-#                                 #start_date = scoreRange[1] - weeks(20),
-#                                 D = D,
-#                                 methods =  models_to_use,
-#                                 compiled_models = compiled_models,
-#                                 iter_sampling = 3000, iter_warmup = 1000, refresh = 0,
-#                                 num_chains = 3, suppress_output = T,
-#                                 posterior_draws_path = posterior_draws_path, hypers = hypers
-#                                 )
+out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_husO104,
+                                case_true = case_true_husO104,
+                                start_date = first_date,
+                                #start_date = scoreRange[1] - weeks(20),
+                                D = D,
+                                methods =  models_to_use,
+                                compiled_models = compiled_models,
+                                iter_sampling = 10000, iter_warmup = 5000, refresh = 0,
+                                num_chains = 3, suppress_output = T,
+                                posterior_draws_path = posterior_draws_path, hypers = hypers
+                                )
 
-# save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five_e.RData"))
-out <- load(file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five_e.RData"))
+save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
+#load(file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
                           methods = models_to_use)
@@ -208,12 +208,12 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104",
 # results_husO104_plots <- nowcasts_plot(results_husO104, D = D, report_unit = "week", methods = models_to_use,
 #                                        combine_plots = T, ncol=2, nrow = 3)
 
-results_husO104_plots <-  nowcasts_plot_separated(results_husO104, scoreRange_husO104, first_date,
-                   report_unit = "day", D = 15)
-
-ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots.png"),
-       plot = results_husO104_plots,
-       width = 14, height = 8, dpi = 300)
+# results_husO104_plots <-  nowcasts_plot_separated(results_husO104, scoreRange_husO104, first_date,
+#                    report_unit = "day", D = 15)
+# 
+# ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", "results_HusO104_plots.png"),
+#        plot = results_husO104_plots,
+#        width = 14, height = 8, dpi = 300)
 
 
 output <- bind_rows(results_husO104, .id = "time_point") |>
@@ -409,49 +409,62 @@ for(t in 1:5) {
   
   # Define colors for each method
   method_colors <- c(
-    "q-Constant"     = "#228B22",  # green
-    "b-Constant"     = "#b35806",  # orange
+    "q-Constant"     = "#008080",  # green
+    "b-Constant"     = "#228B22",  # orange
     "b-Random walk"  = "#8446c6",  # purple
     "b-OU process"   = "#4682B4",  # steel blue
-    "Actual curve"   = "gray30"     # actual data in black
+    "Actual curve"   = "gray40"     # actual data in black
   )
   
   ## Create date labels for the facets based on scoreRange_husO104[t] and time length
   date_range <- seq(from = scoreRange_husO104[t] - (T_length - 1), by = 1, length.out = T_length)
   
   ## Plotting using ggplot2 with facet labels in date format
-  qtd_curves <- ggplot() +
+qtd_curves <- ggplot() +
     # Actual curve
     geom_line(data = subset(df_long, method == "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1) +
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
     geom_point(data = subset(df_long, method == "Actual curve"),
-               aes(x = d, y = q, color = method), size = 1.5) +
-    # Other curves
+               aes(x = d, y = q, color = method), size = rel(0.5)) +
+    # other lines
     geom_line(data = subset(df_long, method != "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1) +
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
     facet_wrap(
       ~ time, 
       nrow = plot_rows[t], 
       ncol = plot_cols[t],
       labeller = labeller(time = function(x) {
+        # earliest date：scoreRange_husO104[t] - (time_lengths[t]-1)*7 
+        date_range <- seq(from = scoreRange_husO104[t] - (time_lengths[t] - 1) * 7,
+                          by = 7,
+                          length.out = time_lengths[t])
         sapply(as.integer(x), function(i) format(date_range[i], "%Y-%m-%d"))
       })
     ) +
-    scale_color_manual(values = method_colors) +
+    scale_color_manual(values = method_colors,
+                       labels = c(
+                          "Actual curve", 
+                          TeX("Non-parametric $q_d$"),
+                          TeX("Parametric $q(d)$"),
+                          TeX("$q_t(d)$ with random walks"),
+                          TeX("$q_t(d)$ with OU processes")
+                        )) +
     labs(
       x = "Delay (days)",
       y = "Cumulative reporting proportion/probability",
       color = "Method"
     ) +
-    theme_minimal(base_size = 10) +  # Reduced base font size
+    theme_bw(base_size = 9) +
     theme(
       legend.position = "bottom",
-      strip.text = element_text(face = "bold", size = 14),         # Smaller facet label size
-      axis.title = element_text(size = 14),                          # Smaller axis title
-      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 10)),
-      axis.text = element_text(size = 14),                           # Smaller axis text
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 14)
+      legend.key.height = unit(0.4, 'cm'),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold",size = 10),
+      panel.grid.minor = element_blank(),
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8)
     )
   
   # Display the current plot
@@ -460,7 +473,7 @@ for(t in 1:5) {
   # Save the plot as a 20x15 cm image with 300 dpi resolution
   ggsave(filename = file.path(path_proj, "plots_to_show", "HusO104", paste0("qtd_fit_curve_husO104_T", t, ".png")),
          plot = qtd_curves,
-         width = 14, height = 10,  dpi = 300)
+         width = 8, height = 6,  dpi = 300)
 }
 
 ```

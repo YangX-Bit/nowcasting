@@ -228,9 +228,9 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_pl
 #     "b_ou"       = # steel blue
 #   )
 
-results_SARI_plots <- nowcasts_plot_separated(results_SARI, scoreRange_SARI, first_date,
-                   report_unit = "week", D=26)
-results_SARI_plots
+# results_SARI_plots <- nowcasts_plot_separated(results_SARI, scoreRange_SARI, first_date,
+#                    report_unit = "week", D=26)
+# results_SARI_plots
 
 ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", "results_SARI_plots_D=26.png"),
        plot = results_SARI_plots,
@@ -565,7 +565,7 @@ for(t in 1:5) {
   df_list <- list()
   
   for(i in seq_len(T_length)) {
-  
+    
     #  larger i, less d (less information when time is more recent)
     d_max <- min(T_length - i , D)      #  i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
     x_actual <- 0:d_max        # 
@@ -625,54 +625,59 @@ for(t in 1:5) {
   
   # Define colors for each method
   method_colors <- c(
-    "q-Constant"     = "#228B22",  # green
-    "b-Constant"     = "#b35806",  # orange
+    "q-Constant"     = "#008080",  # green
+    "b-Constant"     = "#228B22",  # orange
     "b-Random walk"  = "#8446c6",  # purple
     "b-OU process"   = "#4682B4",  # steel blue
-    "Actual curve"   = "gray30"     # actual data in black
+    "Actual curve"   = "gray40"     # actual data in black
   )
-  
   total_length_t <- max(df_long$time)
   
-  ## Plotting using ggplot2 with manual facet settings:
   qtd_curves <- ggplot() +
     # Actual curve
     geom_line(data = subset(df_long, method == "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1) +
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
     geom_point(data = subset(df_long, method == "Actual curve"),
-               aes(x = d, y = q, color = method), size = 1.5) +
+               aes(x = d, y = q, color = method), size = rel(0.5)) +
     # other lines
     geom_line(data = subset(df_long, method != "Actual curve"),
-              aes(x = d, y = q, color = method), size = 1) +
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
     facet_wrap(
       ~ time, 
       nrow = plot_rows[t], 
       ncol = plot_cols[t],
       labeller = labeller(time = function(x) {
-        # ，scoreRange_SARI[t] is the latest date，
-        # time_lengths[t] indicates the number of time window
-        # the earliest date should be: scoreRange_SARI[t] - (time_lengths[t]-1)*7 天
+        # earliest date：scoreRange_SARI[t] - (time_lengths[t]-1)*7 天
         date_range <- seq(from = scoreRange_SARI[t] - (time_lengths[t] - 1) * 7,
                           by = 7,
                           length.out = time_lengths[t])
         sapply(as.integer(x), function(i) format(date_range[i], "%Y-%m-%d"))
       })
     ) +
-    scale_color_manual(values = method_colors) +
+    scale_color_manual(values = method_colors,
+                       labels = c(
+                          "Actual curve", 
+                          TeX("Non-parametric $q_d$"),
+                          TeX("Parametric $q(d)$"),
+                          TeX("$q_t(d)$ with random walks"),
+                          TeX("$q_t(d)$ with OU processes")
+                        )) +
     labs(
       x = "Delay (weeks)",
       y = "Cumulative reporting proportion/probability",
       color = "Method"
     ) +
-    theme_minimal(base_size = 10) +
+    theme_bw(base_size = 9) +
     theme(
       legend.position = "bottom",
-      strip.text = element_text(face = "bold", size = 14),         # Smaller facet label size
-      axis.title = element_text(size = 14),                          # Smaller axis title
-      axis.title.y = element_text(face = "bold", hjust = 0.5, margin = margin(r = 10)),
-      axis.text = element_text(size = 14),                           # Smaller axis text
-      legend.title = element_text(size = 14),
-      legend.text = element_text(size = 14)
+      legend.key.height = unit(0.4, 'cm'),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold",size = 10),
+      panel.grid.minor = element_blank(),
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8)
     )
   
   # Print the current plot
@@ -680,10 +685,11 @@ for(t in 1:5) {
   
   ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd_fit_curve_SARI_T",t,".png")),
          plot = qtd_curves,
-         width = 14, height = 10, dpi = 300)
+         width = 8, height = 6, dpi = 300)
   # Optionally save the plot, for example:
   # ggsave(paste0("plot_T", t, ".png"), p, width = 12, height = 6)
 }
+
 
 ```
 

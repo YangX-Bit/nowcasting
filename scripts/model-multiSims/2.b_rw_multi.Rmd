@@ -14,6 +14,10 @@ library(ggplot2)
 library(bayesplot)
 library(reshape2)
 library(dplyr)
+library(aweek)
+library(latex2exp)
+library(lubridate)
+
 ```
 
 # Setting
@@ -188,9 +192,58 @@ metrics_1_b_rw_FR_avg_incomp
 results_b_rw_FR_1 <- nowcasts_table(out_b_rw_FR_multi[[1]], D = D, report_unit = "day", 
                           methods = models_to_use)
 
-plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR_1, D = D, report_unit = "day", methods = models_to_use)
-plots_b_rw_FR
+# plots_b_rw_FR <- nowcasts_plot(results_b_rw_FR_1, D = D, report_unit = "day", methods = models_to_use)
+# plots_b_rw_FR
 ```   
+```{r}
+# results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "week", 
+#                           methods = models_to_use)
+
+results_b_rw_FR_1 <- nowcasts_table(out_b_rw_FR_multi[[1]], D = D, report_unit = "day", 
+                           methods = models_to_use)
+
+names(results_b_rw_FR_1) <- sapply(scoreRange, function(x) TeX(as.character(x), bold = TRUE))
+
+output <- bind_rows(results_b_rw_FR_1, .id = "time_point") |>
+  pivot_longer(
+    cols = mean_q_constant:upper_b_ou,
+    names_to = c(".value", "model"),
+    names_pattern = "([a-z]+)_(.+)"
+  ) |>
+  mutate(model = factor(model,
+    levels = c("q_constant", "b_constant", "b_rw", "b_ou"),
+    labels = c(
+      TeX("M1: Non-parametric $q_d$", bold = TRUE),
+      TeX("M2: Parametric $q(d)$", bold = TRUE),
+      TeX("M3: $q_t(d)$ with random walks", bold = TRUE),
+      TeX("M4: $q_t(d)$ with OU processes", bold = TRUE)))
+  )
+method_colors <- setNames(c("#008080", "#228B22", "#8446c6", "#4682B4", "gray40", "tomato"),
+  c(levels(output$model), "Current reported cases", "Actual cases"))
+
+results_b_rw_FR_1_plots <- ggplot(output) +
+  geom_ribbon(aes(x = date, ymin = lower, ymax = upper, fill = model), alpha = 0.4, show.legend = FALSE) +
+  geom_line(aes(date, mean, color = model), linewidth = rel(0.4), show.legend = FALSE) +
+  geom_line(aes(date, case_reported, color = "Current reported cases"), linewidth = rel(0.4)) +
+  geom_point(aes(date, case_reported, color = "Current reported cases"), size = rel(0.5)) +
+  geom_line(aes(date, case_true, color = "Actual cases"), linetype = 6) +
+  facet_grid(time_point ~ model, labeller = label_parsed, scales = "free") +
+  labs(fill = NULL, color = NULL, x = NULL, y = "Number of cases") +
+  theme_bw(9) +
+  theme(
+    legend.position = c(0.88, 0.94),
+    legend.key.height = unit(0.4, 'cm'),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_fill_manual(values = method_colors[1:4]) +
+  scale_color_manual(values = method_colors, breaks = names(method_colors)[5:6])
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "FR_b_rw_separated.png"),
+       plot = results_b_rw_FR_1_plots,
+       width = 8, height = 6, dpi = 300)
+```
+
 ## Not fully reported case
 
 ### Simulation
@@ -296,9 +349,58 @@ metrics_1_b_rw_NFR_avg_incomp
 results_b_rw_NFR_1 <- nowcasts_table(out_b_rw_NFR_multi[[1]], D = D, report_unit = "day", 
                           methods = models_to_use)
 
-plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR_1, D = D, report_unit = "day", methods = models_to_use)
-plots_b_rw_NFR
+# plots_b_rw_NFR <- nowcasts_plot(results_b_rw_NFR_1, D = D, report_unit = "day", methods = models_to_use)
+# plots_b_rw_NFR
 ```   
+
+```{r}
+# results_SARI <- nowcasts_table(out_SARI, D = D, report_unit = "week", 
+#                           methods = models_to_use)
+
+results_b_rw_NFR_1 <- nowcasts_table(out_b_rw_NFR_multi[[1]], D = D, report_unit = "day", 
+                           methods = models_to_use)
+
+names(results_b_rw_NFR_1) <- sapply(scoreRange, function(x) TeX(as.character(x), bold = TRUE))
+
+output <- bind_rows(results_b_rw_NFR_1, .id = "time_point") |>
+  pivot_longer(
+    cols = mean_q_constant:upper_b_ou,
+    names_to = c(".value", "model"),
+    names_pattern = "([a-z]+)_(.+)"
+  ) |>
+  mutate(model = factor(model,
+    levels = c("q_constant", "b_constant", "b_rw", "b_ou"),
+    labels = c(
+      TeX("M1: Non-parametric $q_d$", bold = TRUE),
+      TeX("M2: Parametric $q(d)$", bold = TRUE),
+      TeX("M3: $q_t(d)$ with random walks", bold = TRUE),
+      TeX("M4: $q_t(d)$ with OU processes", bold = TRUE)))
+  )
+method_colors <- setNames(c("#008080", "#228B22", "#8446c6", "#4682B4", "gray40", "tomato"),
+  c(levels(output$model), "Current reported cases", "Actual cases"))
+
+results_b_rw_NFR_1_plots <- ggplot(output) +
+  geom_ribbon(aes(x = date, ymin = lower, ymax = upper, fill = model), alpha = 0.4, show.legend = FALSE) +
+  geom_line(aes(date, mean, color = model), linewidth = rel(0.4), show.legend = FALSE) +
+  geom_line(aes(date, case_reported, color = "Current reported cases"), linewidth = rel(0.4)) +
+  geom_point(aes(date, case_reported, color = "Current reported cases"), size = rel(0.5)) +
+  geom_line(aes(date, case_true, color = "Actual cases"), linetype = 6) +
+  facet_grid(time_point ~ model, labeller = label_parsed, scales = "free") +
+  labs(fill = NULL, color = NULL, x = NULL, y = "Number of cases") +
+  theme_bw(9) +
+  theme(
+    legend.position = c(0.88, 0.94),
+    legend.key.height = unit(0.4, 'cm'),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_fill_manual(values = method_colors[1:4]) +
+  scale_color_manual(values = method_colors, breaks = names(method_colors)[5:6])
+ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_rw", "NFR_b_rw_separated.png"),
+       plot = results_b_rw_NFR_1_plots,
+       width = 8, height = 6, dpi = 300)
+```
 
 ## Result generate
 
