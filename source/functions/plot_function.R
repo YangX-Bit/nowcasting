@@ -106,7 +106,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
       y = as.numeric(matrix_data[i, ])
     )
     tryCatch({
-      model_fit <- nls(y ~ (1 - phi*exp(-b * x)), data = data_fit, start = list(b = 0.2, phi = 0.9))
+      model_fit <- nls(y ~ (1 - (1 - phi) * exp(-b * x)), data = data_fit, start = list(b = 0.2, phi = 0.9))
       coef_saved[i, 1] <- coef(model_fit)["b"]
       coef_saved[i, 2] <- coef(model_fit)["phi"]
     }, error = function(e) {
@@ -118,7 +118,7 @@ fit_exp_plot <- function(matrix_data, ncol = 3, nrow = 3, pages = 1, if_fit = T)
   x_vals <- c(0:D)
   plot_data <- data.frame()
   for (i in 1:n_rows) {
-    y_vals <- (1 - coef_saved$phi[i] * exp(-coef_saved$b[i] * x_vals))
+    y_vals <- (1 - (1 - coef_saved$phi[i]) * exp(-coef_saved$b[i] * x_vals))
     temp_data <- data.frame(
       x = x_vals,
       y = as.numeric(matrix_data[i, ]),
