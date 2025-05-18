@@ -216,3 +216,34 @@ param_true = tibble(
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 ```
+
+
+```{r}
+# 1. Prepare a data frame for the constant q vector
+df_const <- data.frame(
+  delay = 0:(length(q_constant_FR$q) - 1),
+  q     = q_constant_FR$q
+)
+
+# 2. Plot
+ggplot(df_const, aes(x = delay, y = q)) +
+  geom_line(
+    colour = "red",  # a pleasant, academic‐style blue
+    size   = 0.8
+  ) +
+  scale_x_continuous(
+    breaks = 0:15,
+    limits = c(0, 15)
+  ) +
+  scale_y_continuous(
+    breaks = seq(0, 1, by = 0.2),
+    limits = c(0, 1)
+  ) +
+  labs(
+    x     = "Delay (d)",
+    y     = expression(q(d)),
+    title = NULL
+  ) +
+  theme_classic(base_size = 14)
+```
+

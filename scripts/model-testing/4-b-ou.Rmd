@@ -264,3 +264,38 @@ mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 ```
 
+```{r}
+# 1. Label the matrix columns as delays 0,1,…,15
+n_delays <- ncol(b_ou_NFR$q)
+colnames(b_ou_NFR$q) <- as.character(0:(n_delays-1))
+
+# 2. Convert to data.frame and add a time index
+df <- as.data.frame(b_ou_NFR$q) %>%
+  mutate(time = row_number())
+
+# 3. Pivot to long format
+df_long <- df %>%
+  pivot_longer(
+    cols      = -time,
+    names_to  = "delay",
+    values_to = "q"
+  ) %>%
+  mutate(delay = as.integer(delay))
+
+# 4. Plot with ggplot2
+ggplot(df_long, aes(x = delay, y = q, group = time)) +
+  geom_line(
+    colour = "red",  # a muted academic red
+    size   = 0.7,
+    alpha  = 0.6
+  ) +
+  scale_x_continuous(breaks = 0:15, limits = c(0, 15)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2), limits = c(0, 1)) +
+  labs(
+    x     = "Delay (d)",
+    y     = expression(q[t](d)),
+    title = NULL
+  ) +
+  theme_classic(base_size = 14)
+```
+
