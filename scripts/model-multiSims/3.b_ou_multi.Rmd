@@ -472,3 +472,99 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "simulation", "b_ou", "N
        plot = plots_b_ou_NFR_separated,
        width = 40, height = 28, dpi = 300)
 ```
+
+```{r}
+b_ou_NFR_multi[[1]]$case_true
+b_ou_NFR_multi[[1]]$case_reported_cumulated
+```
+```{r}
+library(tidyverse)
+library(lubridate)
+
+# Assume:
+b_ou <- b_ou_NFR_multi[[1]]
+D <- ncol(b_ou$case_reported_cumulated) - 1
+
+# extract the current reported cases
+get_reported <- function(mat, N, D) {
+  map_int(seq_len(N), function(i) {
+    delay <- N - i
+    col   <- if (delay <= D) delay + 1 else D + 1
+    mat[i, col]
+  })
+}
+
+# colors
+method_colors <- c(
+  "Current reported cases" = "gray40",
+  "Actual cases"           = "tomato"
+)
+
+# length of windows
+windows <- seq(10, 50, by = 10)
+
+plot_list <- imap(windows, function(N, idx) {
+  df <- tibble(
+    date          = b_ou$date[1:N],
+    case_true     = b_ou$case_true[1:N],
+    case_reported = get_reported(b_ou$case_reported_cumulated, N, D)
+  )
+  
+  p <- ggplot(df) +
+    geom_line(aes(date, case_reported, color = "Current reported cases"),
+              linewidth = rel(0.4)) +
+    geom_point(aes(date, case_reported, color = "Current reported cases"),
+               size      = rel(0.5)) +
+    geom_line(aes(date, case_true,     color = "Actual cases"),
+              linetype = 6,
+              linewidth = rel(0.4)) +
+    scale_color_manual(
+      values = method_colors,
+      breaks = names(method_colors)
+    ) +
+    theme_bw(base_size = 9) +
+    theme(
+      panel.grid.minor = element_blank()
+    )
+  
+  # control the legend and titles
+  if (idx == 1) {
+    p <- p + theme(
+      legend.position       = c(0.02, 0.98),
+      legend.justification  = c("left", "top"),
+      legend.key.height     = unit(0.4, 'cm')
+    ) +
+    labs(
+      title = paste0(N, " days"),
+      x     = NULL,
+      y     = "Number of cases",
+      color = NULL
+    )
+  } else {
+    p <- p + theme(legend.position = "none") +
+          labs(
+      title = paste0(N, " days"),
+      x     = NULL,
+      y     = NULL,
+      color = NULL
+    )
+  }
+  p
+})
+
+# same row
+combined <- wrap_plots(plot_list, nrow = 1)
+
+print(combined)
+
+# save
+ggsave(
+  filename = "combined_reported_vs_true_10-50.png",
+  plot     = combined,
+  width    = 15, 
+  height   = 4,
+  dpi      = 300
+)
+getwd()
+```
+

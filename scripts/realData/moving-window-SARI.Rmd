@@ -501,8 +501,26 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd-empi
 #        plot = emp_09_12_15_the_5th,
 #        width = 14, height = 8, dpi = 300)
 
-
-
+myplot_FR_vs_NFR <- mutate(df, as.Date(Time)) |> filter(Time == "2009-08-02" | Time == "2009-09-06") |>
+    ggplot() +
+    geom_line(aes(X, Y), color = "gray30", linewidth = rel(0.4)) +
+    geom_vline(xintercept = 15, color = "tomato") +
+    geom_point(aes(X, Y), color = "gray30", size = rel(0.5)) +
+    labs(x = TeX("d"), y = TeX("q(d)")) +
+    facet_wrap(~ Time, scales = "free", nrow = 1) +
+    scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.25)) +
+    scale_x_continuous(limits = c(0, 26), breaks = seq(0, 26, by = 5)) +
+    # theme_bw(9) +
+    theme_classic(9) +
+    theme(
+        # legend.position = c(0.9, 0.15),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold"),
+        panel.grid.major = element_line()
+    )
+ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd-empirical_FR_VS_NFR.png")),
+       plot = myplot_FR_vs_NFR,
+       width = 8, height = 4, dpi = 300)
 ```
 
 
