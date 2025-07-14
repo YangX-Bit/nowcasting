@@ -2,7 +2,7 @@ nowcasts_table <- function(results_list,
                            D = NULL,
                            report_unit = "week",
                            methods = c("fixed_q", "fixed_b", "linear_b", "ou_b"),
-                           replicate_id = NA_integer_) {
+                           replicate_id = NA_integer_, alpha = 0.05) {
   # Basic checks
   if (is.null(D)) stop("Parameter 'D' must be provided.")
   if (!report_unit %in% c("week", "day")) {
@@ -44,13 +44,16 @@ nowcasts_table <- function(results_list,
       nowcasts_df$replicate_id       <- replicate_id # for replicate
     }
     
+    lower_p <- alpha / 2
+    upper_p <- 1 - alpha / 2
+    
     # Dynamically add model results
     for (model_name in methods) {
       # model_name might be "fixed_q", "fixed_b", ...
       samples <- results_list[[model_name]][[i]]$draws(variables = "N", format = "draws_matrix")
       nowcasts_df[[paste0("mean_", model_name)]]  <- apply(samples, 2, mean)
-      nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = 0.025, na.rm = TRUE)# if this na.rm = TRUE is okay?
-      nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = 0.975, na.rm = TRUE)
+      nowcasts_df[[paste0("lower_", model_name)]] <- apply(samples, 2, quantile, probs = lower_p, na.rm = TRUE)# if this na.rm = TRUE is okay?
+      nowcasts_df[[paste0("upper_", model_name)]] <- apply(samples, 2, quantile, probs = upper_p, na.rm = TRUE)
     }
     
     # Save to output list

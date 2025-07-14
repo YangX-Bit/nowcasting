@@ -529,10 +529,10 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd-empi
 D=26
 scoreRange_SARI <- seq(as.Date("2009-08-02"),as.Date("2009-11-22"), by = "4 week")
 scoreRange_SARI
-first_date <- as.Date("2009-06-14")
+first_date <- as.Date("2009-06-13")
 
 # Define the time lengths for T1 to T5
-time_lengths <- c(7, 11, 15, 19, 23)
+time_lengths <- c(7, 11, 15, 19, 24)
 
 # Manually define the desired number of rows and columns for each T plot
 plot_rows <- c(3, 3, 3, 4, 4)
@@ -713,7 +713,7 @@ for(t in 1:5) {
 
 
 # plot for each day emp
-```{r}.
+```{r}
 date_start <- as.Date("2009-06-14")
 date_end <- as.Date("2009-11-22")
 # Uncomment the following line if you need an alternative date range
@@ -834,6 +834,200 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("emp_09_1
 ```
 
 ```{r}
-plot(ts(case_true_emp_plot))
+# plot for the revision
+D=26
+scoreRange_SARI <- seq(as.Date("2009-08-02"),as.Date("2009-11-22"), by = "4 week")
+scoreRange_SARI
+first_date <- as.Date("2009-06-13")
+
+# Define the time lengths for T1 to T5
+time_lengths <- c(7, 11, 15, 19, 24)
+
+# Manually define the desired number of rows and columns for each T plot
+plot_rows <- c(3, 3, 3, 4, 4)
+plot_cols <- c(3, 4, 5, 5, 6)
+
+# Loop over T1 to T5
+for(t in 5:5) {
+  
+  T_length <- time_lengths[t]
+  
+  # Select the time period based on the current T using the corresponding scoreRange_SARI value
+  period_T <- which(as.Date(rownames(data_41002_input)) >= first_date &
+                      as.Date(rownames(data_41002_input)) <= scoreRange_SARI[t])
+  
+  # Compute the true curve (each row corresponds to a time point, columns for delay d = 0:26)
+  actual_curve <- round(data_41002_input[period_T, ] / last_reported[period_T, ], 2)
+  
+  # Define the x-axis for model curves: delay values from 0 to D
+  x <- 0:D
+  
+  ## Model curves calculations using the current T's model outputs:
+  # 1. q-Constant model
+  q_draws <- out_SARI$q_constant[[t]]$draws("q")
+  q_const_curves <- round(apply(as.array(q_draws), 3, mean), 2)
+  
+  # 2. b-Constant model
+  b_draws_constant <- out_SARI$b_constant[[t]]$draws("b")
+  b_means_constant <- apply(as.array(b_draws_constant), 3, mean)
+  phi_draws_constant <- out_SARI$b_constant[[t]]$draws("phi")
+  phi_means_constant <- apply(as.array(phi_draws_constant), 3, mean)
+  b_const_curves <- round(1 - phi_means_constant * exp(-b_means_constant * x), 2)
+  
+  # 3. b-Random walk model
+  b_draws_rw <- out_SARI$b_rw[[t]]$draws("b")
+  b_means_rw <- apply(as.array(b_draws_rw), 3, mean)
+  phi_draws_rw <- out_SARI$b_rw[[t]]$draws("phi")
+  phi_means_rw <- apply(as.array(phi_draws_rw), 3, mean)
+  b_rw_curves <- round(1 - phi_means_rw * exp(-b_means_rw %o% x), 2)
+  
+  # 4. b-OU process model
+  b_draws_ou <- out_SARI$b_ou[[t]]$draws("b")
+  b_means_ou <- apply(as.array(b_draws_ou), 3, mean)
+  phi_draws_ou <- out_SARI$b_ou[[t]]$draws("phi")
+  phi_means_ou <- apply(as.array(phi_draws_ou), 3, mean)
+  b_ou_curves <- round(1 - phi_means_ou * exp(-b_means_ou %o% x), 2)
+  
+  ## Construct the long-format dataframe for plotting
+  df_list <- list()
+  
+  for(i in seq_len(T_length)) {
+    
+    #  larger i, less d (less information when time is more recent)
+    d_max <- min(T_length - i , D)      #  i = T_length, d_max = 0; when i = 1, d_max = T_length - 1
+    x_actual  <- x[x <= d_max]
+    x_unknown <- x[x >= d_max]
+    
+    # known
+    df_list[[length(df_list) + 1]] <- data.frame(
+      time   = i,
+      d      = x_actual,
+      q      = actual_curve[i, 1:(d_max + 1)],   # 对应 delay 0..d_max
+      method = "Actual curve"
+    )
+    
+    # unknown
+    df_list[[length(df_list) + 1]] <- data.frame(
+      time   = i,
+      d      = x_unknown,
+      q      = actual_curve[i, (d_max + 1):ncol(actual_curve)],   # 对应 delay (d_max+1) 以后
+      method = "Actual curve (Unknown yet)"
+    )
+    
+    # q-Constant: same curve for all time points
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = q_const_curves,
+      method = "q-Constant"
+    )
+    
+    # b-Constant: same curve for all time points
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_const_curves,
+      method = "b-Constant"
+    )
+    
+    # b-Random walk: distinct curve for each time point
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_rw_curves[i, ],
+      method = "b-Random walk"
+    )
+    
+    # b-OU process: distinct curve for each time point
+    df_list[[ length(df_list) + 1 ]] <- data.frame(
+      time   = i,
+      d      = x,
+      q      = b_ou_curves[i, ],
+      method = "b-OU process"
+    )
+  }
+  
+  # Combine all mini data frames into one long-format data frame
+  df_long <- dplyr::bind_rows(df_list)
+  
+  
+  # Set factor levels for 'method' to control legend order
+  df_long$method <- factor(df_long$method, levels = c(
+    "Actual curve",
+    "Actual curve (Unknown yet)",
+    "q-Constant",
+    "b-Constant",
+    "b-Random walk",
+    "b-OU process"
+  ))
+  
+  # Define colors for each method
+  method_colors <- c(
+    "q-Constant"     = "#008080",  # green
+    "b-Constant"     = "#228B22",  # orange
+    "b-Random walk"  = "#8446c6",  # purple
+    "b-OU process"   = "#4682B4",  # steel blue
+    "Actual curve"   = "gray40",     # actual data in black
+    "Actual curve (Unknown yet)" = "red"
+  )
+  total_length_t <- max(df_long$time)
+  
+  qtd_curves <- ggplot() +
+    # Actual curve
+    geom_line(data = subset(df_long, method == "Actual curve"),
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
+    geom_point(data = subset(df_long, method == "Actual curve"),
+               aes(x = d, y = q, color = method), size = rel(0.5)) +
+    # other lines
+    geom_line(data = subset(df_long, method != "Actual curve"),
+              aes(x = d, y = q, color = method), linewidth = rel(0.4)) +
+    facet_wrap(
+      ~ time, 
+      nrow = plot_rows[t], 
+      ncol = plot_cols[t],
+      labeller = labeller(time = function(x) {
+        # earliest date：scoreRange_SARI[t] - (time_lengths[t]-1)*7 天
+        date_range <- seq(from = scoreRange_SARI[t] - (time_lengths[t] - 1) * 7,
+                          by = 7,
+                          length.out = time_lengths[t])
+        sapply(as.integer(x), function(i) format(date_range[i], "%Y-%m-%d"))
+      })
+    ) +
+    scale_color_manual(values = method_colors,
+                       labels = c(
+                         "Actual curve", 
+                         "Actual curve (Unknown yet)",
+                         TeX("Non-parametric $q_d$"),
+                         TeX("Parametric $q(d)$"),
+                         TeX("$q_t(d)$ with random walks"),
+                         TeX("$q_t(d)$ with OU processes")
+                       )) +
+    labs(
+      x = "Delay (weeks)",
+      y = "Cumulative reporting proportion/probability",
+      color = "Method"
+    ) +
+    theme_bw(base_size = 9) +
+    theme(
+      legend.position = "bottom",
+      legend.key.height = unit(0.4, 'cm'),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold",size = 10),
+      panel.grid.minor = element_blank(),
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8)
+    )
+  
+  # Print the current plot
+  print(qtd_curves)
+  
+  ggsave(filename = file.path(path_proj, "plots_to_show", "SARI", paste0("qtd_fit_curve_SARI_T",t,"_full_actual.png")),
+         plot = qtd_curves,
+         width = 8, height = 6, dpi = 300)
+  # Optionally save the plot, for example:
+  # ggsave(paste0("plot_T", t, ".png"), p, width = 12, height = 6)
+}
 ```
 

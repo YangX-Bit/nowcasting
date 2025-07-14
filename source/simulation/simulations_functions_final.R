@@ -145,7 +145,7 @@ generateQ <- function(method, params, T, D) {
     }
     b <- params$b
     phi <- params$phi
-    q <- 1 - phi * exp(-b * (0:D))
+    q <- 1 - (1 - phi) * exp(-b * (0:D))
 
   } else if (method == "b_rw") {
 
@@ -163,7 +163,7 @@ generateQ <- function(method, params, T, D) {
 
     q <- matrix(NA, nrow = T, ncol = D + 1)
     for (i in seq_len(T)) {
-      q[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
+      q[i, ] <- 1 - (1 - phi[i]) * exp(-b[i] * (0:D))
     }
 
   } else if (method == "b_ou") {
@@ -190,7 +190,7 @@ generateQ <- function(method, params, T, D) {
 
     q <- matrix(NA, nrow = T, ncol = D + 1)
     for (i in seq_len(T)) {
-      q[i, ] <- 1 - phi[i] * exp(-b[i] * (0:D))
+      q[i, ] <- 1 - (1 - phi[i]) * exp(-b[i] * (0:D))
     }
 
   } else if (method == "sin_b") {

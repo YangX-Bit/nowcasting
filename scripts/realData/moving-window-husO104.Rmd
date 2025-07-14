@@ -13,6 +13,7 @@ library(ggplot2)
 library(reshape2)
 library(aweek)
 library(lubridate)
+library(latex2exp)
 
 #remotes::install_github("stan-dev/cmdstanr")
 library(cmdstanr)
@@ -156,11 +157,13 @@ out_husO104 <- nowcasting_moving_window(husO104_input, scoreRange =  scoreRange_
                                 posterior_draws_path = posterior_draws_path, hypers = hypers
                                 )
 
-save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
+#save(out_husO104, file = file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
 #load(file.path(path_proj, "data", "fitted_model","husO104_110525_to_110607_five.RData"))
 
 results_husO104 <- nowcasts_table(out_husO104, D = D, report_unit = "day", 
-                          methods = models_to_use)
+                          methods = models_to_use, 
+                          #alpha = 0.5  # 50% CI
+                          )
 names(results_husO104) <- sapply(scoreRange_husO104, function(x) TeX(as.character(x), bold = TRUE))
 
 output <- bind_rows(results_husO104, .id = "time_point") |>
@@ -600,5 +603,55 @@ ggsave(filename = file.path(path_proj, "plots_to_show", "SARI",
 #        plot = emp_11_06_05_hus,
 #        width = 14, height = 10, dpi = 300)
 #
+```
+
+# plot to check the report
+```{r}
+# 1. specify your date‐range:
+start_date <- as.Date("2011-05-07")
+end_date   <- as.Date("2011-06-07")
+
+# 2. filter and pivot to long:
+plot_df <- husO104 %>%
+  filter(date >= start_date, date <= end_date) %>%
+  pivot_longer(
+    cols      = -date,        
+    names_to  = "delay",
+    values_to = "count"
+  ) %>%
+  mutate(
+    delay = as.integer(sub("^delay", "", delay))
+  )
+
+plot_df <- husO104 %>%
+  filter(date >= start_date, date <= end_date) %>%
+  pivot_longer(
+    cols      = starts_with("delay"),
+    names_to  = "delay",
+    values_to = "cum_count"
+  ) %>%
+  mutate(delay = as.integer(sub("^delay", "", delay))) %>%
+  group_by(date) %>%
+  mutate(
+    total = cum_count[delay == max(delay)],
+    prop  = ifelse(total == 0,       # if denominator = 0
+                   0,                # set it to be 0
+                   cum_count / total #
+    )
+  ) %>%
+  ungroup() %>%
+  select(-total)
+
+# 3. plot:
+p_report <- ggplot(plot_df, aes(x = delay, y = prop, color = date, group = date)) +
+  geom_line(size = 1) +
+  scale_x_continuous(breaks = 0:15) +
+  labs(
+    title    = NULL,
+    x        = "Delay D",
+    y        = "Cumulative reporting proportion",
+    color    = "Date"
+  ) +
+  theme_classic()
 ```
 
