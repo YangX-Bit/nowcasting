@@ -9,8 +9,8 @@ data {
   real mean_log_b;
   real<lower=0> sd_log_b;
   // Hyperparameters for alpha
-  real mean_logit_alpha;
-  real<lower=0> sd_logit_alpha;
+  // real mean_logit_alpha;
+  // real<lower=0> sd_logit_alpha;
 }
 
 transformed data {
@@ -25,26 +25,29 @@ parameters {
   vector[T] logit_phi;                  // instantaneous reporting prob (logit)
 
   // alpha as OU process
-  vector[T] logit_alpha;                // long-term reporting completeness (logit)
+  // vector[T] logit_alpha;                // long-term reporting completeness (logit)
+  vector<lower=0, upper=1>[T] alpha; 
 
   // OU hyperparameters
   real mu_log_b;                        
   real mu_logit_phi;                    
-  real mu_logit_alpha;                  
+  // real mu_logit_alpha;                  
 
   real<lower=0> theta_log_b;            
   real<lower=0> theta_logit_phi; 
   // real<lower=0> theta_logit_alpha;
+  real<lower=0> mean_alpha;
 
   real<lower=0> sigma_log_b;            
   real<lower=0> sigma_logit_phi;        
-  real<lower=0> sigma_logit_alpha;      
+  // real<lower=0> sigma_logit_alpha;   
+  real<lower=0> sigma_alpha;
 }
 
 transformed parameters {
   vector<lower=0>[T] b       = exp(log_b);
   vector<lower=0,upper=1>[T] phi     = inv_logit(logit_phi);
-  vector<lower=0,upper=1>[T] alpha   = inv_logit(logit_alpha);
+  // vector<lower=0,upper=1>[T] alpha   = inv_logit(logit_alpha);
   matrix[T, D+1] q;                    // accumulated reporting probability with alpha
 
   for (d in 0:D)
@@ -65,12 +68,17 @@ model {
 
   sigma_log_b       ~ lognormal(-2, 1);
   sigma_logit_phi   ~ lognormal(-2, 1);
-  sigma_logit_alpha ~ lognormal(-2, 1);
+  // sigma_logit_alpha ~ lognormal(-2, 1);
+  
+  // alpha
+  alpha ~ normal(mean_alpha, sigma_alpha);
+  mean_alpha ~ normal(0.8, 0.1);
+  sigma_alpha ~ normal(0.1,0.05);
 
   // OU processes
   log_b[1]        ~ normal(mu_log_b, sigma_log_b);
   logit_phi[1]    ~ normal(mu_logit_phi, sigma_logit_phi);
-  logit_alpha[1] ~ normal(mean_logit_alpha, sqrt(sd_logit_alpha^2 + sigma_logit_alpha^2 * factor));
+  // logit_alpha[1] ~ normal(mean_logit_alpha, sqrt(sd_logit_alpha^2 + sigma_logit_alpha^2 * factor));
 
   for (t in 2:T) {
     log_b[t] ~ normal(
@@ -81,7 +89,7 @@ model {
       logit_phi[t-1] + theta_logit_phi * (mu_logit_phi - logit_phi[t-1]),
       sigma_logit_phi
     );
-    logit_alpha[t] ~ normal(logit_alpha[t-1], sigma_logit_alpha);
+    // logit_alpha[t] ~ normal(logit_alpha[t-1], sigma_logit_alpha);
   }
 
   // Likelihood

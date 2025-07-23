@@ -264,6 +264,7 @@ param_true = tibble(
 mcmc_areas(test$draws("N"), prob_outer = 0.95) +
     geom_point(aes(x = x), param_true, color = "red", size = 1)
 ```
+
 ```{r}
 N_mean <- test$summary(variables = "N")$mean
 
