@@ -156,11 +156,32 @@ get_infodengue_data <- function(
     
     # Fill missing values with average from one week before&after
     if (fill_missing) {
+      # helper func
+      exp_shape <- function(d, phi = 0.1, b = 0.3) {
+        1 - (1 - phi) * exp(-b * d)
+      }
+      
+      d_seq <- 0:D
+      curve_vals <- exp_shape(d_seq, phi = 0.1, b = 0.3)
+      
       for (r in seq_len(N)) {
-        # second week to second-last week
-        for (c in 2:D) {
+        
+        # for the first one
+        if (is.na(M[r, 1]) && !is.na(M[r, 2])) {
+          ratio <- curve_vals[1] / curve_vals[2] 
+          M[r, 1] <- round(M[r, 2] * ratio)
+        }
+        
+        # for the middle
+        for (c in 2:D) { 
           if (is.na(M[r, c]) && !is.na(M[r, c - 1]) && !is.na(M[r, c + 1])) {
-            M[r, c] <- round((M[r, c - 1] + M[r, c + 1]) / 2)
+            val_prev <- curve_vals[c - 1]
+            val_curr <- curve_vals[c]
+            val_next <- curve_vals[c + 1]
+            weight <- (val_curr - val_prev) / (val_next - val_prev)
+            
+            # imput according to the weight
+            M[r, c] <- round(M[r, c - 1] + (M[r, c + 1] - M[r, c - 1]) * weight)
           }
         }
       }
