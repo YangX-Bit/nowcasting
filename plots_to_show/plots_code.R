@@ -246,3 +246,7 @@ exp_b_plot_ou <- ggplot(exp_b_data_ou, aes(x = date, y = b)) +
 ggsave(filename = file.path(path_proj, "plots_to_show", "ou_b_shape_FR.png"),
        plot = exp_b_plot_ou,
        width = 16, height = 6, dpi = 300)
+
+
+
+############# real vs report ##########
